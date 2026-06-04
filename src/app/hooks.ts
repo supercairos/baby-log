@@ -19,6 +19,7 @@ import {
   allRecords,
   allTimerMappings,
   clearConnection,
+  deleteTimerMapping,
   createBabyBuddyClient,
   listActiveTimers,
   listChildren,
@@ -136,10 +137,14 @@ export interface RunningTimer {
 }
 
 async function computeRunning(client: BabyBuddyClient, childId: number): Promise<RunningTimer[]> {
+  let serverOk = true;
   const [records, maps, server] = await Promise.all([
     allRecords(),
     allTimerMappings(),
-    listActiveTimers(client, childId).catch(() => []),
+    listActiveTimers(client, childId).catch(() => {
+      serverOk = false; // offline / fetch failed → trust local state, don't reconcile away
+      return [];
+    }),
   ]);
 
   const pendingStops = new Set<LocalId>();
@@ -149,20 +154,36 @@ async function computeRunning(client: BabyBuddyClient, childId: number): Promise
       pendingStops.add(m.localId);
     }
   }
+  // Server timer ids the poll currently reports — the source of truth when it succeeded.
+  const serverIds = new Set<number>();
+  for (const ct of server) if (ct.timer.id != null) serverIds.add(ct.timer.id);
 
   const out: RunningTimer[] = [];
   const mappedServerIds = new Set<number>();
   // Optimistic local timers not yet assigned a serverId — used to suppress the duplicate
   // server card during the brief window between the timer POST and the serverId write.
   const unmappedLocal: { activity: TimerActivityKey; startedMs: number }[] = [];
+  const stale: LocalId[] = []; // mappings the server dropped → prune after building the view
   for (const map of maps) {
     if (map.childId !== childId) continue;
+    // Server wins: a mapping whose server timer the (successful) poll no longer lists was
+    // stopped/deleted elsewhere — another caregiver, the Baby Buddy web UI, or another
+    // device. Drop the phantom and forget the mapping instead of ticking forever. (A pending
+    // local stop is handled just below; an un-flushed start — no serverId yet — is kept, so
+    // an offline/in-flight start still shows.)
+    if (map.serverId != null && serverOk && !serverIds.has(map.serverId) && !pendingStops.has(map.localId)) {
+      stale.push(map.localId);
+      continue;
+    }
     if (map.serverId != null) mappedServerIds.add(map.serverId);
     if (pendingStops.has(map.localId)) continue; // stopped optimistically
     const startedMs = Date.parse(map.startedAt);
     if (map.serverId == null) unmappedLocal.push({ activity: map.activity, startedMs });
     out.push({ key: map.localId, localId: map.localId, serverId: map.serverId, activity: map.activity, startedMs, feeding: map.feeding });
   }
+  // Best-effort prune so dropped mappings don't linger (notifications, the next poll).
+  for (const localId of stale) void deleteTimerMapping(localId).catch(() => {});
+
   for (const ct of server) {
     if (ct.timer.id == null || mappedServerIds.has(ct.timer.id)) continue;
     const startedMs = ct.timer.start ? Date.parse(ct.timer.start) : Date.now();
