@@ -1,0 +1,7 @@
+# Normalize BASE_PATH to a single leading + trailing slash (default "/").
+# Sourced by the nginx entrypoint BEFORE 20-envsubst-on-templates so the nginx config and the
+# asset rewrite (99-base-path.sh) agree. Accepts "quick-ui", "/quick-ui", "/quick-ui/" → "/quick-ui/".
+BASE_PATH="${BASE_PATH:-/}"
+case "$BASE_PATH" in /*) ;; *) BASE_PATH="/$BASE_PATH" ;; esac
+case "$BASE_PATH" in */) ;; *) BASE_PATH="$BASE_PATH/" ;; esac
+export BASE_PATH

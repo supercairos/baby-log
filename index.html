@@ -11,8 +11,9 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>Baby Log</title>
-    <!-- react-env runtime config (window.__ENV); must load before the app. -->
-    <script type="module" src="%BASE_URL%env/__ENV.js"></script>
+    <!-- react-env runtime config (window.__ENV); classic script so Vite leaves it as a public
+         asset (it's a global, not a module) and it runs before the deferred app module. -->
+    <script src="%BASE_URL%env/__ENV.js"></script>
   </head>
   <body>
     <div id="root"></div>

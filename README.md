@@ -41,10 +41,20 @@ Multi-stage build → unprivileged nginx that serves the PWA and proxies `/api` 
 ```bash
 docker build -t baby-log .
 docker run -p 8080:8080 -e BABYBUDDY_UPSTREAM=https://babybuddy.example.com baby-log
+
+# Serve under a subpath — same image, set at RUNTIME (no rebuild):
+docker run -p 8080:8080 \
+  -e BABYBUDDY_UPSTREAM=https://babybuddy.example.com \
+  -e BASE_PATH=/quick-ui/ baby-log
 ```
 
-`BABYBUDDY_UPSTREAM` must have no trailing slash/path. CI publishes images to
-`ghcr.io/<owner>/baby-log` on every push to `main` and on `v*` tags.
+- `BABYBUDDY_UPSTREAM` — no trailing slash/path.
+- `BASE_PATH` (runtime, default `/`) — the image is built with a placeholder base and the
+  entrypoint substitutes `BASE_PATH` into the (absolute) asset URLs, manifest, and SW scope at
+  start, then relocates the build under it. Absolute URLs keep deep links / refreshes
+  (`/quick-ui/timeline`) working. `/api` is always at the domain root.
+
+CI publishes images to `ghcr.io/<owner>/baby-log` on every push to `main` and on `v*` tags.
 
 ## CI / releases
 
