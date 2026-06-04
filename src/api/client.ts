@@ -30,9 +30,15 @@ export function createBabyBuddyClient(conn: Connection) {
   // kept for identity/QR, not for routing.
   const client = createClient<paths>({
     baseUrl: "",
-    // Behind Home Assistant ingress the session cookie must ride along (the only cookie
-    // ever involved); otherwise stay same-origin since auth is the Token header alone.
-    credentials: hasIngressCookies ? "include" : "same-origin",
+    // Auth is the Token header alone, so DON'T send cookies. This matters because the app is
+    // served SAME-ORIGIN with Baby Buddy: if the user is also signed into the Baby Buddy web
+    // UI, the browser holds a `sessionid` cookie for this origin and would attach it to every
+    // /api call. Django REST Framework then activates SessionAuthentication, which ENFORCES
+    // CSRF on unsafe methods — and we send no CSRF token, so every POST/PATCH/DELETE 403s
+    // ("CSRF Failed") while GETs (CSRF-exempt) still work. `omit` keeps it pure Token auth.
+    // The exception is Home Assistant ingress, where the `ingress_session` cookie must ride
+    // along for the proxy to route at all.
+    credentials: hasIngressCookies ? "include" : "omit",
   });
 
   client.use({
