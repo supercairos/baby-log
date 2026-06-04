@@ -102,7 +102,10 @@ async function staleWhileRevalidate(request: Request): Promise<Response> {
 
 // ── lifecycle ─────────────────────────────────────────────────────────────────
 sw.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(CACHE).then((c) => c.addAll(PRECACHE)).then(() => sw.skipWaiting()));
+  // No skipWaiting here: a new worker waits until the page tells it to activate (the
+  // "tap to refresh" prompt → SKIP_WAITING message), so we never reload mid-interaction.
+  // (First install has no controller to wait behind, so it activates immediately anyway.)
+  event.waitUntil(caches.open(CACHE).then((c) => c.addAll(PRECACHE)));
 });
 
 sw.addEventListener("activate", (event) => {
@@ -133,9 +136,11 @@ sw.addEventListener("sync", (event) => {
 });
 
 sw.addEventListener("message", (event) => {
-  if (typeof event.data === "object" && event.data !== null && (event.data as { type?: unknown }).type === "flush") {
-    event.waitUntil(flush());
-  }
+  const type = typeof event.data === "object" && event.data !== null ? (event.data as { type?: unknown }).type : undefined;
+  if (type === "flush") event.waitUntil(flush());
+  // The "tap to refresh" prompt asks the waiting worker to take over now; activating it fires
+  // `controllerchange` on the page, which reloads onto the new version.
+  if (type === "SKIP_WAITING") void sw.skipWaiting();
 });
 
 // ── running-timer notifications: "Stop" action ──────────────────────────────

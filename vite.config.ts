@@ -23,7 +23,10 @@ export default defineConfig(({ mode }) => {
         srcDir: "src/api",
         filename: "service-worker.ts",
         injectManifest: { injectionPoint: undefined },
-        registerType: "autoUpdate",
+        // Prompt (not autoUpdate): a new version waits and the app shows a "tap to refresh"
+        // toast, so we never reload out from under a half-filled sheet. The page detects the
+        // waiting worker via `useRegisterSW`; tapping posts SKIP_WAITING (handled in the SW).
+        registerType: "prompt",
         injectRegister: "auto",
         manifest: {
           name: "Baby Log",

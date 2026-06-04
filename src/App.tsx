@@ -1,9 +1,11 @@
 /**
  * Connection gate: splash while bootstrapping the persisted connection, the login screen
- * when signed out, the home shell when connected.
+ * when signed out, the home shell when connected. The update prompt renders across all of
+ * them so a new deploy is offered whatever the screen.
  */
 import { Home } from "./app/Home";
 import { LoginScreen } from "./app/LoginScreen";
+import { UpdatePrompt } from "./app/UpdatePrompt";
 import { useConnection } from "./app/hooks";
 import { useStyles } from "./theme";
 
@@ -19,7 +21,16 @@ function Splash() {
 
 export default function App() {
   const { state, connect, disconnect } = useConnection();
-  if (state.status === "loading") return <Splash />;
-  if (state.status === "out") return <LoginScreen onConnect={connect} />;
-  return <Home client={state.client} onDisconnect={disconnect} />;
+  return (
+    <>
+      {state.status === "loading" ? (
+        <Splash />
+      ) : state.status === "out" ? (
+        <LoginScreen onConnect={connect} />
+      ) : (
+        <Home client={state.client} onDisconnect={disconnect} />
+      )}
+      <UpdatePrompt />
+    </>
+  );
 }
