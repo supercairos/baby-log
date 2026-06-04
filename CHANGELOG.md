@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.1](https://github.com/supercairos/baby-log/compare/baby-log-v1.5.0...baby-log-v1.5.1) (2026-06-04)
+
+
+### Bug Fixes
+
+* make running-timer notifications actually show on Android ([f014e03](https://github.com/supercairos/baby-log/commit/f014e03ff96631cd3e748d34b7d77caaa71047ea))
+
 ## [1.5.0](https://github.com/supercairos/baby-log/compare/baby-log-v1.4.0...baby-log-v1.5.0) (2026-06-04)
 
 
