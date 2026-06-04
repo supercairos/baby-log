@@ -7,15 +7,52 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  packages: write
+  attestations: write
+  id-token: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
   release-please:
     runs-on: ubuntu-latest
     steps:
-      - uses: googleapis/release-please-action@v5
+      - id: release
+        uses: googleapis/release-please-action@v5
         with:
           # A PAT lets the release PR trigger other workflows; falls back to GITHUB_TOKEN
           # (works out of the box — CI already skips the release-please-- PRs).
           token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+
+      # When a release is cut, publish the versioned image here. Tags created by
+      # GITHUB_TOKEN don't trigger the `on: push: tags` CI, so we build it in this job
+      # (no PAT required).
+      - if: ${{ steps.release.outputs.release_created }}
+        uses: actions/checkout@v6
+      - if: ${{ steps.release.outputs.release_created }}
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - if: ${{ steps.release.outputs.release_created }}
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=${{ steps.release.outputs.version }}
+            type=raw,value=${{ steps.release.outputs.major }}.${{ steps.release.outputs.minor }}
+            type=raw,value=${{ steps.release.outputs.major }}
+            type=raw,value=latest
+      - if: ${{ steps.release.outputs.release_created }}
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
