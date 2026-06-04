@@ -28,7 +28,7 @@ export default function App() {
       ) : state.status === "out" ? (
         <LoginScreen onConnect={connect} />
       ) : (
-        <Home client={state.client} onDisconnect={disconnect} />
+        <Home client={state.client} connection={state.connection} onDisconnect={disconnect} />
       )}
       <UpdatePrompt />
     </>

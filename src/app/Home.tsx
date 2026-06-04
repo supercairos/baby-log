@@ -7,6 +7,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   type BabyBuddyClient,
+  type Connection,
   type EntryPatch,
   type FeedingMethod,
   type FeedingType,
@@ -74,7 +75,15 @@ const STALE_SLEEP_MS = 14 * 3600_000;
 type Sheet = { type: "feeding"; localId: string } | { type: "diaper" } | null;
 type FeedSel = { type: FeedingType | null; method: FeedingMethod | null };
 
-export function Home({ client, onDisconnect }: { client: BabyBuddyClient; onDisconnect: () => void }) {
+export function Home({
+  client,
+  connection,
+  onDisconnect,
+}: {
+  client: BabyBuddyClient;
+  connection: Connection;
+  onDisconnect: () => void;
+}) {
   const { s, activeTile, runCardAccent, toastTone } = useStyles();
   const { palette, pref, cyclePref } = useTheme();
   const now = useNow();
@@ -100,6 +109,13 @@ export function Home({ client, onDisconnect }: { client: BabyBuddyClient; onDisc
 
   const accentOf = (a: ActivityKey) => palette.accents[a].accent;
   const child = children?.find((c) => c.id === childId) ?? null;
+  const instanceHost = (() => {
+    try {
+      return new URL(connection.url).host;
+    } catch {
+      return connection.url;
+    }
+  })();
 
   // Background outbox flushing (online/focus/interval) — covers retries beyond submit().
   useEffect(() => startOutboxAutoFlush(client), [client]);
@@ -609,7 +625,10 @@ export function Home({ client, onDisconnect }: { client: BabyBuddyClient; onDisc
           <DisconnectIcon size={20} />
           Disconnect
         </button>
-        <div style={s.navFoot}>Connected to your Baby Buddy instance</div>
+        <div style={s.navFoot}>
+          <div style={{ wordBreak: "break-all" }}>{instanceHost}</div>
+          <div style={{ marginTop: 3, color: palette.textFainter, fontWeight: 500 }}>Baby Log v{__APP_VERSION__}</div>
+        </div>
       </nav>
 
       {/* Sheets */}

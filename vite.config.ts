@@ -1,6 +1,13 @@
+import { readFileSync } from "node:fs";
 import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
+
+// App version baked in at build time (release-please bumps this on every release), surfaced
+// in the drawer so it's clear which build is actually deployed.
+const pkg = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf-8")) as {
+  version: string;
+};
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
@@ -13,6 +20,7 @@ export default defineConfig(({ mode }) => {
 
   return {
     base,
+    define: { __APP_VERSION__: JSON.stringify(pkg.version) },
     plugins: [
       react(),
       VitePWA({
