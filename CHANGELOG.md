@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.3.0](https://github.com/supercairos/baby-log/compare/baby-log-v1.2.0...baby-log-v1.3.0) (2026-06-04)
+
+
+### Features
+
+* router navigation, live query refresh, and install-to-home action ([44f664c](https://github.com/supercairos/baby-log/commit/44f664c591e2b58292b23c5079d0ad9c60abe7a4))
+
+
+### Bug Fixes
+
+* drop phantom running timers the server no longer has ([905ab93](https://github.com/supercairos/baby-log/commit/905ab93a0037627022873e952dcea77a121b3b22))
+* omit cookies on API calls so a same-origin session can't 403 writes ([ca9870c](https://github.com/supercairos/baby-log/commit/ca9870c842ed0f96100e2f3c799090afe8cada91))
+* substitute BASE_PATH placeholder in CSS so self-hosted fonts load ([c5dc793](https://github.com/supercairos/baby-log/commit/c5dc7939f5660e790d249b9839534e30051b8d96))
+
 ## [1.2.0](https://github.com/supercairos/baby-log/compare/baby-log-v1.1.1...baby-log-v1.2.0) (2026-06-04)
 
 
