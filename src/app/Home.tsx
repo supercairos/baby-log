@@ -33,6 +33,7 @@ import {
 import { useStyles, useTheme } from "../theme";
 import {
   ACTIVITY_ICON,
+  BellIcon,
   DisconnectIcon,
   EditIcon,
   HomeIcon,
@@ -40,6 +41,12 @@ import {
   ThemeIcon,
   TimelineIcon,
 } from "../ui/icons";
+import {
+  clearTimerNotifications,
+  notificationsSupported,
+  requestNotificationPermission,
+  syncTimerNotifications,
+} from "./notifications";
 import { fmt, greeting, iso, nowIso, nowMs } from "../lib/format";
 import { ACTIVITY_LABEL, feedingMeta } from "../lib/labels";
 import {
@@ -80,6 +87,7 @@ export function Home({ client, onDisconnect }: { client: BabyBuddyClient; onDisc
   const [editing, setEditing] = useState<EditTarget | null>(null);
   const [draft, setDraft] = useState<EditDraft | null>(null);
   const [lastFeed, setLastFeed] = useState<Record<number, FeedSel>>({});
+  const [notify, setNotify] = useState(() => localStorage.getItem("baby-log:notify") === "on");
   // Synchronous in-flight guard so a rapid double-tap can't start/stop the same thing twice
   // (the `running` state updates async, too late to dedupe taps).
   const pending = useRef<Set<string>>(new Set());
@@ -89,6 +97,41 @@ export function Home({ client, onDisconnect }: { client: BabyBuddyClient; onDisc
 
   // Background outbox flushing (online/focus/interval) — covers retries beyond submit().
   useEffect(() => startOutboxAutoFlush(client), [client]);
+
+  // Mirror running timers into OS notifications (with a Stop action) when enabled.
+  useEffect(() => {
+    if (notify) void syncTimerNotifications(running, childId);
+  }, [notify, running, childId]);
+
+  // Stopping a timer from its notification (handled in the SW) → refresh the open app.
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
+    const onMessage = (e: MessageEvent) => {
+      if ((e.data as { type?: unknown } | null)?.type === "timers-changed") {
+        refreshRunning();
+        refreshTimeline();
+      }
+    };
+    navigator.serviceWorker.addEventListener("message", onMessage);
+    return () => navigator.serviceWorker.removeEventListener("message", onMessage);
+  }, [refreshRunning, refreshTimeline]);
+
+  const toggleNotify = async () => {
+    buzz();
+    if (notify) {
+      setNotify(false);
+      localStorage.setItem("baby-log:notify", "off");
+      await clearTimerNotifications();
+      return;
+    }
+    if (!(await requestNotificationPermission())) {
+      show("Notifications are blocked — enable them in your browser settings.", palette.danger);
+      return;
+    }
+    setNotify(true);
+    localStorage.setItem("baby-log:notify", "on");
+    await syncTimerNotifications(running, childId);
+  };
 
   // Remember the child's last feeding choice (localStorage instant, server authoritative).
   useEffect(() => {
@@ -530,8 +573,14 @@ export function Home({ client, onDisconnect }: { client: BabyBuddyClient; onDisc
           <ThemeIcon size={20} />
           Theme · {themeLabel}
         </button>
+        {notificationsSupported() && (
+          <button onClick={() => void toggleNotify()} style={s.navItem}>
+            <BellIcon size={20} />
+            Timer alerts · {notify ? "On" : "Off"}
+          </button>
+        )}
         <div style={s.navDivider} />
-        <button onClick={() => { buzz(); setMenu(false); onDisconnect(); }} style={{ ...s.navItem, color: palette.danger }}>
+        <button onClick={() => { buzz(); setMenu(false); void clearTimerNotifications(); onDisconnect(); }} style={{ ...s.navItem, color: palette.danger }}>
           <DisconnectIcon size={20} />
           Disconnect
         </button>

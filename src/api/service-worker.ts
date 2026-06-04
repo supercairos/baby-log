@@ -12,8 +12,10 @@
  * app. Typed against the DOM lib via a small scope shim so it shares the app's tsconfig.
  */
 import { createBabyBuddyClient } from "./client";
-import { loadConnection } from "./outbox";
+import { enqueue, loadConnection, setTimerMapping } from "./outbox";
 import { flushOutbox, OUTBOX_SYNC_TAG } from "./sync";
+import { consumeTimerMutation } from "./mutations";
+import { METHODS_FOR_TYPE, type FeedingMethod, type FeedingType, type TimerActivityKey } from "./activities";
 
 const CACHE = "baby-log-shell-v1";
 // Base path the app is served under ("/" or e.g. "/quick-ui/"); the SW scope matches it.
@@ -33,17 +35,41 @@ interface SyncEventLike extends ExtendableEventLike {
 interface MessageEventLike extends ExtendableEventLike {
   readonly data: unknown;
 }
+interface NotificationClickEventLike extends ExtendableEventLike {
+  readonly action: string;
+  readonly notification: { readonly data: unknown; readonly tag: string; close(): void };
+}
+interface WindowClientLike {
+  focus(): Promise<unknown>;
+  postMessage(message: unknown): void;
+}
 interface ServiceWorkerScope {
   skipWaiting(): Promise<void>;
-  readonly clients: { claim(): Promise<void> };
+  readonly clients: {
+    claim(): Promise<void>;
+    matchAll(opts?: { type?: string }): Promise<WindowClientLike[]>;
+    openWindow(url: string): Promise<unknown>;
+  };
   readonly location: { origin: string };
   addEventListener(type: "install" | "activate", listener: (event: ExtendableEventLike) => void): void;
   addEventListener(type: "fetch", listener: (event: FetchEventLike) => void): void;
   addEventListener(type: "sync", listener: (event: SyncEventLike) => void): void;
   addEventListener(type: "message", listener: (event: MessageEventLike) => void): void;
+  addEventListener(type: "notificationclick", listener: (event: NotificationClickEventLike) => void): void;
 }
 
 const sw = self as unknown as ServiceWorkerScope;
+
+/** Shape of `notification.data` for a running-timer notification (set by the page). */
+interface TimerNotifData {
+  kind: "timer";
+  activity: TimerActivityKey;
+  childId: number;
+  localId?: string;
+  serverId?: number;
+  startedAt: string;
+  feeding?: { type?: FeedingType | null; method?: FeedingMethod | null };
+}
 
 // ── outbox flush ────────────────────────────────────────────────────────────
 async function flush(): Promise<void> {
@@ -111,5 +137,51 @@ sw.addEventListener("message", (event) => {
     event.waitUntil(flush());
   }
 });
+
+// ── running-timer notifications: "Stop" action ──────────────────────────────
+sw.addEventListener("notificationclick", (event) => {
+  const data = event.notification.data as TimerNotifData | null;
+  event.notification.close();
+  if (event.action === "stop" && data?.kind === "timer") {
+    event.waitUntil(stopTimerFromNotification(data));
+  } else {
+    event.waitUntil(focusApp()); // tapping the body opens/focuses the app
+  }
+});
+
+/** Stop a running timer straight from its notification — enqueue the consume + flush. */
+async function stopTimerFromNotification(d: TimerNotifData): Promise<void> {
+  const conn = await loadConnection();
+  if (!conn) return;
+  // Resolve a localId the consume can reference (mint one for a server-only timer).
+  let localId = d.localId;
+  if (!localId) {
+    localId = crypto.randomUUID();
+    await setTimerMapping({ localId, serverId: d.serverId, startedAt: d.startedAt, activity: d.activity, childId: d.childId, feeding: d.feeding });
+  }
+  if (d.activity === "feeding") {
+    const type: FeedingType = (d.feeding?.type as FeedingType) ?? "breast milk";
+    const allowed = METHODS_FOR_TYPE[type];
+    const chosen = d.feeding?.method as FeedingMethod | undefined;
+    const method = chosen && allowed.includes(chosen) ? chosen : allowed[0];
+    await enqueue(consumeTimerMutation("feeding", localId, d.childId, { type, method }));
+  } else if (d.activity === "sleep") {
+    await enqueue(consumeTimerMutation("sleep", localId, d.childId));
+  } else {
+    await enqueue(consumeTimerMutation("tummy", localId, d.childId));
+  }
+  await flushOutbox(createBabyBuddyClient(conn)).catch(() => {}); // offline → Background Sync retries
+  // Nudge any open tab to refresh its view.
+  for (const client of await sw.clients.matchAll({ type: "window" })) client.postMessage({ type: "timers-changed" });
+}
+
+async function focusApp(): Promise<void> {
+  const open = await sw.clients.matchAll({ type: "window" });
+  if (open.length) {
+    await open[0].focus();
+    return;
+  }
+  await sw.clients.openWindow(BASE);
+}
 
 export {};
