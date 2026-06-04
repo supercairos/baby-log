@@ -157,6 +157,10 @@ export function Home({
     setNotify(true);
     localStorage.setItem("baby-log:notify", "on");
     await syncTimerNotifications(running, childId);
+    show(
+      running.length ? "Timer alerts on" : "Timer alerts on — you'll be notified while a timer runs",
+      accentOf("feeding"),
+    );
   };
 
   // Remember the child's last feeding choice (localStorage instant, server authoritative).

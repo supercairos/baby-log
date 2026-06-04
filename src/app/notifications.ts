@@ -41,18 +41,27 @@ export async function syncTimerNotifications(running: RunningTimer[], childId: n
   if (!reg) return;
 
   const wanted = new Set(running.map((rt) => TAG_PREFIX + rt.key));
+  // Close notifications for timers that are no longer running, and remember which are already
+  // on screen so we don't re-show (and thus re-alert) them on every ~15s poll — we only fire
+  // a fresh notification the first time a timer appears (or after the user dismisses it).
+  const onScreen = new Set<string>();
   for (const n of await reg.getNotifications()) {
-    if (n.tag.startsWith(TAG_PREFIX) && !wanted.has(n.tag)) n.close();
+    if (!n.tag.startsWith(TAG_PREFIX)) continue;
+    if (wanted.has(n.tag)) onScreen.add(n.tag);
+    else n.close();
   }
 
   for (const rt of running) {
+    if (onScreen.has(TAG_PREFIX + rt.key)) continue;
     const meta = rt.activity === "feeding" ? feedingMeta(rt.feeding?.type, rt.feeding?.method) : "";
     const options = {
       tag: TAG_PREFIX + rt.key,
       body: `Started ${clockTime(rt.startedMs)}${meta ? ` · ${meta}` : ""} — tap Stop to log.`,
       icon: ICON,
       badge: ICON,
-      silent: true, // ambient reminder; don't buzz on every poll refresh
+      // NOT silent: on Android a silent notification skips the heads-up banner and sound and
+      // lands quietly in the shade — easy to miss. No spam, because the loop above only reaches
+      // here for timers not already on screen, so each running timer alerts exactly once.
       renotify: false,
       requireInteraction: true, // stays in the tray after the app closes
       actions: [{ action: "stop", title: "Stop" }],
