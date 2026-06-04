@@ -11,8 +11,11 @@ set -eu
 
 ROOT=/usr/share/nginx/html
 
-# 1) Bake the requested base into the placeholder'd, absolute references.
-find "$ROOT" -type f \( -name '*.html' -o -name '*.js' -o -name '*.webmanifest' \) \
+# 1) Bake the requested base into the placeholder'd, absolute references. CSS matters too:
+#    bundled @font-face rules reference url(/__BASE_PATH__/fonts/…), so a missing *.css here
+#    500s every self-hosted font.
+find "$ROOT" -type f \
+  \( -name '*.html' -o -name '*.js' -o -name '*.css' -o -name '*.webmanifest' -o -name '*.json' \) \
   -exec sed -i "s#/__BASE_PATH__/#${BASE_PATH}#g" {} +
 
 # 2) Relocate the build under the base subpath (no-op at "/"; idempotent across restarts).
