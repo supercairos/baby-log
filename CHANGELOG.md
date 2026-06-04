@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.0](https://github.com/supercairos/baby-log/compare/baby-log-v1.1.1...baby-log-v1.2.0) (2026-06-04)
+
+
+### Features
+
+* make BASE_PATH a runtime env var (one image, any subpath) ([6d4b7a5](https://github.com/supercairos/baby-log/commit/6d4b7a5be551536272428da11158a21e7478b610))
+* notify running timers with a Stop action ([1811112](https://github.com/supercairos/baby-log/commit/1811112cb5438a1c52fe285c86e80a6fde27aab2))
+
 ## [1.1.1](https://github.com/supercairos/baby-log/compare/baby-log-v1.1.0...baby-log-v1.1.1) (2026-06-04)
 
 
