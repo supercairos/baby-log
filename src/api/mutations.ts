@@ -25,6 +25,7 @@ import type {
 } from "./entries";
 import { enqueue } from "./outbox";
 import { requestOutboxSync } from "./sync";
+import { nowIso } from "../lib/format";
 
 /** Correlates a start-timer with its eventual consume/discard, before a server id exists. */
 export type LocalId = string;
@@ -98,10 +99,6 @@ export type TimerMutation = Extract<Mutation, { localId: LocalId }>;
 
 function newId(): string {
   return crypto.randomUUID();
-}
-
-function nowIso(): IsoDateTime {
-  return new Date().toISOString();
 }
 
 // ── Factories: build commands from UI intents (timestamps default to now) ─────

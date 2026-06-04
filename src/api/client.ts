@@ -10,6 +10,7 @@ import type { paths } from "./generated/schema";
 import type { Connection } from "./connection";
 import { listChildren, type Child } from "./children";
 import { BabyBuddyApiError } from "./errors";
+import { setServerClockOffset } from "../lib/format";
 
 /** Fully-typed Baby Buddy client (derived from the factory to stay version-proof). */
 export type BabyBuddyClient = ReturnType<typeof createBabyBuddyClient>;
@@ -58,6 +59,16 @@ export function createBabyBuddyClient(conn: Connection) {
         }
       }
       return request;
+    },
+    onResponse({ response }) {
+      // Learn the server↔device clock skew from the response Date header so generated
+      // timestamps don't land in the server's future (see lib/format `setServerClockOffset`).
+      const date = response.headers.get("date");
+      if (date) {
+        const serverMs = Date.parse(date);
+        if (!Number.isNaN(serverMs)) setServerClockOffset(serverMs - Date.now());
+      }
+      return response;
     },
   });
 
