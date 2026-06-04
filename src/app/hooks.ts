@@ -6,6 +6,7 @@
  * instantly — online or offline.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   type BabyBuddyClient,
   type Child,
@@ -194,104 +195,144 @@ async function computeRunning(client: BabyBuddyClient, childId: number): Promise
   return out.sort((a, b) => a.startedMs - b.startedMs);
 }
 
-/** Poll + optimistic running timers for a child. Refresh on focus, online, interval. */
+/**
+ * Running timers for a child — the optimistic local view merged with the server poll, kept
+ * fresh by TanStack Query: it refetches every 15s (while visible), on window focus, and on
+ * reconnect. So if another caregiver stops/deletes a timer, this phone drops it on the next
+ * tick or the moment the app is refocused (the merge in `computeRunning` is what reconciles
+ * it away — server wins). `refresh()` forces an immediate refetch after a local write.
+ */
 export function useRunningTimers(client: BabyBuddyClient, childId: number | null) {
-  const [running, setRunning] = useState<RunningTimer[]>([]);
+  const qc = useQueryClient();
+  const queryKey = ["running-timers", childId] as const;
+  const { data } = useQuery({
+    queryKey,
+    enabled: childId != null,
+    queryFn: () => computeRunning(client, childId as number),
+    refetchInterval: 15_000,
+    refetchOnWindowFocus: true,
+    // computeRunning never throws (it falls back to the local view if the poll fails), so a
+    // result is always a real merge — keep it as the displayed state.
+    placeholderData: (prev) => prev,
+  });
 
-  const refresh = useCallback(async () => {
-    if (childId == null) {
-      setRunning([]);
-      return;
-    }
-    try {
-      setRunning(await computeRunning(client, childId));
-    } catch {
-      /* keep last view */
-    }
-  }, [client, childId]);
+  const refresh = useCallback(() => {
+    void qc.invalidateQueries({ queryKey: ["running-timers", childId] });
+  }, [qc, childId]);
 
-  useEffect(() => {
-    // Fetch-on-mount: synchronizing with the server is a valid effect use here.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    refresh();
-  }, [refresh]);
-
-  useEffect(() => {
-    const id = window.setInterval(refresh, 30_000);
-    const onVisible = () => document.visibilityState === "visible" && refresh();
-    window.addEventListener("focus", refresh);
-    window.addEventListener("online", refresh);
-    document.addEventListener("visibilitychange", onVisible);
-    return () => {
-      window.clearInterval(id);
-      window.removeEventListener("focus", refresh);
-      window.removeEventListener("online", refresh);
-      document.removeEventListener("visibilitychange", onVisible);
-    };
-  }, [refresh]);
-
-  return { running, refresh };
+  return { running: childId == null ? [] : (data ?? []), refresh };
 }
 
 // ── timeline ──────────────────────────────────────────────────────────────────
+const tkey = (path: EntryPath, id: number) => `${path}#${id}`;
+
+/**
+ * The merged, newest-first timeline for a child, kept fresh by TanStack Query (refetch on a
+ * 60s interval, on focus, and on reconnect) so another caregiver's edits show up here too.
+ * Optimistically-deleted rows are tombstoned and filtered out of every refetch until the
+ * server confirms they're gone — otherwise a poll landing before the DELETE propagates would
+ * resurrect them.
+ */
 export function useTimeline(client: BabyBuddyClient, childId: number | null) {
-  const [entries, setEntries] = useState<TimelineEntry[] | null>(null);
-  // Optimistically-deleted rows, suppressed from every refetch until the server confirms
-  // they're gone — otherwise a poll landing before the DELETE propagates resurrects them.
+  const qc = useQueryClient();
   const tombstones = useRef<Set<string>>(new Set());
-  const tkey = (path: EntryPath, id: number) => `${path}#${id}`;
 
-  const refresh = useCallback(
-    async (reset = false) => {
-      if (childId == null) {
-        setEntries([]);
-        return;
+  const { data } = useQuery({
+    queryKey: ["timeline", childId],
+    enabled: childId != null,
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
+    queryFn: async () => {
+      const fresh = await listRecentEntries(client, childId as number);
+      // Drop tombstones the server now agrees are gone; keep suppressing the rest.
+      for (const t of [...tombstones.current]) {
+        if (!fresh.some((e) => tkey(e.path, e.id) === t)) tombstones.current.delete(t);
       }
-      if (reset) setEntries(null); // show the loader when switching child
-      try {
-        const fresh = await listRecentEntries(client, childId);
-        // Drop tombstones the server now agrees are gone; keep suppressing the rest.
-        for (const t of [...tombstones.current]) {
-          if (!fresh.some((e) => tkey(e.path, e.id) === t)) tombstones.current.delete(t);
-        }
-        setEntries(fresh.filter((e) => !tombstones.current.has(tkey(e.path, e.id))));
-      } catch {
-        /* keep stale entries on transient failure */
-      }
+      return fresh.filter((e) => !tombstones.current.has(tkey(e.path, e.id)));
     },
-    [client, childId],
-  );
+  });
 
-  const reload = useCallback(() => void refresh(), [refresh]);
-
-  useEffect(() => {
-    // Fetch-on-mount + reset when child changes: synchronizing with the server.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void refresh(true);
-  }, [refresh]);
-
-  useEffect(() => {
-    const id = window.setInterval(reload, 60_000);
-    const onVisible = () => document.visibilityState === "visible" && reload();
-    window.addEventListener("online", reload);
-    document.addEventListener("visibilitychange", onVisible);
-    return () => {
-      window.clearInterval(id);
-      window.removeEventListener("online", reload);
-      document.removeEventListener("visibilitychange", onVisible);
-    };
-  }, [reload]);
+  const refresh = useCallback(() => {
+    void qc.invalidateQueries({ queryKey: ["timeline", childId] });
+  }, [qc, childId]);
 
   /** Optimistically drop a row (e.g. just deleted) and tombstone it so refetches keep it
    *  hidden until the server confirms the deletion. */
-  const removeLocal = useCallback((path: EntryPath, id: number) => {
-    tombstones.current.add(tkey(path, id));
-    setEntries((prev) => (prev ? prev.filter((e) => !(e.path === path && e.id === id)) : prev));
-  }, []);
+  const removeLocal = useCallback(
+    (path: EntryPath, id: number) => {
+      tombstones.current.add(tkey(path, id));
+      qc.setQueryData<TimelineEntry[]>(["timeline", childId], (prev) =>
+        prev ? prev.filter((e) => !(e.path === path && e.id === id)) : prev,
+      );
+    },
+    [qc, childId],
+  );
 
-  return { entries, refresh, removeLocal };
+  return { entries: childId == null ? [] : (data ?? null), refresh, removeLocal };
 }
 
 export function buzz(ms = 15): void {
   navigator?.vibrate?.(ms);
+}
+
+// ── PWA install ────────────────────────────────────────────────────────────────
+interface BeforeInstallPromptEvent extends Event {
+  prompt(): Promise<void>;
+  readonly userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
+}
+
+// Captured at module load — `beforeinstallprompt` fires once, early (often before the drawer
+// mounts), so we stash it here and let `usePwaInstall` subscribe whenever it renders.
+let installPrompt: BeforeInstallPromptEvent | null = null;
+const installSubs = new Set<() => void>();
+const emitInstall = () => installSubs.forEach((fn) => fn());
+
+if (typeof window !== "undefined") {
+  window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault(); // suppress Chrome's mini-infobar; we offer Install in the drawer
+    installPrompt = e as BeforeInstallPromptEvent;
+    emitInstall();
+  });
+  window.addEventListener("appinstalled", () => {
+    installPrompt = null; // installed → hide the action
+    emitInstall();
+  });
+}
+
+function isStandalone(): boolean {
+  if (typeof window === "undefined") return false;
+  return (
+    window.matchMedia?.("(display-mode: standalone)").matches === true ||
+    (navigator as unknown as { standalone?: boolean }).standalone === true
+  );
+}
+
+/**
+ * In-app "Install" affordance. `canInstall` is true only when the browser fired
+ * `beforeinstallprompt` and the app isn't already installed — so the action stays hidden in
+ * the installed PWA and on browsers that never fire it (notably iOS Safari, which installs
+ * via the Share sheet instead). `promptInstall` shows the native chooser; the prompt is
+ * single-use, so it's cleared afterward.
+ */
+export function usePwaInstall() {
+  const [canInstall, setCanInstall] = useState(() => installPrompt !== null && !isStandalone());
+  useEffect(() => {
+    const update = () => setCanInstall(installPrompt !== null && !isStandalone());
+    installSubs.add(update);
+    update();
+    return () => {
+      installSubs.delete(update);
+    };
+  }, []);
+
+  const promptInstall = useCallback(async (): Promise<boolean> => {
+    if (!installPrompt) return false;
+    await installPrompt.prompt();
+    const { outcome } = await installPrompt.userChoice;
+    installPrompt = null; // a prompt can only be used once
+    emitInstall();
+    return outcome === "accepted";
+  }, []);
+
+  return { canInstall, promptInstall };
 }

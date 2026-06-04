@@ -117,6 +117,11 @@ export const BellIcon = (p: IconProps) => (
     <path d="M13.7 21a2 2 0 0 1-3.4 0" />
   </Svg>
 );
+export const InstallIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M12 3v11m0 0 4-4m-4 4-4-4M5 17v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2" />
+  </Svg>
+);
 export const ThemeIcon = (p: IconProps) => (
   <Svg {...p}>
     <circle cx="12" cy="12" r="4.5" />

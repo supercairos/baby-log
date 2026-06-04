@@ -37,6 +37,7 @@ import {
   DisconnectIcon,
   EditIcon,
   HomeIcon,
+  InstallIcon,
   MenuIcon,
   ThemeIcon,
   TimelineIcon,
@@ -53,6 +54,7 @@ import {
   buzz,
   useChildren,
   useNow,
+  usePwaInstall,
   useRunningTimers,
   useTimeline,
   useToast,
@@ -60,6 +62,7 @@ import {
 } from "./hooks";
 import { DiaperSheet, EntrySheet, FeedingSheet } from "./sheets";
 import { Timeline } from "./Timeline";
+import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { useFocusTrap } from "./useFocusTrap";
 import type { EditDraft, EditTarget } from "./types";
 import type { ActivityKey } from "../api";
@@ -79,8 +82,10 @@ export function Home({ client, onDisconnect }: { client: BabyBuddyClient; onDisc
   const { running, refresh: refreshRunning } = useRunningTimers(client, childId);
   const { entries, refresh: refreshTimeline, removeLocal } = useTimeline(client, childId);
   const { toast, show } = useToast();
+  const { canInstall, promptInstall } = usePwaInstall();
 
-  const [page, setPage] = useState<"home" | "timeline">("home");
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
   const [menu, setMenu] = useState(false);
   const [sheet, setSheet] = useState<Sheet>(null);
   const [feedSel, setFeedSel] = useState<FeedSel>({ type: null, method: null });
@@ -424,18 +429,11 @@ export function Home({ client, onDisconnect }: { client: BabyBuddyClient; onDisc
           grid layout intact). */}
       <div style={{ display: "contents" }} inert={overlayOpen}>
 
-      {page !== "home" && (
-        <div style={s.topbar}>
-          <button onClick={() => { buzz(); setMenu(true); }} style={s.iconBtn} aria-label="Menu">
-            <MenuIcon size={22} />
-          </button>
-          <span style={s.topbarTitle}>Timeline</span>
-          <span style={{ width: 42 }} />
-        </div>
-      )}
-
-      {page === "home" && (
-        <>
+      <Routes>
+        <Route
+          path="/"
+          element={
+            <>
           <header style={s.header}>
             <div style={s.greetRow}>
               <button onClick={() => { buzz(); setMenu(true); }} style={s.iconBtn} aria-label="Menu">
@@ -540,10 +538,26 @@ export function Home({ client, onDisconnect }: { client: BabyBuddyClient; onDisc
               );
             })}
           </section>
-        </>
-      )}
-
-      {page === "timeline" && <Timeline entries={entries} onAdd={openAdd} onEdit={openEdit} onDelete={removeEntry} />}
+            </>
+          }
+        />
+        <Route
+          path="/timeline"
+          element={
+            <>
+              <div style={s.topbar}>
+                <button onClick={() => { buzz(); setMenu(true); }} style={s.iconBtn} aria-label="Menu">
+                  <MenuIcon size={22} />
+                </button>
+                <span style={s.topbarTitle}>Timeline</span>
+                <span style={{ width: 42 }} />
+              </div>
+              <Timeline entries={entries} onAdd={openAdd} onEdit={openEdit} onDelete={removeEntry} />
+            </>
+          }
+        />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
       </div>
 
       {/* Drawer */}
@@ -561,10 +575,10 @@ export function Home({ client, onDisconnect }: { client: BabyBuddyClient; onDisc
           <span style={s.drawerLogo}>·</span> Baby Log
         </div>
         {([
-          { id: "home", label: "Home", Icon: HomeIcon },
-          { id: "timeline", label: "Timeline", Icon: TimelineIcon },
+          { to: "/", label: "Home", Icon: HomeIcon },
+          { to: "/timeline", label: "Timeline", Icon: TimelineIcon },
         ] as const).map((item) => (
-          <button key={item.id} onClick={() => { buzz(); setPage(item.id); setMenu(false); }} style={{ ...s.navItem, ...(page === item.id ? s.navItemOn : {}) }}>
+          <button key={item.to} onClick={() => { buzz(); navigate(item.to); setMenu(false); }} style={{ ...s.navItem, ...(pathname === item.to ? s.navItemOn : {}) }}>
             <item.Icon size={20} />
             {item.label}
           </button>
@@ -577,6 +591,12 @@ export function Home({ client, onDisconnect }: { client: BabyBuddyClient; onDisc
           <button onClick={() => void toggleNotify()} style={s.navItem}>
             <BellIcon size={20} />
             Timer alerts · {notify ? "On" : "Off"}
+          </button>
+        )}
+        {canInstall && (
+          <button onClick={() => { buzz(); setMenu(false); void promptInstall(); }} style={s.navItem}>
+            <InstallIcon size={20} />
+            Install on home screen
           </button>
         )}
         <div style={s.navDivider} />
