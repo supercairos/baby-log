@@ -16,7 +16,9 @@ import { loadConnection } from "./outbox";
 import { flushOutbox, OUTBOX_SYNC_TAG } from "./sync";
 
 const CACHE = "baby-log-shell-v1";
-const PRECACHE = ["/", "/manifest.webmanifest"];
+// Base path the app is served under ("/" or e.g. "/quick-ui/"); the SW scope matches it.
+const BASE = import.meta.env.BASE_URL;
+const PRECACHE = [BASE, `${BASE}manifest.webmanifest`];
 
 interface ExtendableEventLike {
   waitUntil(promise: Promise<unknown>): void;
@@ -56,7 +58,7 @@ async function networkFirstShell(request: Request): Promise<Response> {
     return await fetch(request);
   } catch {
     const cache = await caches.open(CACHE);
-    return (await cache.match("/")) ?? Response.error();
+    return (await cache.match(BASE)) ?? Response.error();
   }
 }
 

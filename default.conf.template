@@ -1,9 +1,9 @@
-# Rendered by the nginx image's envsubst at container start (${PORT}, ${BABYBUDDY_UPSTREAM}).
+# Rendered by the nginx image's envsubst at start (${PORT}, ${BABYBUDDY_UPSTREAM}, ${BASE_PATH}).
+# ${BASE_PATH} is "/" (root) by default or e.g. "/quick-ui/"; the build is placed under it.
 server {
     listen      ${PORT};
     server_name _;
     root        /usr/share/nginx/html;
-    index       index.html;
 
     location = /health {
         access_log off;
@@ -11,9 +11,9 @@ server {
         return 200 '{"status":"OK"}';
     }
 
-    # Same-origin proxy to the Baby Buddy instance so the app's relative /api calls work with
-    # no CORS. ${BABYBUDDY_UPSTREAM} must have NO trailing slash/path so the full /api/… URI
-    # is preserved upstream.
+    # The API lives at the domain root (/api/) regardless of where the app is mounted, so the
+    # app's relative calls work with no CORS. ${BABYBUDDY_UPSTREAM} must have NO trailing
+    # slash/path so the full /api/… URI is preserved upstream.
     location /api/ {
         proxy_pass         ${BABYBUDDY_UPSTREAM};
         proxy_http_version 1.1;
@@ -24,18 +24,18 @@ server {
     }
 
     # The service worker + HTML must not be cached, so app updates roll out promptly.
-    location = /service-worker.js   { add_header Cache-Control "no-cache"; }
-    location = /index.html          { add_header Cache-Control "no-cache"; }
-    location = /manifest.webmanifest { default_type application/manifest+json; }
+    location = ${BASE_PATH}service-worker.js    { add_header Cache-Control "no-cache"; }
+    location = ${BASE_PATH}index.html           { add_header Cache-Control "no-cache"; }
+    location = ${BASE_PATH}manifest.webmanifest { default_type application/manifest+json; }
 
     # Hashed build assets are immutable.
-    location /assets/ {
+    location ${BASE_PATH}assets/ {
         expires    1y;
         add_header Cache-Control "public, immutable";
     }
 
-    # SPA fallback — every other route serves the app shell.
-    location / {
-        try_files $uri $uri/ /index.html;
+    # SPA fallback — every route under the base path serves the app shell.
+    location ${BASE_PATH} {
+        try_files $uri $uri/ ${BASE_PATH}index.html;
     }
 }

@@ -6,8 +6,13 @@ import { VitePWA } from "vite-plugin-pwa";
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
   const target = env.BABYBUDDY_BASE_URL || "https://babybuddy.la-ruche.info";
+  // Deploy under a subpath (e.g. "/quick-ui/") by building with BASE_PATH set. Must have a
+  // leading + trailing slash. Prefixes all assets, the manifest, and the SW scope. The API
+  // stays root-relative (/api/) — Baby Buddy owns the domain root.
+  const base = process.env.BASE_PATH || "/";
 
   return {
+    base,
     plugins: [
       react(),
       VitePWA({
@@ -28,13 +33,14 @@ export default defineConfig(({ mode }) => {
           background_color: "#15121c",
           display: "standalone",
           orientation: "portrait",
-          start_url: "/",
-          scope: "/",
+          start_url: base,
+          scope: base,
+          // Relative srcs so vite-plugin-pwa prefixes them with `base`.
           icons: [
-            { src: "/pwa-192.png", sizes: "192x192", type: "image/png" },
-            { src: "/pwa-512.png", sizes: "512x512", type: "image/png" },
-            { src: "/pwa-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
-            { src: "/pwa.svg", sizes: "any", type: "image/svg+xml" },
+            { src: "pwa-192.png", sizes: "192x192", type: "image/png" },
+            { src: "pwa-512.png", sizes: "512x512", type: "image/png" },
+            { src: "pwa-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+            { src: "pwa.svg", sizes: "any", type: "image/svg+xml" },
           ],
         },
         // The SW (precache/offline) is verified via `vite preview`; dev uses page autoflush.
