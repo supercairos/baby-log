@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.4.0](https://github.com/supercairos/baby-log/compare/baby-log-v1.3.0...baby-log-v1.4.0) (2026-06-04)
+
+
+### Features
+
+* prompt to refresh on a new version instead of auto-reloading ([c123538](https://github.com/supercairos/baby-log/commit/c123538accc581c64b4177089485f4364f8ca621))
+* surface permanently-failed writes as a toast ([de84fd7](https://github.com/supercairos/baby-log/commit/de84fd7e7819c5850900c3303728f7be940510e6))
+
+
+### Bug Fixes
+
+* align write timestamps to the server clock to avoid future-time 400s ([841999c](https://github.com/supercairos/baby-log/commit/841999c397ad6f64f2490c483e372cb61c2c2b9b))
+
 ## [1.3.0](https://github.com/supercairos/baby-log/compare/baby-log-v1.2.0...baby-log-v1.3.0) (2026-06-04)
 
 
