@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1](https://github.com/supercairos/baby-log/compare/baby-log-v1.1.0...baby-log-v1.1.1) (2026-06-04)
+
+
+### Bug Fixes
+
+* show the bottle brand mark in the login hero ([b9e8b75](https://github.com/supercairos/baby-log/commit/b9e8b75a083bbf647c5e896161ea8ed6b8d12457))
+
 ## [1.1.0](https://github.com/supercairos/baby-log/compare/baby-log-v1.0.0...baby-log-v1.1.0) (2026-06-04)
 
 
