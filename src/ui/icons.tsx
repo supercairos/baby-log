@@ -31,6 +31,22 @@ export const BottleIcon = (p: IconProps) => (
     <path d="M9.5 11h5M9.5 14h5" />
   </Svg>
 );
+
+/**
+ * Baby Log brand mark — the filled bottle from the PWA icon (cream body, honey ticks).
+ * Render on the warm gradient tile (e.g. the login hero) so it matches the app/home-screen
+ * icon. Fixed colors (not currentColor) so it looks identical in both themes.
+ */
+export const BabyLogMark = ({ size = 64, ...p }: IconProps) => (
+  <svg viewBox="0 0 512 512" width={size} height={size} fill="none" {...p}>
+    <rect x="240" y="110" width="32" height="40" rx="16" fill="#fff5e9" />
+    <rect x="221" y="146" width="70" height="28" rx="11" fill="#fff5e9" />
+    <rect x="221" y="166" width="70" height="16" fill="#fff5e9" />
+    <rect x="194" y="176" width="124" height="244" rx="48" fill="#fff5e9" />
+    <rect x="250" y="288" width="54" height="11" rx="5.5" fill="#e6986b" />
+    <rect x="250" y="320" width="40" height="11" rx="5.5" fill="#e6986b" />
+  </svg>
+);
 export const MoonIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M20 13.5A8 8 0 1 1 10.5 4a6.2 6.2 0 0 0 9.5 9.5Z" />

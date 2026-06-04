@@ -8,7 +8,7 @@ import { type Connection, connectionFromManual, parseLoginQr, validateConnection
 import { useStyles } from "../theme";
 import { config } from "../config/config";
 import { buzz } from "./hooks";
-import { ScanIcon } from "../ui/icons";
+import { BabyLogMark, ScanIcon } from "../ui/icons";
 
 type Mode = "landing" | "manual" | "scanning" | "connecting";
 
@@ -152,7 +152,9 @@ export function LoginScreen({ onConnect }: { onConnect: (conn: Connection) => vo
       <div style={s.ambient} />
 
       <div style={s.loginHero}>
-        <div style={s.loginLogo}>·</div>
+        <div style={s.loginLogo}>
+          <BabyLogMark size={62} />
+        </div>
         <div style={s.loginAppName}>Baby Log</div>
         <div style={s.loginTagline}>A calmer way to track feeds, sleep, and changes — connected to your Baby Buddy.</div>
       </div>
