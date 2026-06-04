@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.0](https://github.com/supercairos/baby-log/compare/baby-log-v1.4.0...baby-log-v1.5.0) (2026-06-04)
+
+
+### Features
+
+* show the connected instance and app version in the drawer ([45af795](https://github.com/supercairos/baby-log/commit/45af7959de32676c080e3c73674236baf18c3aa7))
+
 ## [1.4.0](https://github.com/supercairos/baby-log/compare/baby-log-v1.3.0...baby-log-v1.4.0) (2026-06-04)
 
 
