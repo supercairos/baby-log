@@ -25,6 +25,7 @@ import {
   getLastFeedingChoice,
   logDiaperMutation,
   mergeTimerMapping,
+  onOutboxError,
   setTimerMapping,
   startOutboxAutoFlush,
   startTimerMutation,
@@ -102,6 +103,10 @@ export function Home({ client, onDisconnect }: { client: BabyBuddyClient; onDisc
 
   // Background outbox flushing (online/focus/interval) — covers retries beyond submit().
   useEffect(() => startOutboxAutoFlush(client), [client]);
+
+  // Surface permanently-failed writes (rejected field, bad token, …) as a toast — they don't
+  // retry, so the user would otherwise see a logged action silently vanish.
+  useEffect(() => onOutboxError((msg) => show(msg, palette.danger, 4500)), [show, palette.danger]);
 
   // Mirror running timers into OS notifications (with a Stop action) when enabled.
   useEffect(() => {

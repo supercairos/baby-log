@@ -23,3 +23,4 @@ export * from "./timeline";
 export * from "./mutations";
 export * from "./outbox";
 export * from "./sync";
+export * from "./outbox-events";

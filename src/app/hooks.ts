@@ -47,10 +47,10 @@ export interface Toast {
 export function useToast() {
   const [toast, setToast] = useState<Toast | null>(null);
   const timer = useRef<number | undefined>(undefined);
-  const show = useCallback((msg: string, accent?: string) => {
+  const show = useCallback((msg: string, accent?: string, ms = 2000) => {
     setToast({ msg, accent });
     if (timer.current) window.clearTimeout(timer.current);
-    timer.current = window.setTimeout(() => setToast(null), 2000);
+    timer.current = window.setTimeout(() => setToast(null), ms);
   }, []);
   useEffect(() => () => window.clearTimeout(timer.current), []);
   return { toast, show };

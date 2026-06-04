@@ -39,7 +39,8 @@ import {
   type OutboxRecord,
 } from "./outbox";
 import type { Mutation, LocalId } from "./mutations";
-import { BabyBuddyApiError, TimerAlreadyConsumedError } from "./errors";
+import { BabyBuddyApiError, TimerAlreadyConsumedError, describeApiError } from "./errors";
+import { emitOutboxError } from "./outbox-events";
 import { startTimer, discardTimer } from "./timers";
 import {
   consumeFeedingTimer,
@@ -68,6 +69,19 @@ export interface FlushSummary {
   deadLettered: number;
   /** Records still queued (not-yet-ready, blocked, or held by another drainer). */
   remaining: number;
+}
+
+// Short, command-kind-based action label for a failed-write toast. Kept local (a tiny switch
+// on `m.kind`) rather than importing `mutationLabel` from "./mutations" — that value import
+// would create a `sync ↔ mutations` runtime cycle.
+function actionLabel(kind: Mutation["kind"]): string {
+  if (kind === "start-timer") return "Starting the timer";
+  if (kind.startsWith("consume")) return "Saving the activity";
+  if (kind.startsWith("create")) return "Adding the entry";
+  if (kind === "log-diaper") return "Logging the diaper";
+  if (kind === "update-entry") return "Saving the change";
+  if (kind === "delete-entry") return "Deleting the entry";
+  return "Saving";
 }
 
 let running: Promise<FlushSummary> | null = null;
@@ -173,6 +187,8 @@ async function drain(client: BabyBuddyClient): Promise<FlushSummary> {
         dead: permanent || undefined,
       });
       if (permanent) {
+        // Tell the UI this write will never land (e.g. a rejected field) — it's not retrying.
+        emitOutboxError(`${actionLabel(m.kind)} failed — ${describeApiError(err)}`);
         // Dead-letter the start. If a stop is also queued (coalesce), keep the mapping so the
         // stop can still direct-create the entry from startedAt. If it's a LONE start (no
         // queued stop), drop the mapping so it doesn't leave a phantom running card ticking
