@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Generated at build by react-env (window.__ENV runtime config).
+public/env/__ENV.js
+
 # Local dev secrets (schema fetch / testing token). Never commit.
 .env
 .env.*

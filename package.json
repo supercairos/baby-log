@@ -4,8 +4,9 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
+    "dev": "react-env --dest ./public/env -- vite",
+    "build": "react-env --dest ./public/env -- tsc -b && vite build",
+    "build-docker": "react-env --dest ./public/env --path .env.docker -- tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "typecheck": "tsc -b",
@@ -15,6 +16,7 @@
     "api:refresh": "npm run fetch:schema && npm run gen:api"
   },
   "dependencies": {
+    "@beam-australia/react-env": "^3.1.1",
     "barcode-detector": "^3.2.0",
     "openapi-fetch": "^0.17.0",
     "react": "^19.2.6",

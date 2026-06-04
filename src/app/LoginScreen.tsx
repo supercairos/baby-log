@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { type Connection, connectionFromManual, parseLoginQr, validateConnection } from "../api";
 import { useStyles } from "../theme";
+import { config } from "../config/config";
 import { buzz } from "./hooks";
 import { ScanIcon } from "../ui/icons";
 
@@ -44,7 +45,7 @@ async function getQrDetector(): Promise<BarcodeDetectorLike | null> {
 export function LoginScreen({ onConnect }: { onConnect: (conn: Connection) => void }) {
   const { s } = useStyles();
   const [mode, setMode] = useState<Mode>("landing");
-  const [url, setUrl] = useState("");
+  const [url, setUrl] = useState(config.babyBuddyUrl); // pre-filled from react-env when set
   const [token, setToken] = useState("");
   const [err, setErr] = useState("");
   const videoRef = useRef<HTMLVideoElement | null>(null);
