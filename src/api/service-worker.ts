@@ -12,7 +12,7 @@
  * app. Typed against the DOM lib via a small scope shim so it shares the app's tsconfig.
  */
 import { createBabyBuddyClient } from "./client";
-import { enqueue, loadConnection, setTimerMapping } from "./outbox";
+import { allRecords, allTimerMappings, enqueue, loadConnection, setTimerMapping } from "./outbox";
 import { flushOutbox, OUTBOX_SYNC_TAG } from "./sync";
 import { consumeTimerMutation } from "./mutations";
 import { METHODS_FOR_TYPE, type FeedingMethod, type FeedingType, type TimerActivityKey } from "./activities";
@@ -35,9 +35,21 @@ interface SyncEventLike extends ExtendableEventLike {
 interface MessageEventLike extends ExtendableEventLike {
   readonly data: unknown;
 }
+interface SwNotification {
+  readonly data: unknown;
+  readonly tag: string;
+  readonly title: string;
+  readonly body: string;
+  readonly icon: string;
+  readonly badge: string;
+  close(): void;
+}
 interface NotificationClickEventLike extends ExtendableEventLike {
   readonly action: string;
-  readonly notification: { readonly data: unknown; readonly tag: string; close(): void };
+  readonly notification: SwNotification;
+}
+interface NotificationCloseEventLike extends ExtendableEventLike {
+  readonly notification: SwNotification;
 }
 interface WindowClientLike {
   focus(): Promise<unknown>;
@@ -45,6 +57,9 @@ interface WindowClientLike {
 }
 interface ServiceWorkerScope {
   skipWaiting(): Promise<void>;
+  readonly registration: {
+    showNotification(title: string, options?: Record<string, unknown>): Promise<void>;
+  };
   readonly clients: {
     claim(): Promise<void>;
     matchAll(opts?: { type?: string }): Promise<WindowClientLike[]>;
@@ -56,6 +71,7 @@ interface ServiceWorkerScope {
   addEventListener(type: "sync", listener: (event: SyncEventLike) => void): void;
   addEventListener(type: "message", listener: (event: MessageEventLike) => void): void;
   addEventListener(type: "notificationclick", listener: (event: NotificationClickEventLike) => void): void;
+  addEventListener(type: "notificationclose", listener: (event: NotificationCloseEventLike) => void): void;
 }
 
 const sw = self as unknown as ServiceWorkerScope;
@@ -143,9 +159,17 @@ sw.addEventListener("message", (event) => {
   if (type === "SKIP_WAITING") void sw.skipWaiting();
 });
 
-// ── running-timer notifications: "Stop" action ──────────────────────────────
+// ── running-timer notifications: "Stop" action + sticky re-show ──────────────
+// The web has no true "ongoing"/non-dismissable notification, so we make it sticky by
+// re-showing it when it's dismissed — as long as its timer is still running. Tags we close on
+// purpose (the Stop action) are parked here so the close handler lets them go.
+const reshowSuppressed = new Set<string>();
+
 sw.addEventListener("notificationclick", (event) => {
   const data = event.notification.data as TimerNotifData | null;
+  if (event.action === "stop" && data?.kind === "timer") {
+    reshowSuppressed.add(event.notification.tag); // we're stopping it — don't bring it back
+  }
   event.notification.close();
   if (event.action === "stop" && data?.kind === "timer") {
     event.waitUntil(stopTimerFromNotification(data));
@@ -153,6 +177,47 @@ sw.addEventListener("notificationclick", (event) => {
     event.waitUntil(focusApp()); // tapping the body opens/focuses the app
   }
 });
+
+sw.addEventListener("notificationclose", (event) => {
+  const data = event.notification.data as TimerNotifData | null;
+  if (data?.kind === "timer") event.waitUntil(reshowIfStillRunning(event.notification));
+});
+
+/** Bring a dismissed timer notification back, unless we closed it on purpose (Stop) or its
+ *  timer has stopped (consumed/discarded here or on another device). */
+async function reshowIfStillRunning(n: SwNotification): Promise<void> {
+  if (reshowSuppressed.delete(n.tag)) return; // closed by the Stop action — let it go
+  const data = n.data as TimerNotifData;
+  if (!(await timerStillRunning(data))) return; // timer ended → no need to nag
+  await sw.registration.showNotification(n.title, {
+    tag: n.tag,
+    body: n.body,
+    icon: n.icon,
+    badge: n.badge,
+    requireInteraction: true,
+    renotify: false,
+    silent: true, // it was just dismissed — bring it back quietly, don't buzz again
+    actions: [{ action: "stop", title: "Stop" }],
+    data,
+  });
+}
+
+/** A timer is still running iff its mapping is present AND no stop is queued for it. */
+async function timerStillRunning(data: TimerNotifData): Promise<boolean> {
+  if (!data.localId) return false; // server-only card — the page owns its lifecycle
+  const [maps, records] = await Promise.all([allTimerMappings(), allRecords()]);
+  const stopQueued = records.some((r) => {
+    const m = r.mutation;
+    return (
+      (m.kind === "consume-feeding" ||
+        m.kind === "consume-sleep" ||
+        m.kind === "consume-tummy" ||
+        m.kind === "discard-timer") &&
+      m.localId === data.localId
+    );
+  });
+  return maps.some((mp) => mp.localId === data.localId) && !stopQueued;
+}
 
 /** Stop a running timer straight from its notification — enqueue the consume + flush. */
 async function stopTimerFromNotification(d: TimerNotifData): Promise<void> {
