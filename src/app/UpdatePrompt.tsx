@@ -8,10 +8,12 @@
  * without a cold start (important for an installed PWA that stays open for days).
  */
 import { useRegisterSW } from "virtual:pwa-register/react";
+import { useTranslation } from "react-i18next";
 import { useTheme } from "../theme";
 
 export function UpdatePrompt() {
   const { palette } = useTheme();
+  const { t } = useTranslation();
   const {
     needRefresh: [needRefresh],
     updateServiceWorker,
@@ -55,7 +57,7 @@ export function UpdatePrompt() {
       }}
     >
       <span aria-hidden style={{ fontSize: 17 }}>↻</span>
-      Update available — tap to refresh
+      {t("update.available")}
     </button>
   );
 }

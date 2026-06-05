@@ -1,0 +1,161 @@
+{
+  "common": {
+    "back": "← Indietro",
+    "cancel": "← Annulla",
+    "done": "Fatto",
+    "delete": "Elimina",
+    "or": "o",
+    "loading": "Caricamento…",
+    "connecting": "Connessione…"
+  },
+  "app": {
+    "tagline": "Un modo più sereno per registrare poppate, sonno e cambi — collegato al tuo Baby Buddy."
+  },
+  "greeting": {
+    "lateNight": "Buonanotte",
+    "morning": "Buongiorno",
+    "afternoon": "Buon pomeriggio",
+    "evening": "Buonasera"
+  },
+  "day": {
+    "today": "Oggi",
+    "yesterday": "Ieri"
+  },
+  "activity": {
+    "feeding": "Poppata",
+    "sleep": "Sonno",
+    "diaper": "Pannolino",
+    "tummy": "Pancia in giù"
+  },
+  "feedType": {
+    "breast milk": "Seno",
+    "formula": "Artificiale",
+    "fortified breast milk": "Fortificato",
+    "solid food": "Solido"
+  },
+  "feedMethod": {
+    "left breast": "Sinistro",
+    "right breast": "Destro",
+    "both breasts": "Entrambi",
+    "bottle": "Biberon",
+    "parent fed": "Genitore",
+    "self fed": "Da solo"
+  },
+  "diaper": {
+    "wet": "Pipì",
+    "solid": "Feci",
+    "both": "Entrambi"
+  },
+  "home": {
+    "tracking": "Segui {{name}}",
+    "nothingRunning": "Niente in corso per {{name}}",
+    "nothingRunningGeneric": "Niente in corso",
+    "tapToStop": "tocca per fermare",
+    "tapToStart": "tocca per avviare",
+    "tapToLog": "tocca per registrare",
+    "pickAndStart": "scegli e avvia",
+    "stillGoing": "ancora in corso?",
+    "editFeeding": "Modifica i dettagli della poppata",
+    "menu": "Menu",
+    "closeMenu": "Chiudi menu",
+    "close": "Chiudi",
+    "version": "Baby Log v{{version}}"
+  },
+  "nav": {
+    "home": "Home",
+    "timeline": "Cronologia",
+    "theme": "Tema · {{mode}}",
+    "themeSystem": "Sistema",
+    "themeDark": "Scuro",
+    "themeLight": "Chiaro",
+    "alertsOn": "Avvisi · Attivi",
+    "alertsOff": "Avvisi · Disattivi",
+    "install": "Aggiungi alla schermata Home",
+    "disconnect": "Disconnetti",
+    "language": "Lingua · {{lang}}"
+  },
+  "toast": {
+    "started": "{{activity}} avviato",
+    "saved": "{{activity}} salvato · {{duration}}",
+    "diaperLogged": "Pannolino registrato · {{detail}}",
+    "alertsOn": "Avvisi attivati",
+    "alertsOnHint": "Avvisi attivati — riceverai una notifica mentre un timer è in corso",
+    "notifBlocked": "Le notifiche sono bloccate — attivale nelle impostazioni del browser.",
+    "entryDeleted": "Voce eliminata",
+    "enterValidTime": "Inserisci un orario valido",
+    "endBeforeStart": "La fine non può precedere l'inizio",
+    "timeFuture": "L'orario non può essere nel futuro",
+    "pickDiaper": "Scegli pipì, feci o entrambi"
+  },
+  "timeline": {
+    "addEntry": "Aggiungi voce",
+    "noEntries": "Ancora nessuna voce",
+    "noEntriesSub": "Registra dalla schermata Home, o aggiungi una voce passata sopra.",
+    "nap": "Pisolino"
+  },
+  "sheet": {
+    "feedingDetails": "Dettagli poppata",
+    "logDiaper": "Registra pannolino",
+    "entry": "Voce",
+    "timerRunning": "Timer in corso",
+    "addDetailsHint": "aggiungi dettagli se vuoi",
+    "type": "Tipo",
+    "method": "Metodo",
+    "contents": "Contenuto",
+    "activity": "Attività",
+    "start": "Inizio",
+    "time": "Orario",
+    "end": "Fine",
+    "endIsBeforeStart": "La fine precede l'inizio",
+    "duration": "Durata · {{duration}}",
+    "addEntry": "Aggiungi voce",
+    "addActivity": "Aggiungi · {{activity}}",
+    "editActivity": "Modifica · {{activity}}",
+    "saveChanges": "Salva"
+  },
+  "login": {
+    "connectManually": "Connessione manuale",
+    "serverAddress": "Indirizzo del server",
+    "apiToken": "Token API",
+    "tokenPlaceholder": "La tua chiave API di Baby Buddy",
+    "connect": "Connetti",
+    "scan": "Scansiona il QR di accesso",
+    "findItPre": "Lo trovi in Baby Buddy sotto ",
+    "findItBold": "Utente → Aggiungi un dispositivo",
+    "enterManually": "Inserisci indirizzo e token",
+    "dataStays": "I tuoi dati restano sul tuo server Baby Buddy.",
+    "pointAtQr": "Inquadra il tuo codice QR di accesso…",
+    "errTokenRejected": "Token rifiutato. Controlla la chiave API.",
+    "errUnreachable": "Impossibile raggiungere il server. Controlla l'indirizzo e la connessione.",
+    "errFailed": "Connessione non riuscita (HTTP {{status}}).",
+    "errNoCamera": "La scansione con fotocamera non è disponibile qui — inserisci server e token.",
+    "errScannerFailed": "Impossibile avviare lo scanner QR — inserisci server e token.",
+    "errCameraOpen": "Impossibile aprire la fotocamera — inserisci server e token.",
+    "errEnterBoth": "Inserisci l'indirizzo del server e il tuo token API."
+  },
+  "notif": {
+    "running": "{{activity}} in corso",
+    "runningFor": "{{name}} · {{activity}} in corso",
+    "started": "Avviato alle {{time}}",
+    "startedMeta": "Avviato alle {{time}} · {{meta}}",
+    "stop": "Ferma"
+  },
+  "action": {
+    "start-timer": "Avvio del timer",
+    "consume": "Salvataggio dell'attività",
+    "create": "Aggiunta della voce",
+    "log-diaper": "Registrazione del pannolino",
+    "update-entry": "Salvataggio della modifica",
+    "delete-entry": "Eliminazione della voce",
+    "generic": "Salvataggio",
+    "failed": "{{action}} non riuscito — {{reason}}"
+  },
+  "error": {
+    "notAuthorized": "Non autorizzato — controlla il tuo token.",
+    "serverRejected": "Il server ha rifiutato la richiesta (HTTP {{status}}).",
+    "network": "Errore di rete — sembri offline o il server non è raggiungibile."
+  },
+  "update": {
+    "available": "Aggiornamento disponibile — tocca per ricaricare"
+  }
+}

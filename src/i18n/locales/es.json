@@ -1,0 +1,161 @@
+{
+  "common": {
+    "back": "← Atrás",
+    "cancel": "← Cancelar",
+    "done": "Listo",
+    "delete": "Eliminar",
+    "or": "o",
+    "loading": "Cargando…",
+    "connecting": "Conectando…"
+  },
+  "app": {
+    "tagline": "Una forma más tranquila de registrar tomas, sueño y cambios — conectada a tu Baby Buddy."
+  },
+  "greeting": {
+    "lateNight": "Buenas noches",
+    "morning": "Buenos días",
+    "afternoon": "Buenas tardes",
+    "evening": "Buenas noches"
+  },
+  "day": {
+    "today": "Hoy",
+    "yesterday": "Ayer"
+  },
+  "activity": {
+    "feeding": "Toma",
+    "sleep": "Sueño",
+    "diaper": "Pañal",
+    "tummy": "Boca abajo"
+  },
+  "feedType": {
+    "breast milk": "Pecho",
+    "formula": "Fórmula",
+    "fortified breast milk": "Fortificada",
+    "solid food": "Sólido"
+  },
+  "feedMethod": {
+    "left breast": "Izquierdo",
+    "right breast": "Derecho",
+    "both breasts": "Ambos",
+    "bottle": "Biberón",
+    "parent fed": "Padre",
+    "self fed": "Solo"
+  },
+  "diaper": {
+    "wet": "Pis",
+    "solid": "Caca",
+    "both": "Ambos"
+  },
+  "home": {
+    "tracking": "Siguiendo a {{name}}",
+    "nothingRunning": "Nada en curso para {{name}}",
+    "nothingRunningGeneric": "Nada en curso",
+    "tapToStop": "toca para parar",
+    "tapToStart": "toca para empezar",
+    "tapToLog": "toca para registrar",
+    "pickAndStart": "elige y empieza",
+    "stillGoing": "¿sigue en curso?",
+    "editFeeding": "Editar detalles de la toma",
+    "menu": "Menú",
+    "closeMenu": "Cerrar menú",
+    "close": "Cerrar",
+    "version": "Baby Log v{{version}}"
+  },
+  "nav": {
+    "home": "Inicio",
+    "timeline": "Historial",
+    "theme": "Tema · {{mode}}",
+    "themeSystem": "Sistema",
+    "themeDark": "Oscuro",
+    "themeLight": "Claro",
+    "alertsOn": "Alertas · Activadas",
+    "alertsOff": "Alertas · Desactivadas",
+    "install": "Añadir a la pantalla de inicio",
+    "disconnect": "Desconectar",
+    "language": "Idioma · {{lang}}"
+  },
+  "toast": {
+    "started": "{{activity}}: iniciado",
+    "saved": "{{activity}} guardado · {{duration}}",
+    "diaperLogged": "Pañal registrado · {{detail}}",
+    "alertsOn": "Alertas activadas",
+    "alertsOnHint": "Alertas activadas — recibirás avisos mientras un temporizador esté en curso",
+    "notifBlocked": "Las notificaciones están bloqueadas — actívalas en los ajustes del navegador.",
+    "entryDeleted": "Entrada eliminada",
+    "enterValidTime": "Introduce una hora válida",
+    "endBeforeStart": "El fin no puede ser anterior al inicio",
+    "timeFuture": "La hora no puede estar en el futuro",
+    "pickDiaper": "Elige pis, caca o ambos"
+  },
+  "timeline": {
+    "addEntry": "Añadir entrada",
+    "noEntries": "Aún no hay entradas",
+    "noEntriesSub": "Registra desde la pantalla de inicio, o añade una entrada pasada arriba.",
+    "nap": "Siesta"
+  },
+  "sheet": {
+    "feedingDetails": "Detalles de la toma",
+    "logDiaper": "Registrar pañal",
+    "entry": "Entrada",
+    "timerRunning": "Temporizador en curso",
+    "addDetailsHint": "añade detalles si quieres",
+    "type": "Tipo",
+    "method": "Método",
+    "contents": "Contenido",
+    "activity": "Actividad",
+    "start": "Inicio",
+    "time": "Hora",
+    "end": "Fin",
+    "endIsBeforeStart": "El fin es anterior al inicio",
+    "duration": "Duración · {{duration}}",
+    "addEntry": "Añadir entrada",
+    "addActivity": "Añadir · {{activity}}",
+    "editActivity": "Editar · {{activity}}",
+    "saveChanges": "Guardar"
+  },
+  "login": {
+    "connectManually": "Conexión manual",
+    "serverAddress": "Dirección del servidor",
+    "apiToken": "Token de API",
+    "tokenPlaceholder": "Tu clave de API de Baby Buddy",
+    "connect": "Conectar",
+    "scan": "Escanear el QR de acceso",
+    "findItPre": "Lo encuentras en Baby Buddy en ",
+    "findItBold": "Usuario → Añadir un dispositivo",
+    "enterManually": "Introducir dirección y token",
+    "dataStays": "Tus datos permanecen en tu propio servidor Baby Buddy.",
+    "pointAtQr": "Apunta a tu código QR de acceso…",
+    "errTokenRejected": "Ese token fue rechazado. Comprueba la clave de API.",
+    "errUnreachable": "No se pudo contactar el servidor. Comprueba la dirección y tu conexión.",
+    "errFailed": "Fallo de conexión (HTTP {{status}}).",
+    "errNoCamera": "El escaneo con cámara no está disponible aquí — introduce el servidor y el token.",
+    "errScannerFailed": "No se pudo iniciar el escáner QR — introduce el servidor y el token.",
+    "errCameraOpen": "No se pudo abrir la cámara — introduce el servidor y el token.",
+    "errEnterBoth": "Introduce la dirección del servidor y tu token de API."
+  },
+  "notif": {
+    "running": "{{activity}} en curso",
+    "runningFor": "{{name}} · {{activity}} en curso",
+    "started": "Iniciado a las {{time}}",
+    "startedMeta": "Iniciado a las {{time}} · {{meta}}",
+    "stop": "Parar"
+  },
+  "action": {
+    "start-timer": "Iniciando el temporizador",
+    "consume": "Guardando la actividad",
+    "create": "Añadiendo la entrada",
+    "log-diaper": "Registrando el pañal",
+    "update-entry": "Guardando el cambio",
+    "delete-entry": "Eliminando la entrada",
+    "generic": "Guardando",
+    "failed": "{{action}} falló — {{reason}}"
+  },
+  "error": {
+    "notAuthorized": "No autorizado — comprueba tu token.",
+    "serverRejected": "El servidor rechazó la petición (HTTP {{status}}).",
+    "network": "Error de red — parece que estás sin conexión o el servidor no responde."
+  },
+  "update": {
+    "available": "Actualización disponible — toca para recargar"
+  }
+}

@@ -53,26 +53,33 @@ export function unwrap<T>(res: FetchResult<T>): T {
 }
 
 /**
- * A short, human-readable reason for a failed API call — for surfacing in a toast. Pulls the
- * DRF message out of the error body (a `detail` string, or the first field-error like
- * `{ start: ["…can't be in the future"] }`), else falls back to the status.
+ * Status + the raw server message for a failed API call — i18n-free on purpose (this module is
+ * reachable from the service-worker bundle). `detail` is the DRF message (a `detail` string or
+ * the first field-error like `{ start: ["…can't be in the future"] }`), already in the
+ * instance's own language, or null. The UI turns this into a translated toast (see Home),
+ * falling back on `status` when there's no message.
  */
-export function describeApiError(err: unknown): string {
-  if (err instanceof BabyBuddyApiError) {
-    const body = err.body;
-    if (typeof body === "string" && body.trim()) return body;
-    if (body && typeof body === "object") {
-      const rec = body as Record<string, unknown>;
-      if (typeof rec.detail === "string") return rec.detail;
+export function apiErrorDetail(err: unknown): { status: number; detail: string | null } {
+  if (!(err instanceof BabyBuddyApiError)) return { status: 0, detail: null };
+  const body = err.body;
+  let detail: string | null = null;
+  if (typeof body === "string" && body.trim()) detail = body;
+  else if (body && typeof body === "object") {
+    const rec = body as Record<string, unknown>;
+    if (typeof rec.detail === "string") detail = rec.detail;
+    else
       for (const v of Object.values(rec)) {
-        if (Array.isArray(v) && typeof v[0] === "string") return v[0];
-        if (typeof v === "string" && v) return v;
+        if (Array.isArray(v) && typeof v[0] === "string") {
+          detail = v[0];
+          break;
+        }
+        if (typeof v === "string" && v) {
+          detail = v;
+          break;
+        }
       }
-    }
-    if (err.status === 401 || err.status === 403) return "Not authorized — check your token.";
-    return `Server rejected the request (HTTP ${err.status}).`;
   }
-  return "Network error — you appear to be offline or the server is unreachable.";
+  return { status: err.status, detail };
 }
 
 /**

@@ -1,53 +1,36 @@
 /**
- * Display labels + chooser option lists, derived from the typed feeding enums so they
- * can't drift from the schema. `metaFor*` produce the secondary line shown on cards/entries.
+ * Display labels + chooser option lists, derived from the typed feeding enums so they can't
+ * drift from the schema. Labels are resolved through i18next (see `src/i18n`) so they follow
+ * the active language; components re-render on a language change via `useTranslation`, and
+ * these helpers (and the meta builders) read the current translation each call.
  */
 import type { FeedingType, FeedingMethod, ActivityKey } from "../api";
+import i18n from "../i18n";
 
-export const FEED_TYPE_LABEL: Record<FeedingType, string> = {
-  "breast milk": "Breast",
-  formula: "Formula",
-  "fortified breast milk": "Fortified",
-  "solid food": "Solid",
-};
+const FEED_TYPES: FeedingType[] = ["breast milk", "formula", "fortified breast milk", "solid food"];
+const FEED_METHODS: FeedingMethod[] = ["left breast", "right breast", "both breasts", "bottle", "parent fed", "self fed"];
 
-export const FEED_METHOD_LABEL: Record<FeedingMethod, string> = {
-  "left breast": "Left",
-  "right breast": "Right",
-  "both breasts": "Both",
-  bottle: "Bottle",
-  "parent fed": "Parent fed",
-  "self fed": "Self fed",
-};
-
-export const ACTIVITY_LABEL: Record<ActivityKey, string> = {
-  feeding: "Feeding",
-  sleep: "Sleep",
-  diaper: "Diaper",
-  tummy: "Tummy time",
-};
+export const feedTypeLabel = (type: FeedingType): string => i18n.t(`feedType.${type}`);
+export const feedMethodLabel = (method: FeedingMethod): string => i18n.t(`feedMethod.${method}`);
+export const activityLabel = (activity: ActivityKey): string => i18n.t(`activity.${activity}`);
 
 /** Ordered chooser options (chips) for feeding type. */
-export const FEED_TYPE_OPTIONS = (Object.keys(FEED_TYPE_LABEL) as FeedingType[]).map((id) => ({
-  id,
-  label: FEED_TYPE_LABEL[id],
-}));
+export const feedTypeOptions = (): { id: FeedingType; label: string }[] =>
+  FEED_TYPES.map((id) => ({ id, label: feedTypeLabel(id) }));
 
 /** Ordered chooser options for feeding method (full set; filter via METHODS_FOR_TYPE). */
-export const FEED_METHOD_OPTIONS = (Object.keys(FEED_METHOD_LABEL) as FeedingMethod[]).map((id) => ({
-  id,
-  label: FEED_METHOD_LABEL[id],
-}));
+export const feedMethodOptions = (): { id: FeedingMethod; label: string }[] =>
+  FEED_METHODS.map((id) => ({ id, label: feedMethodLabel(id) }));
 
 export function feedingMeta(type?: FeedingType | null, method?: FeedingMethod | null): string {
-  return [type ? FEED_TYPE_LABEL[type] : null, method ? FEED_METHOD_LABEL[method] : null]
+  return [type ? feedTypeLabel(type) : null, method ? feedMethodLabel(method) : null]
     .filter(Boolean)
     .join(" · ");
 }
 
 export function diaperMeta(wet: boolean, solid: boolean): string {
-  if (wet && solid) return "Both";
-  if (solid) return "Solid";
-  if (wet) return "Wet";
+  if (wet && solid) return i18n.t("diaper.both");
+  if (solid) return i18n.t("diaper.solid");
+  if (wet) return i18n.t("diaper.wet");
   return "";
 }

@@ -7,7 +7,21 @@
  * emitter and the subscriber holding two different Sets (the emit then reaches no listener).
  * A dependency-free leaf module is always a single instance, so emit and subscribe agree.
  */
-type OutboxErrorListener = (message: string) => void;
+/**
+ * A permanently-failed write, described structurally (not as a built string) so the message
+ * stays i18n-free here — this module is reachable from the service-worker bundle. The UI
+ * (which has the translator) formats it into a toast.
+ */
+export interface OutboxFailure {
+  /** The mutation kind that failed (e.g. "start-timer", "consume-feeding"). */
+  actionKind: string;
+  /** HTTP status (0 = network / unknown). */
+  status: number;
+  /** Raw server message if any (already in the instance's language); else null. */
+  detail: string | null;
+}
+
+type OutboxErrorListener = (failure: OutboxFailure) => void;
 const listeners = new Set<OutboxErrorListener>();
 
 /**
@@ -22,6 +36,6 @@ export function onOutboxError(listener: OutboxErrorListener): () => void {
   };
 }
 
-export function emitOutboxError(message: string): void {
-  for (const fn of listeners) fn(message);
+export function emitOutboxError(failure: OutboxFailure): void {
+  for (const fn of listeners) fn(failure);
 }

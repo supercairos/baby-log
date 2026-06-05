@@ -1,6 +1,8 @@
 /**
- * Display + time helpers. We store UTC ISO strings (server) and render in local time.
- * UI math is done in epoch-ms; `iso()`/`ms()` bridge to the API's ISO strings.
+ * Time math + non-localized formatting. Intentionally i18n-free: this module is reachable
+ * from the service-worker bundle (the outbox uses `nowIso`, the client uses
+ * `setServerClockOffset`), so it must not import i18next. Locale-aware display lives in
+ * `datetime.ts`.
  */
 
 /** Elapsed/duration as `h:mm:ss` or `m:ss`. */
@@ -11,30 +13,6 @@ export function fmt(milliseconds: number): string {
   const sec = total % 60;
   const pad = (n: number) => String(n).padStart(2, "0");
   return h > 0 ? `${h}:${pad(m)}:${pad(sec)}` : `${m}:${pad(sec)}`;
-}
-
-export function greeting(now: Date = new Date()): string {
-  const h = now.getHours();
-  if (h < 5) return "Late night";
-  if (h < 12) return "Good morning";
-  if (h < 18) return "Good afternoon";
-  if (h < 22) return "Good evening";
-  return "Late night";
-}
-
-export function clockTime(epochMs: number): string {
-  return new Date(epochMs).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-}
-
-export function dayLabel(epochMs: number): string {
-  const d = new Date(epochMs);
-  d.setHours(0, 0, 0, 0);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const diff = Math.round((today.getTime() - d.getTime()) / 86_400_000);
-  if (diff === 0) return "Today";
-  if (diff === 1) return "Yesterday";
-  return new Date(epochMs).toLocaleDateString([], { weekday: "long", month: "short", day: "numeric" });
 }
 
 /** Epoch ms → value for an `<input type="datetime-local">` (local wall-clock, no tz suffix). */

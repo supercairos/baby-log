@@ -10,8 +10,9 @@
  */
 import type { RunningTimer } from "./hooks";
 import type { TimerActivityKey } from "../api";
-import { ACTIVITY_LABEL, feedingMeta } from "../lib/labels";
-import { clockTime } from "../lib/format";
+import { activityLabel, feedingMeta } from "../lib/labels";
+import { clockTime } from "../lib/datetime";
+import i18n from "../i18n";
 
 const TAG_PREFIX = "timer:";
 // `badge` is the small monochrome status-bar glyph. `icon` is the large circle — Android always
@@ -71,7 +72,9 @@ export async function syncTimerNotifications(
     const meta = rt.activity === "feeding" ? feedingMeta(rt.feeding?.type, rt.feeding?.method) : "";
     const options = {
       tag: TAG_PREFIX + rt.key,
-      body: `Started ${clockTime(rt.startedMs)}${meta ? ` · ${meta}` : ""}`,
+      body: meta
+        ? i18n.t("notif.startedMeta", { time: clockTime(rt.startedMs), meta })
+        : i18n.t("notif.started", { time: clockTime(rt.startedMs) }),
       icon: ICON[rt.activity],
       badge: BADGE,
       // NOT silent: on Android a silent notification skips the heads-up banner and sound and
@@ -79,7 +82,7 @@ export async function syncTimerNotifications(
       // here for timers not already on screen, so each running timer alerts exactly once.
       renotify: false,
       requireInteraction: true, // stays in the tray after the app closes
-      actions: [{ action: "stop", title: "Stop" }],
+      actions: [{ action: "stop", title: i18n.t("notif.stop") }],
       data: {
         kind: "timer" as const,
         activity: rt.activity,
@@ -90,9 +93,10 @@ export async function syncTimerNotifications(
         feeding: rt.feeding,
       },
     };
+    const activity = activityLabel(rt.activity);
     const title = childName
-      ? `${childName} · ${ACTIVITY_LABEL[rt.activity]} running`
-      : `${ACTIVITY_LABEL[rt.activity]} running`;
+      ? i18n.t("notif.runningFor", { name: childName, activity })
+      : i18n.t("notif.running", { activity });
     await reg.showNotification(title, options);
   }
 }

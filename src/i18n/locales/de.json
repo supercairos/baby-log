@@ -1,0 +1,161 @@
+{
+  "common": {
+    "back": "← Zurück",
+    "cancel": "← Abbrechen",
+    "done": "Fertig",
+    "delete": "Löschen",
+    "or": "oder",
+    "loading": "Wird geladen…",
+    "connecting": "Verbinden…"
+  },
+  "app": {
+    "tagline": "Eine ruhigere Art, Mahlzeiten, Schlaf und Wickeln zu erfassen — verbunden mit deinem Baby Buddy."
+  },
+  "greeting": {
+    "lateNight": "Gute Nacht",
+    "morning": "Guten Morgen",
+    "afternoon": "Guten Tag",
+    "evening": "Guten Abend"
+  },
+  "day": {
+    "today": "Heute",
+    "yesterday": "Gestern"
+  },
+  "activity": {
+    "feeding": "Mahlzeit",
+    "sleep": "Schlaf",
+    "diaper": "Windel",
+    "tummy": "Bauchzeit"
+  },
+  "feedType": {
+    "breast milk": "Brust",
+    "formula": "Pulver",
+    "fortified breast milk": "Angereichert",
+    "solid food": "Fest"
+  },
+  "feedMethod": {
+    "left breast": "Links",
+    "right breast": "Rechts",
+    "both breasts": "Beide",
+    "bottle": "Flasche",
+    "parent fed": "Eltern",
+    "self fed": "Selbst"
+  },
+  "diaper": {
+    "wet": "Nass",
+    "solid": "Stuhl",
+    "both": "Beides"
+  },
+  "home": {
+    "tracking": "Für {{name}}",
+    "nothingRunning": "Nichts aktiv für {{name}}",
+    "nothingRunningGeneric": "Nichts aktiv",
+    "tapToStop": "tippen zum Stoppen",
+    "tapToStart": "tippen zum Starten",
+    "tapToLog": "tippen zum Erfassen",
+    "pickAndStart": "wählen & starten",
+    "stillGoing": "läuft noch?",
+    "editFeeding": "Mahlzeit-Details bearbeiten",
+    "menu": "Menü",
+    "closeMenu": "Menü schließen",
+    "close": "Schließen",
+    "version": "Baby Log v{{version}}"
+  },
+  "nav": {
+    "home": "Start",
+    "timeline": "Verlauf",
+    "theme": "Design · {{mode}}",
+    "themeSystem": "System",
+    "themeDark": "Dunkel",
+    "themeLight": "Hell",
+    "alertsOn": "Hinweise · An",
+    "alertsOff": "Hinweise · Aus",
+    "install": "Zum Startbildschirm",
+    "disconnect": "Trennen",
+    "language": "Sprache · {{lang}}"
+  },
+  "toast": {
+    "started": "{{activity}} gestartet",
+    "saved": "{{activity}} gespeichert · {{duration}}",
+    "diaperLogged": "Windel erfasst · {{detail}}",
+    "alertsOn": "Hinweise an",
+    "alertsOnHint": "Hinweise an — du wirst benachrichtigt, während ein Timer läuft",
+    "notifBlocked": "Benachrichtigungen sind blockiert — aktiviere sie in den Browser-Einstellungen.",
+    "entryDeleted": "Eintrag gelöscht",
+    "enterValidTime": "Gib eine gültige Zeit ein",
+    "endBeforeStart": "Das Ende darf nicht vor dem Start liegen",
+    "timeFuture": "Die Zeit darf nicht in der Zukunft liegen",
+    "pickDiaper": "Wähle nass, Stuhl oder beides"
+  },
+  "timeline": {
+    "addEntry": "Eintrag hinzufügen",
+    "noEntries": "Noch keine Einträge",
+    "noEntriesSub": "Erfasse über den Startbildschirm, oder füge oben einen vergangenen Eintrag hinzu.",
+    "nap": "Nickerchen"
+  },
+  "sheet": {
+    "feedingDetails": "Mahlzeit-Details",
+    "logDiaper": "Windel erfassen",
+    "entry": "Eintrag",
+    "timerRunning": "Timer läuft",
+    "addDetailsHint": "füge bei Bedarf Details hinzu",
+    "type": "Art",
+    "method": "Methode",
+    "contents": "Inhalt",
+    "activity": "Aktivität",
+    "start": "Start",
+    "time": "Zeit",
+    "end": "Ende",
+    "endIsBeforeStart": "Ende liegt vor dem Start",
+    "duration": "Dauer · {{duration}}",
+    "addEntry": "Eintrag hinzufügen",
+    "addActivity": "Hinzufügen · {{activity}}",
+    "editActivity": "Bearbeiten · {{activity}}",
+    "saveChanges": "Speichern"
+  },
+  "login": {
+    "connectManually": "Manuell verbinden",
+    "serverAddress": "Serveradresse",
+    "apiToken": "API-Token",
+    "tokenPlaceholder": "Dein Baby-Buddy-API-Schlüssel",
+    "connect": "Verbinden",
+    "scan": "Login-QR scannen",
+    "findItPre": "Zu finden in Baby Buddy unter ",
+    "findItBold": "Benutzer → Gerät hinzufügen",
+    "enterManually": "Adresse und Token eingeben",
+    "dataStays": "Deine Daten bleiben auf deinem eigenen Baby-Buddy-Server.",
+    "pointAtQr": "Richte die Kamera auf deinen Login-QR-Code…",
+    "errTokenRejected": "Dieses Token wurde abgelehnt. Prüfe den API-Schlüssel.",
+    "errUnreachable": "Server nicht erreichbar. Prüfe die Adresse und deine Verbindung.",
+    "errFailed": "Verbindung fehlgeschlagen (HTTP {{status}}).",
+    "errNoCamera": "Kamera-Scan ist hier nicht verfügbar — gib Server und Token ein.",
+    "errScannerFailed": "QR-Scanner konnte nicht gestartet werden — gib Server und Token ein.",
+    "errCameraOpen": "Kamera konnte nicht geöffnet werden — gib Server und Token ein.",
+    "errEnterBoth": "Gib die Serveradresse und dein API-Token ein."
+  },
+  "notif": {
+    "running": "{{activity}} läuft",
+    "runningFor": "{{name}} · {{activity}} läuft",
+    "started": "Gestartet um {{time}}",
+    "startedMeta": "Gestartet um {{time}} · {{meta}}",
+    "stop": "Stoppen"
+  },
+  "action": {
+    "start-timer": "Timer wird gestartet",
+    "consume": "Aktivität wird gespeichert",
+    "create": "Eintrag wird hinzugefügt",
+    "log-diaper": "Windel wird erfasst",
+    "update-entry": "Änderung wird gespeichert",
+    "delete-entry": "Eintrag wird gelöscht",
+    "generic": "Speichern",
+    "failed": "{{action}} fehlgeschlagen — {{reason}}"
+  },
+  "error": {
+    "notAuthorized": "Nicht autorisiert — prüfe dein Token.",
+    "serverRejected": "Server hat die Anfrage abgelehnt (HTTP {{status}}).",
+    "network": "Netzwerkfehler — du bist offline oder der Server ist nicht erreichbar."
+  },
+  "update": {
+    "available": "Update verfügbar — zum Aktualisieren tippen"
+  }
+}

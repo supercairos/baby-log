@@ -1,0 +1,161 @@
+{
+  "common": {
+    "back": "← Back",
+    "cancel": "← Cancel",
+    "done": "Done",
+    "delete": "Delete",
+    "or": "or",
+    "loading": "Loading…",
+    "connecting": "Connecting…"
+  },
+  "app": {
+    "tagline": "A calmer way to track feeds, sleep, and changes — connected to your Baby Buddy."
+  },
+  "greeting": {
+    "lateNight": "Late night",
+    "morning": "Good morning",
+    "afternoon": "Good afternoon",
+    "evening": "Good evening"
+  },
+  "day": {
+    "today": "Today",
+    "yesterday": "Yesterday"
+  },
+  "activity": {
+    "feeding": "Feeding",
+    "sleep": "Sleep",
+    "diaper": "Diaper",
+    "tummy": "Tummy time"
+  },
+  "feedType": {
+    "breast milk": "Breast",
+    "formula": "Formula",
+    "fortified breast milk": "Fortified",
+    "solid food": "Solid"
+  },
+  "feedMethod": {
+    "left breast": "Left",
+    "right breast": "Right",
+    "both breasts": "Both",
+    "bottle": "Bottle",
+    "parent fed": "Parent fed",
+    "self fed": "Self fed"
+  },
+  "diaper": {
+    "wet": "Wet",
+    "solid": "Solid",
+    "both": "Both"
+  },
+  "home": {
+    "tracking": "Tracking {{name}}",
+    "nothingRunning": "Nothing running for {{name}}",
+    "nothingRunningGeneric": "Nothing running",
+    "tapToStop": "tap to stop",
+    "tapToStart": "tap to start",
+    "tapToLog": "tap to log",
+    "pickAndStart": "pick & start",
+    "stillGoing": "still going?",
+    "editFeeding": "Edit feeding details",
+    "menu": "Menu",
+    "closeMenu": "Close menu",
+    "close": "Close",
+    "version": "Baby Log v{{version}}"
+  },
+  "nav": {
+    "home": "Home",
+    "timeline": "Timeline",
+    "theme": "Theme · {{mode}}",
+    "themeSystem": "System",
+    "themeDark": "Dark",
+    "themeLight": "Light",
+    "alertsOn": "Timer alerts · On",
+    "alertsOff": "Timer alerts · Off",
+    "install": "Install on home screen",
+    "disconnect": "Disconnect",
+    "language": "Language · {{lang}}"
+  },
+  "toast": {
+    "started": "{{activity}} started",
+    "saved": "{{activity}} saved · {{duration}}",
+    "diaperLogged": "Diaper logged · {{detail}}",
+    "alertsOn": "Timer alerts on",
+    "alertsOnHint": "Timer alerts on — you'll be notified while a timer runs",
+    "notifBlocked": "Notifications are blocked — enable them in your browser settings.",
+    "entryDeleted": "Entry deleted",
+    "enterValidTime": "Enter a valid time",
+    "endBeforeStart": "End time can't be before start",
+    "timeFuture": "Time can't be in the future",
+    "pickDiaper": "Pick wet, solid, or both"
+  },
+  "timeline": {
+    "addEntry": "Add entry",
+    "noEntries": "No entries yet",
+    "noEntriesSub": "Log from the home screen, or add a past entry above.",
+    "nap": "Nap"
+  },
+  "sheet": {
+    "feedingDetails": "Feeding details",
+    "logDiaper": "Log diaper",
+    "entry": "Entry",
+    "timerRunning": "Timer running",
+    "addDetailsHint": "add details if you like",
+    "type": "Type",
+    "method": "Method",
+    "contents": "Contents",
+    "activity": "Activity",
+    "start": "Start",
+    "time": "Time",
+    "end": "End",
+    "endIsBeforeStart": "End is before start",
+    "duration": "Duration · {{duration}}",
+    "addEntry": "Add entry",
+    "addActivity": "Add {{activity}}",
+    "editActivity": "Edit {{activity}}",
+    "saveChanges": "Save changes"
+  },
+  "login": {
+    "connectManually": "Connect manually",
+    "serverAddress": "Server address",
+    "apiToken": "API token",
+    "tokenPlaceholder": "Your Baby Buddy API key",
+    "connect": "Connect",
+    "scan": "Scan Login QR code",
+    "findItPre": "Find it in Baby Buddy under ",
+    "findItBold": "User → Add a device",
+    "enterManually": "Enter address & token manually",
+    "dataStays": "Your data stays on your own Baby Buddy server.",
+    "pointAtQr": "Point at your Login QR code…",
+    "errTokenRejected": "That token was rejected. Check the API key.",
+    "errUnreachable": "Couldn't reach the server. Check the address and your connection.",
+    "errFailed": "Connection failed (HTTP {{status}}).",
+    "errNoCamera": "Camera scanning isn't available here — enter your server and token instead.",
+    "errScannerFailed": "Couldn't start the QR scanner — enter your server and token instead.",
+    "errCameraOpen": "Couldn't open the camera — enter your server and token instead.",
+    "errEnterBoth": "Enter both the server address and your API token."
+  },
+  "notif": {
+    "running": "{{activity}} running",
+    "runningFor": "{{name}} · {{activity}} running",
+    "started": "Started {{time}}",
+    "startedMeta": "Started {{time}} · {{meta}}",
+    "stop": "Stop"
+  },
+  "action": {
+    "start-timer": "Starting the timer",
+    "consume": "Saving the activity",
+    "create": "Adding the entry",
+    "log-diaper": "Logging the diaper",
+    "update-entry": "Saving the change",
+    "delete-entry": "Deleting the entry",
+    "generic": "Saving",
+    "failed": "{{action}} failed — {{reason}}"
+  },
+  "error": {
+    "notAuthorized": "Not authorized — check your token.",
+    "serverRejected": "Server rejected the request (HTTP {{status}}).",
+    "network": "Network error — you appear to be offline or the server is unreachable."
+  },
+  "update": {
+    "available": "Update available — tap to refresh"
+  }
+}

@@ -3,11 +3,14 @@
  * first. Each row is tappable to edit; the trash button deletes. "Add entry" opens the
  * same sheet with an activity picker for backdated logging.
  */
+import { useTranslation } from "react-i18next";
 import type { TimelineEntry } from "../api";
 import { useStyles, useTheme } from "../theme";
 import { ACTIVITY_ICON, ClockIcon, PlusIcon, TrashIcon } from "../ui/icons";
-import { clockTime, dayLabel, fmt } from "../lib/format";
-import { ACTIVITY_LABEL, diaperMeta, feedingMeta } from "../lib/labels";
+import { fmt } from "../lib/format";
+import { clockTime, dayLabel } from "../lib/datetime";
+import { activityLabel, diaperMeta, feedingMeta } from "../lib/labels";
+import i18n from "../i18n";
 
 function entryMeta(e: TimelineEntry): string {
   switch (e.activity) {
@@ -16,7 +19,7 @@ function entryMeta(e: TimelineEntry): string {
     case "diaper":
       return diaperMeta(e.wet, e.solid);
     case "sleep":
-      return e.nap ? "Nap" : "";
+      return e.nap ? i18n.t("timeline.nap") : "";
     case "tummy":
       return e.milestone ?? "";
   }
@@ -49,6 +52,7 @@ export function Timeline({
 }) {
   const { s } = useStyles();
   const { palette } = useTheme();
+  const { t } = useTranslation();
 
   return (
     <section style={s.timeline}>
@@ -56,7 +60,7 @@ export function Timeline({
         <span style={s.addPlus}>
           <PlusIcon size={18} />
         </span>
-        Add entry
+        {t("timeline.addEntry")}
       </button>
 
       {entries == null ? (
@@ -68,8 +72,8 @@ export function Timeline({
           <div style={s.emptyIco}>
             <ClockIcon size={28} />
           </div>
-          <div style={s.emptyTitle}>No entries yet</div>
-          <div style={s.emptySub}>Log from the home screen, or add a past entry above.</div>
+          <div style={s.emptyTitle}>{t("timeline.noEntries")}</div>
+          <div style={s.emptySub}>{t("timeline.noEntriesSub")}</div>
         </div>
       ) : (
         groupByDay(entries).map((group) => (
@@ -87,7 +91,7 @@ export function Timeline({
                     </span>
                     <div style={s.entryMid}>
                       <div style={s.entryLabel}>
-                        {ACTIVITY_LABEL[e.activity]}
+                        {activityLabel(e.activity)}
                         {meta ? <span style={s.entryMeta}> · {meta}</span> : null}
                       </div>
                       <div style={s.entryTime}>
@@ -96,7 +100,7 @@ export function Timeline({
                       </div>
                     </div>
                   </button>
-                  <button onClick={() => onDelete(e)} style={s.entryDel} aria-label="Delete">
+                  <button onClick={() => onDelete(e)} style={s.entryDel} aria-label={t("common.delete")}>
                     <TrashIcon size={17} />
                   </button>
                 </div>

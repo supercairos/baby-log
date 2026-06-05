@@ -5,6 +5,7 @@
  * which enqueues a Mutation, repaints, then flushes.
  */
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   type BabyBuddyClient,
   type Connection,
@@ -44,14 +45,16 @@ import {
   ThemeIcon,
   TimelineIcon,
 } from "../ui/icons";
+import { SUPPORTED_LANGUAGES, LANGUAGE_NAMES, LANGUAGE_FLAGS, currentLanguage } from "../i18n";
 import {
   clearTimerNotifications,
   notificationsSupported,
   requestNotificationPermission,
   syncTimerNotifications,
 } from "./notifications";
-import { fmt, greeting, iso, nowIso, nowMs } from "../lib/format";
-import { ACTIVITY_LABEL, feedingMeta } from "../lib/labels";
+import { fmt, iso, nowIso, nowMs } from "../lib/format";
+import { greeting } from "../lib/datetime";
+import { activityLabel, diaperMeta, feedingMeta } from "../lib/labels";
 import {
   buzz,
   useChildren,
@@ -86,6 +89,7 @@ export function Home({
 }) {
   const { s, activeTile, runCardAccent, toastTone } = useStyles();
   const { palette, pref, cyclePref } = useTheme();
+  const { t, i18n } = useTranslation();
   const now = useNow();
 
   const { children, childId, selectChild } = useChildren(client);
@@ -123,7 +127,28 @@ export function Home({
 
   // Surface permanently-failed writes (rejected field, bad token, …) as a toast — they don't
   // retry, so the user would otherwise see a logged action silently vanish.
-  useEffect(() => onOutboxError((msg) => show(msg, palette.danger, 4500)), [show, palette.danger]);
+  useEffect(
+    () =>
+      onOutboxError((f) => {
+        const known = new Set(["start-timer", "log-diaper", "update-entry", "delete-entry"]);
+        const key = f.actionKind.startsWith("consume")
+          ? "consume"
+          : f.actionKind.startsWith("create")
+            ? "create"
+            : known.has(f.actionKind)
+              ? f.actionKind
+              : "generic";
+        const reason =
+          f.detail ??
+          (f.status === 401 || f.status === 403
+            ? t("error.notAuthorized")
+            : f.status === 0
+              ? t("error.network")
+              : t("error.serverRejected", { status: f.status }));
+        show(t("action.failed", { action: t(`action.${key}`), reason }), palette.danger, 4500);
+      }),
+    [t, show, palette.danger],
+  );
 
   // Mirror running timers into OS notifications (with a Stop action) when enabled.
   useEffect(() => {
@@ -152,16 +177,20 @@ export function Home({
       return;
     }
     if (!(await requestNotificationPermission())) {
-      show("Notifications are blocked — enable them in your browser settings.", palette.danger);
+      show(t("toast.notifBlocked"), palette.danger);
       return;
     }
     setNotify(true);
     localStorage.setItem("baby-log:notify", "on");
     await syncTimerNotifications(running, childId, childFirstName);
-    show(
-      running.length ? "Timer alerts on" : "Timer alerts on — you'll be notified while a timer runs",
-      accentOf("feeding"),
-    );
+    show(running.length ? t("toast.alertsOn") : t("toast.alertsOnHint"), accentOf("feeding"));
+  };
+
+  // Cycle the UI language (the choice is cached in localStorage by the detector).
+  const cycleLanguage = () => {
+    buzz();
+    const idx = SUPPORTED_LANGUAGES.indexOf(currentLanguage());
+    void i18n.changeLanguage(SUPPORTED_LANGUAGES[(idx + 1) % SUPPORTED_LANGUAGES.length]);
   };
 
   // Remember the child's last feeding choice (localStorage instant, server authoritative).
@@ -214,7 +243,7 @@ export function Home({
     const feeding = activity === "feeding" ? lastFeed[childId] : undefined;
     await setTimerMapping({ localId, startedAt, activity, childId, ...(feeding ? { feeding } : {}) });
     submit(mutation);
-    show(`${ACTIVITY_LABEL[activity]} started`, accentOf(activity));
+    show(t("toast.started", { activity: activityLabel(activity) }), accentOf(activity));
     return localId;
   };
 
@@ -244,7 +273,7 @@ export function Home({
         submit(consumeTimerMutation("tummy", localId, childId));
       }
       if (sheet?.type === "feeding") setSheet(null);
-      show(`${ACTIVITY_LABEL[rt.activity]} saved · ${fmt(durationMs)}`, accentOf(rt.activity));
+      show(t("toast.saved", { activity: activityLabel(rt.activity), duration: fmt(durationMs) }), accentOf(rt.activity));
     } finally {
       pending.current.delete(guard);
     }
@@ -315,7 +344,7 @@ export function Home({
     buzz();
     setSheet(null);
     submit(logDiaperMutation(childId, { wet: preset.wet, solid: preset.solid }));
-    show(`Diaper logged · ${preset.label}`, accentOf("diaper"));
+    show(t("toast.diaperLogged", { detail: diaperMeta(preset.wet, preset.solid) }), accentOf("diaper"));
   };
 
   // ── timeline edit / add ──
@@ -376,20 +405,20 @@ export function Home({
   const saveEdit = () => {
     if (!editing || !draft || !editing.activity || childId == null) return;
     if (Number.isNaN(draft.startMs) || (draft.endMs != null && Number.isNaN(draft.endMs))) {
-      show("Enter a valid time", palette.danger); // a cleared datetime field → NaN
+      show(t("toast.enterValidTime"), palette.danger); // a cleared datetime field → NaN
       return;
     }
     if (draft.endMs != null && draft.endMs < draft.startMs) {
-      show("End time can't be before start", palette.danger);
+      show(t("toast.endBeforeStart"), palette.danger);
       return;
     }
     const future = nowMs() + 60_000; // 1-min grace for clock skew
     if (draft.startMs > future || (draft.endMs != null && draft.endMs > future)) {
-      show("Time can't be in the future", palette.danger); // the server rejects it
+      show(t("toast.timeFuture"), palette.danger); // the server rejects it
       return;
     }
     if (editing.activity === "diaper" && !draft.wet && !draft.solid) {
-      show("Pick wet, solid, or both", palette.danger);
+      show(t("toast.pickDiaper"), palette.danger);
       return;
     }
     buzz();
@@ -415,7 +444,7 @@ export function Home({
     removeLocal(e.path, e.id);
     setEditing(null);
     setDraft(null);
-    show("Entry deleted", palette.danger);
+    show(t("toast.entryDeleted"), palette.danger);
   };
 
   const deleteEditing = () => {
@@ -427,7 +456,7 @@ export function Home({
   const runningFeeding = running.find((r) => r.activity === "feeding");
   const feedingElapsed = sheet?.type === "feeding" && runningFeeding ? now - runningFeeding.startedMs : null;
 
-  const themeLabel = pref === "system" ? "System" : pref === "dark" ? "Dark" : "Light";
+  const themeLabel = t(pref === "system" ? "nav.themeSystem" : pref === "dark" ? "nav.themeDark" : "nav.themeLight");
 
   // Dismiss overlays with Escape (the scrim tap is the pointer-first path).
   useEffect(() => {
@@ -462,12 +491,12 @@ export function Home({
             <>
           <header style={s.header}>
             <div style={s.greetRow}>
-              <button onClick={() => { buzz(); setMenu(true); }} style={s.iconBtn} aria-label="Menu">
+              <button onClick={() => { buzz(); setMenu(true); }} style={s.iconBtn} aria-label={t("home.menu")}>
                 <MenuIcon size={22} />
               </button>
               <div style={s.greetWrap}>
                 <div style={s.greet}>{greeting()}</div>
-                <div style={s.greetSub}>{child ? `Tracking ${childName(child)}` : "Loading…"}</div>
+                <div style={s.greetSub}>{child ? t("home.tracking", { name: childName(child) }) : t("common.loading")}</div>
               </div>
             </div>
             {children && children.length > 1 && (
@@ -497,7 +526,7 @@ export function Home({
             {running.length === 0 ? (
               <div style={s.idle}>
                 <div style={s.idleDot} />
-                {child ? `Nothing running for ${child.first_name}` : "Nothing running"}
+                {child ? t("home.nothingRunning", { name: child.first_name }) : t("home.nothingRunningGeneric")}
               </div>
             ) : (
               running.map((rt) => {
@@ -515,21 +544,21 @@ export function Home({
                       </span>
                       <span style={s.runMeta}>
                         <span style={s.runLabel}>
-                          {ACTIVITY_LABEL[rt.activity]}
+                          {activityLabel(rt.activity)}
                           {meta ? ` · ${meta}` : ""}
-                          {stale ? " · still going?" : ""}
+                          {stale ? ` · ${t("home.stillGoing")}` : ""}
                         </span>
                         <span className="tick" style={{ ...s.runTime, color: v.accent }}>
                           {fmt(elapsed)}
                         </span>
                       </span>
-                      <span style={s.runStopHint}>tap to stop</span>
+                      <span style={s.runStopHint}>{t("home.tapToStop")}</span>
                     </button>
                     {rt.activity === "feeding" && (
                       <button
                         onClick={() => void openFeedingRefine(rt)}
                         style={{ ...s.runEdit, color: v.accent, borderColor: `${v.accent}55` }}
-                        aria-label="Edit feeding details"
+                        aria-label={t("home.editFeeding")}
                       >
                         <EditIcon size={16} />
                       </button>
@@ -556,9 +585,15 @@ export function Home({
                   <span style={{ ...s.tileIcon, color: v.accent, ...(on ? { background: `${v.accent}1f` } : {}) }}>
                     <Icon size={32} />
                   </span>
-                  <span style={s.tileLabel}>{ACTIVITY_LABEL[key]}</span>
+                  <span style={s.tileLabel}>{activityLabel(key)}</span>
                   <span style={{ ...s.tileHint, color: on ? v.accent : palette.textFaint }}>
-                    {on ? "tap to stop" : key === "diaper" ? "tap to log" : key === "feeding" ? "pick & start" : "tap to start"}
+                    {on
+                      ? t("home.tapToStop")
+                      : key === "diaper"
+                        ? t("home.tapToLog")
+                        : key === "feeding"
+                          ? t("home.pickAndStart")
+                          : t("home.tapToStart")}
                   </span>
                 </button>
               );
@@ -572,10 +607,10 @@ export function Home({
           element={
             <>
               <div style={s.topbar}>
-                <button onClick={() => { buzz(); setMenu(true); }} style={s.iconBtn} aria-label="Menu">
+                <button onClick={() => { buzz(); setMenu(true); }} style={s.iconBtn} aria-label={t("home.menu")}>
                   <MenuIcon size={22} />
                 </button>
-                <span style={s.topbarTitle}>Timeline</span>
+                <span style={s.topbarTitle}>{t("nav.timeline")}</span>
                 <span style={{ width: 42 }} />
               </div>
               <Timeline entries={entries} onAdd={openAdd} onEdit={openEdit} onDelete={removeEntry} />
@@ -587,12 +622,12 @@ export function Home({
       </div>
 
       {/* Drawer */}
-      {menu && <button tabIndex={-1} style={{ ...s.scrim, cursor: "default" }} onClick={() => setMenu(false)} aria-label="Close menu" />}
+      {menu && <button tabIndex={-1} style={{ ...s.scrim, cursor: "default" }} onClick={() => setMenu(false)} aria-label={t("home.closeMenu")} />}
       <nav
         ref={drawerRef}
         role="dialog"
         aria-modal={menu}
-        aria-label="Menu"
+        aria-label={t("home.menu")}
         tabIndex={-1}
         inert={!menu || undefined}
         style={{ ...s.drawer, ...(menu ? s.drawerOn : {}) }}
@@ -601,43 +636,53 @@ export function Home({
           <span style={s.drawerLogo}>·</span> Baby Log
         </div>
         {([
-          { to: "/", label: "Home", Icon: HomeIcon },
-          { to: "/timeline", label: "Timeline", Icon: TimelineIcon },
+          { to: "/", key: "nav.home", Icon: HomeIcon },
+          { to: "/timeline", key: "nav.timeline", Icon: TimelineIcon },
         ] as const).map((item) => (
           <button key={item.to} onClick={() => { buzz(); navigate(item.to); setMenu(false); }} style={{ ...s.navItem, ...(pathname === item.to ? s.navItemOn : {}) }}>
             <item.Icon size={20} />
-            {item.label}
+            {t(item.key)}
           </button>
         ))}
         <button onClick={() => { buzz(); cyclePref(); }} style={s.navItem}>
           <ThemeIcon size={20} />
-          Theme · {themeLabel}
+          {t("nav.theme", { mode: themeLabel })}
+        </button>
+        <button
+          onClick={() => { buzz(); cycleLanguage(); }}
+          style={s.navItem}
+          aria-label={t("nav.language", { lang: LANGUAGE_NAMES[currentLanguage()] })}
+        >
+          <span style={{ fontSize: 19, lineHeight: 1, width: 20, textAlign: "center" }} aria-hidden>
+            {LANGUAGE_FLAGS[currentLanguage()]}
+          </span>
+          {LANGUAGE_NAMES[currentLanguage()]}
         </button>
         {notificationsSupported() && (
           <button onClick={() => void toggleNotify()} style={s.navItem}>
             <BellIcon size={20} />
-            Timer alerts · {notify ? "On" : "Off"}
+            {notify ? t("nav.alertsOn") : t("nav.alertsOff")}
           </button>
         )}
         {canInstall && (
           <button onClick={() => { buzz(); setMenu(false); void promptInstall(); }} style={s.navItem}>
             <InstallIcon size={20} />
-            Install on home screen
+            {t("nav.install")}
           </button>
         )}
         <div style={s.navDivider} />
         <button onClick={() => { buzz(); setMenu(false); void clearTimerNotifications(); onDisconnect(); }} style={{ ...s.navItem, color: palette.danger }}>
           <DisconnectIcon size={20} />
-          Disconnect
+          {t("nav.disconnect")}
         </button>
         <div style={s.navFoot}>
           <div style={{ wordBreak: "break-all" }}>{instanceHost}</div>
-          <div style={{ marginTop: 3, color: palette.textFainter, fontWeight: 500 }}>Baby Log v{__APP_VERSION__}</div>
+          <div style={{ marginTop: 3, color: palette.textFainter, fontWeight: 500 }}>{t("home.version", { version: __APP_VERSION__ })}</div>
         </div>
       </nav>
 
       {/* Sheets */}
-      {sheetOpen && <button tabIndex={-1} style={{ ...s.scrim, cursor: "default" }} onClick={() => { setSheet(null); setEditing(null); setDraft(null); }} aria-label="Close" />}
+      {sheetOpen && <button tabIndex={-1} style={{ ...s.scrim, cursor: "default" }} onClick={() => { setSheet(null); setEditing(null); setDraft(null); }} aria-label={t("home.close")} />}
       <FeedingSheet
         open={sheet?.type === "feeding"}
         elapsedMs={feedingElapsed}

@@ -39,7 +39,7 @@ import {
   type OutboxRecord,
 } from "./outbox";
 import type { Mutation, LocalId } from "./mutations";
-import { BabyBuddyApiError, TimerAlreadyConsumedError, describeApiError } from "./errors";
+import { BabyBuddyApiError, TimerAlreadyConsumedError, apiErrorDetail } from "./errors";
 import { emitOutboxError } from "./outbox-events";
 import { startTimer, discardTimer } from "./timers";
 import {
@@ -69,19 +69,6 @@ export interface FlushSummary {
   deadLettered: number;
   /** Records still queued (not-yet-ready, blocked, or held by another drainer). */
   remaining: number;
-}
-
-// Short, command-kind-based action label for a failed-write toast. Kept local (a tiny switch
-// on `m.kind`) rather than importing `mutationLabel` from "./mutations" — that value import
-// would create a `sync ↔ mutations` runtime cycle.
-function actionLabel(kind: Mutation["kind"]): string {
-  if (kind === "start-timer") return "Starting the timer";
-  if (kind.startsWith("consume")) return "Saving the activity";
-  if (kind.startsWith("create")) return "Adding the entry";
-  if (kind === "log-diaper") return "Logging the diaper";
-  if (kind === "update-entry") return "Saving the change";
-  if (kind === "delete-entry") return "Deleting the entry";
-  return "Saving";
 }
 
 let running: Promise<FlushSummary> | null = null;
@@ -194,7 +181,7 @@ async function drain(client: BabyBuddyClient): Promise<FlushSummary> {
         // Give up and DROP the record: it will never land (a rejected 4xx, or out of retries),
         // and a kept "dead" entry serves nothing here — it only accumulates and can mis-suppress
         // a timer. Surface it once so the action isn't lost silently.
-        emitOutboxError(`${actionLabel(m.kind)} failed — ${describeApiError(err)}`);
+        emitOutboxError({ actionKind: m.kind, ...apiErrorDetail(err) });
         if (record.seq !== undefined) await removeRecord(record.seq);
         // If this was a LONE start (no queued stop), drop its mapping too so it doesn't leave a
         // phantom running card for a timer the server never created. If a stop is also queued

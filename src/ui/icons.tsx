@@ -128,6 +128,12 @@ export const ThemeIcon = (p: IconProps) => (
     <path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4" />
   </Svg>
 );
+export const GlobeIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M3 12h18M12 3c2.6 2.6 2.6 15.4 0 18M12 3c-2.6 2.6-2.6 15.4 0 18" />
+  </Svg>
+);
 
 // eslint-disable-next-line react-refresh/only-export-components -- icon map co-located with its glyphs
 export const ACTIVITY_ICON: Record<ActivityKey, (p: IconProps) => React.ReactElement> = {

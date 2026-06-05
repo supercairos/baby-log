@@ -11,8 +11,9 @@ import {
   type FeedingMethod,
   type FeedingType,
 } from "../api";
+import { useTranslation } from "react-i18next";
 import { useStyles, useTheme } from "../theme";
-import { FEED_METHOD_OPTIONS, FEED_TYPE_OPTIONS } from "../lib/labels";
+import { activityLabel, feedMethodOptions, feedTypeOptions } from "../lib/labels";
 import { fmt, toLocalInput, fromLocalInput } from "../lib/format";
 import { ACTIVITY_ICON, TrashIcon } from "../ui/icons";
 import { buzz } from "./hooks";
@@ -56,32 +57,34 @@ export function FeedingSheet({
   onDone: () => void;
 }) {
   const { s, chipOn } = useStyles();
+  const { t } = useTranslation();
   const feed = useTheme().palette.accents.feeding.accent;
   const allowedMethods = type ? METHODS_FOR_TYPE[type] : [];
 
   return (
-    <SheetShell open={open} label="Feeding details">
+    <SheetShell open={open} label={t("sheet.feedingDetails")}>
       <div style={s.sheetHandle} />
-      <div style={s.sheetTitle}>Feeding</div>
+      <div style={s.sheetTitle}>{t("activity.feeding")}</div>
       <div style={s.sheetRunning}>
         <span className="breathe" style={{ width: 6, height: 6, borderRadius: "50%", background: feed }} />
-        Timer running{elapsedMs != null ? ` · ${fmt(elapsedMs)}` : ""} — add details if you like
+        {t("sheet.timerRunning")}
+        {elapsedMs != null ? ` · ${fmt(elapsedMs)}` : ""} — {t("sheet.addDetailsHint")}
       </div>
 
-      <div style={s.sheetGroup}>Type</div>
+      <div style={s.sheetGroup}>{t("sheet.type")}</div>
       <div style={s.chips}>
-        {FEED_TYPE_OPTIONS.map((t) => (
-          <button key={t.id} aria-pressed={type === t.id} onClick={() => onType(t.id)} style={{ ...s.chip, ...(type === t.id ? chipOn(feed) : {}) }}>
-            {t.label}
+        {feedTypeOptions().map((opt) => (
+          <button key={opt.id} aria-pressed={type === opt.id} onClick={() => onType(opt.id)} style={{ ...s.chip, ...(type === opt.id ? chipOn(feed) : {}) }}>
+            {opt.label}
           </button>
         ))}
       </div>
 
       {allowedMethods.length > 0 && (
         <>
-          <div style={s.sheetGroup}>Method</div>
+          <div style={s.sheetGroup}>{t("sheet.method")}</div>
           <div style={s.chips}>
-            {FEED_METHOD_OPTIONS.filter((m) => allowedMethods.includes(m.id)).map((m) => (
+            {feedMethodOptions().filter((m) => allowedMethods.includes(m.id)).map((m) => (
               <button key={m.id} aria-pressed={method === m.id} onClick={() => onMethod(m.id)} style={{ ...s.chip, ...(method === m.id ? chipOn(feed) : {}) }}>
                 {m.label}
               </button>
@@ -91,7 +94,7 @@ export function FeedingSheet({
       )}
 
       <button onClick={onDone} style={s.cta}>
-        Done
+        {t("common.done")}
       </button>
     </SheetShell>
   );
@@ -100,10 +103,11 @@ export function FeedingSheet({
 // ── Diaper ──────────────────────────────────────────────────────────────────
 export function DiaperSheet({ open, onLog }: { open: boolean; onLog: (preset: { wet: boolean; solid: boolean; label: string }) => void }) {
   const { s } = useStyles();
+  const { t } = useTranslation();
   return (
-    <SheetShell open={open} label="Log diaper">
+    <SheetShell open={open} label={t("sheet.logDiaper")}>
       <div style={s.sheetHandle} />
-      <div style={s.sheetTitle}>Diaper</div>
+      <div style={s.sheetTitle}>{t("activity.diaper")}</div>
       <div style={s.diaperRow}>
         {DIAPER_STATES.map((o) => (
           <button key={o.id} onClick={() => onLog(o)} style={s.diaperBtn}>
@@ -113,7 +117,7 @@ export function DiaperSheet({ open, onLog }: { open: boolean; onLog: (preset: { 
                 background: o.solid && o.wet ? "linear-gradient(135deg,#a4c8a0,#c9a86a)" : o.solid ? "#c9a86a" : "#a4c8a0",
               }}
             />
-            {o.label}
+            {t(`diaper.${o.id}`)}
           </button>
         ))}
       </div>
@@ -138,35 +142,38 @@ export function EntrySheet({
   onDelete: () => void;
 }) {
   const { s, chipOn } = useStyles();
+  const { t } = useTranslation();
   const { palette } = useTheme();
   const feed = palette.accents.feeding.accent;
   const open = !!(target && draft);
 
-  if (!target || !draft) return <SheetShell open={false} label="Entry">{null}</SheetShell>;
+  if (!target || !draft) return <SheetShell open={false} label={t("sheet.entry")}>{null}</SheetShell>;
 
   const adding = target.isNew;
   const needsKind = adding && !target.activity;
   const isTimed = target.activity != null && target.activity !== "diaper";
   const allowed = draft.type ? METHODS_FOR_TYPE[draft.type] : [];
   const endBeforeStart = draft.endMs != null && draft.endMs < draft.startMs;
-  const label = target.activity ? ACTIVITIES[target.activity].label : "entry";
+  const label = target.activity ? activityLabel(target.activity) : t("sheet.entry");
 
   return (
-    <SheetShell open={open} label={adding ? "Add entry" : `Edit ${label}`}>
+    <SheetShell open={open} label={adding ? t("sheet.addEntry") : t("sheet.editActivity", { activity: label })}>
       <div style={s.sheetHandle} />
       <div style={s.editHead}>
-        <div style={s.sheetTitle}>{adding ? (target.activity ? `Add ${label}` : "Add entry") : `Edit ${label}`}</div>
+        <div style={s.sheetTitle}>
+          {adding ? (target.activity ? t("sheet.addActivity", { activity: label }) : t("sheet.addEntry")) : t("sheet.editActivity", { activity: label })}
+        </div>
         {!adding && (
           <button onClick={onDelete} style={s.editDel}>
             <TrashIcon size={16} />
-            Delete
+            {t("common.delete")}
           </button>
         )}
       </div>
 
       {needsKind && (
         <>
-          <div style={s.sheetGroup}>Activity</div>
+          <div style={s.sheetGroup}>{t("sheet.activity")}</div>
           <div style={s.chips}>
             {(Object.keys(ACTIVITIES) as ActivityKey[]).map((key) => {
               const Icon = ACTIVITY_ICON[key];
@@ -175,7 +182,7 @@ export function EntrySheet({
                   <span style={{ color: palette.accents[key].accent, display: "grid", placeItems: "center" }}>
                     <Icon size={17} />
                   </span>
-                  {ACTIVITIES[key].label}
+                  {activityLabel(key)}
                 </button>
               );
             })}
@@ -185,31 +192,31 @@ export function EntrySheet({
 
       {target.activity === "feeding" && (
         <>
-          <div style={s.sheetGroup}>Type</div>
+          <div style={s.sheetGroup}>{t("sheet.type")}</div>
           <div style={s.chips}>
-            {FEED_TYPE_OPTIONS.map((t) => (
+            {feedTypeOptions().map((opt) => (
               <button
-                key={t.id}
-                aria-pressed={draft.type === t.id}
+                key={opt.id}
+                aria-pressed={draft.type === opt.id}
                 onClick={() => {
                   buzz();
                   setDraft((d) => {
-                    const al = METHODS_FOR_TYPE[t.id];
+                    const al = METHODS_FOR_TYPE[opt.id];
                     const method = d.method && al.includes(d.method) ? d.method : (al.length === 1 ? al[0] : null);
-                    return { ...d, type: t.id, method };
+                    return { ...d, type: opt.id, method };
                   });
                 }}
-                style={{ ...s.chip, ...(draft.type === t.id ? chipOn(feed) : {}) }}
+                style={{ ...s.chip, ...(draft.type === opt.id ? chipOn(feed) : {}) }}
               >
-                {t.label}
+                {opt.label}
               </button>
             ))}
           </div>
           {allowed.length > 0 && (
             <>
-              <div style={s.sheetGroup}>Method</div>
+              <div style={s.sheetGroup}>{t("sheet.method")}</div>
               <div style={s.chips}>
-                {FEED_METHOD_OPTIONS.filter((m) => allowed.includes(m.id)).map((m) => (
+                {feedMethodOptions().filter((m) => allowed.includes(m.id)).map((m) => (
                   <button
                     key={m.id}
                     aria-pressed={draft.method === m.id}
@@ -227,13 +234,13 @@ export function EntrySheet({
 
       {target.activity === "diaper" && (
         <>
-          <div style={s.sheetGroup}>Contents</div>
+          <div style={s.sheetGroup}>{t("sheet.contents")}</div>
           <div style={s.chips}>
             <button aria-pressed={draft.wet} onClick={() => { buzz(); setDraft((d) => ({ ...d, wet: !d.wet })); }} style={{ ...s.chip, ...(draft.wet ? chipOn("#a4c8a0") : {}) }}>
-              {draft.wet ? "✓ " : ""}Wet
+              {draft.wet ? "✓ " : ""}{t("diaper.wet")}
             </button>
             <button aria-pressed={draft.solid} onClick={() => { buzz(); setDraft((d) => ({ ...d, solid: !d.solid })); }} style={{ ...s.chip, ...(draft.solid ? chipOn("#c9a86a") : {}) }}>
-              {draft.solid ? "✓ " : ""}Solid
+              {draft.solid ? "✓ " : ""}{t("diaper.solid")}
             </button>
           </div>
         </>
@@ -241,7 +248,7 @@ export function EntrySheet({
 
       {target.activity && (
         <>
-          <div style={s.sheetGroup}>{isTimed ? "Start" : "Time"}</div>
+          <div style={s.sheetGroup}>{isTimed ? t("sheet.start") : t("sheet.time")}</div>
           <input
             type="datetime-local"
             value={toLocalInput(draft.startMs)}
@@ -250,7 +257,7 @@ export function EntrySheet({
           />
           {isTimed && (
             <>
-              <div style={s.sheetGroup}>End</div>
+              <div style={s.sheetGroup}>{t("sheet.end")}</div>
               <input
                 type="datetime-local"
                 value={toLocalInput(draft.endMs ?? draft.startMs)}
@@ -261,13 +268,13 @@ export function EntrySheet({
               />
               {draft.endMs != null && (
                 <div role="status" aria-live="polite" style={{ ...s.durReadout, ...(endBeforeStart ? s.durBad : {}) }}>
-                  {endBeforeStart ? "End is before start" : `Duration · ${fmt(draft.endMs - draft.startMs)}`}
+                  {endBeforeStart ? t("sheet.endIsBeforeStart") : t("sheet.duration", { duration: fmt(draft.endMs - draft.startMs) })}
                 </div>
               )}
             </>
           )}
           <button onClick={onSave} style={s.cta}>
-            {adding ? "Add entry" : "Save changes"}
+            {adding ? t("sheet.addEntry") : t("sheet.saveChanges")}
           </button>
         </>
       )}

@@ -4,6 +4,7 @@
  * into the address field. Every path validates with `GET /api/children/` before saving.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { type Connection, connectionFromManual, parseLoginQr, validateConnection } from "../api";
 import { useStyles } from "../theme";
 import { config } from "../config/config";
@@ -44,6 +45,7 @@ async function getQrDetector(): Promise<BarcodeDetectorLike | null> {
 
 export function LoginScreen({ onConnect }: { onConnect: (conn: Connection) => void }) {
   const { s } = useStyles();
+  const { t } = useTranslation();
   const [mode, setMode] = useState<Mode>("landing");
   const [url, setUrl] = useState(config.babyBuddyUrl); // pre-filled from react-env when set
   const [token, setToken] = useState("");
@@ -73,28 +75,28 @@ export function LoginScreen({ onConnect }: { onConnect: (conn: Connection) => vo
       }
       setErr(
         res.reason === "unauthorized"
-          ? "That token was rejected. Check the API key."
+          ? t("login.errTokenRejected")
           : res.reason === "unreachable"
-            ? "Couldn't reach the server. Check the address and your connection."
-            : `Connection failed (HTTP ${res.status}).`,
+            ? t("login.errUnreachable")
+            : t("login.errFailed", { status: res.status }),
       );
       setMode(fallback);
     },
-    [onConnect, stopCamera],
+    [onConnect, stopCamera, t],
   );
 
   const startScan = useCallback(async () => {
     buzz();
     setErr("");
     if (!navigator.mediaDevices?.getUserMedia) {
-      setErr("Camera scanning isn't available here — enter your server and token instead.");
+      setErr(t("login.errNoCamera"));
       setMode("manual");
       return;
     }
     setMode("scanning");
     const detector = await getQrDetector().catch(() => null);
     if (!detector) {
-      setErr("Couldn't start the QR scanner — enter your server and token instead.");
+      setErr(t("login.errScannerFailed"));
       setMode("manual");
       return;
     }
@@ -122,10 +124,10 @@ export function LoginScreen({ onConnect }: { onConnect: (conn: Connection) => vo
       rafRef.current = requestAnimationFrame(tick);
     } catch {
       stopCamera();
-      setErr("Couldn't open the camera — enter your server and token instead.");
+      setErr(t("login.errCameraOpen"));
       setMode("manual");
     }
-  }, [connectWith, stopCamera]);
+  }, [connectWith, stopCamera, t]);
 
   const submitManual = useCallback(() => {
     buzz();
@@ -136,11 +138,11 @@ export function LoginScreen({ onConnect }: { onConnect: (conn: Connection) => vo
       return;
     }
     if (!url.trim() || !token.trim()) {
-      setErr("Enter both the server address and your API token.");
+      setErr(t("login.errEnterBoth"));
       return;
     }
     void connectWith(connectionFromManual(url, token), "manual");
-  }, [url, token, connectWith]);
+  }, [url, token, connectWith, t]);
 
   const cancelScan = useCallback(() => {
     stopCamera();
@@ -156,28 +158,28 @@ export function LoginScreen({ onConnect }: { onConnect: (conn: Connection) => vo
           <BabyLogMark size={62} />
         </div>
         <div style={s.loginAppName}>Baby Log</div>
-        <div style={s.loginTagline}>A calmer way to track feeds, sleep, and changes — connected to your Baby Buddy.</div>
+        <div style={s.loginTagline}>{t("app.tagline")}</div>
       </div>
 
       <div style={s.loginPanel}>
         {mode === "scanning" ? (
           <>
             <video ref={videoRef} playsInline muted style={s.loginVideo} />
-            <div style={s.loginScanSub}>Point at your Login QR code…</div>
+            <div style={s.loginScanSub}>{t("login.pointAtQr")}</div>
             {err && <div style={s.loginErr}>{err}</div>}
             <button onClick={cancelScan} style={s.loginTextBtn}>
-              ← Cancel
+              {t("common.cancel")}
             </button>
           </>
         ) : mode === "connecting" ? (
           <div style={s.loginBusy}>
             <div className="spin" style={s.loginSpinner} />
-            <div style={s.loginBusyText}>Connecting…</div>
+            <div style={s.loginBusyText}>{t("common.connecting")}</div>
           </div>
         ) : mode === "manual" ? (
           <>
-            <div style={s.loginPanelTitle}>Connect manually</div>
-            <div style={s.sheetGroup}>Server address</div>
+            <div style={s.loginPanelTitle}>{t("login.connectManually")}</div>
+            <div style={s.sheetGroup}>{t("login.serverAddress")}</div>
             <input
               value={url}
               onChange={(e) => setUrl(e.target.value)}
@@ -188,11 +190,11 @@ export function LoginScreen({ onConnect }: { onConnect: (conn: Connection) => vo
               inputMode="url"
               style={s.loginInput}
             />
-            <div style={s.sheetGroup}>API token</div>
+            <div style={s.sheetGroup}>{t("login.apiToken")}</div>
             <input
               value={token}
               onChange={(e) => setToken(e.target.value)}
-              placeholder="Your Baby Buddy API key"
+              placeholder={t("login.tokenPlaceholder")}
               autoCapitalize="off"
               autoCorrect="off"
               spellCheck={false}
@@ -200,10 +202,10 @@ export function LoginScreen({ onConnect }: { onConnect: (conn: Connection) => vo
             />
             {err && <div style={s.loginErr}>{err}</div>}
             <button onClick={submitManual} style={s.cta}>
-              Connect
+              {t("login.connect")}
             </button>
             <button onClick={() => { buzz(); setMode("landing"); setErr(""); }} style={s.loginTextBtn}>
-              ← Back
+              {t("common.back")}
             </button>
           </>
         ) : (
@@ -212,25 +214,26 @@ export function LoginScreen({ onConnect }: { onConnect: (conn: Connection) => vo
               <span style={{ display: "grid", placeItems: "center" }}>
                 <ScanIcon size={24} />
               </span>
-              Scan Login QR code
+              {t("login.scan")}
             </button>
             <div style={s.loginScanSub}>
-              Find it in Baby Buddy under <strong>User → Add a device</strong>
+              {t("login.findItPre")}
+              <strong>{t("login.findItBold")}</strong>
             </div>
             {err && <div style={s.loginErr}>{err}</div>}
             <div style={s.loginDivider}>
               <span style={s.loginDividerLine} />
-              <span style={s.loginDividerText}>or</span>
+              <span style={s.loginDividerText}>{t("common.or")}</span>
               <span style={s.loginDividerLine} />
             </div>
             <button onClick={() => { buzz(); setMode("manual"); }} style={s.loginManualBtn}>
-              Enter address &amp; token manually
+              {t("login.enterManually")}
             </button>
           </>
         )}
       </div>
 
-      <div style={s.loginFoot}>Your data stays on your own Baby Buddy server.</div>
+      <div style={s.loginFoot}>{t("login.dataStays")}</div>
     </div>
   );
 }
