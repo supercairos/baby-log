@@ -553,8 +553,8 @@ export function Home({
                           {fmt(elapsed)}
                         </span>
                       </span>
-                      <span style={{ ...s.runStopHint, color: v.accent, display: "grid", placeItems: "center" }} aria-hidden>
-                        <StopIcon size={26} />
+                      <span style={{ ...s.runEdit, color: v.accent, borderColor: `${v.accent}55` }} aria-hidden>
+                        <StopIcon size={18} />
                       </span>
                     </button>
                     {rt.activity === "feeding" && (
