@@ -84,6 +84,13 @@ export const PlusIcon = (p: IconProps) => (
     <path d="M12 5v14M5 12h14" />
   </Svg>
 );
+/** Stop glyph — a filled rounded square inside a ring (the running-timer "tap to stop"). */
+export const StopIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="9.5" />
+    <rect x="8.5" y="8.5" width="7" height="7" rx="1.6" fill="currentColor" />
+  </Svg>
+);
 export const ClockIcon = (p: IconProps) => (
   <Svg strokeWidth={1.6} {...p}>
     <circle cx="12" cy="12" r="9" />

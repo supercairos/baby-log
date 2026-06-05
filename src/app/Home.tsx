@@ -42,6 +42,7 @@ import {
   HomeIcon,
   InstallIcon,
   MenuIcon,
+  StopIcon,
   ThemeIcon,
   TimelineIcon,
 } from "../ui/icons";
@@ -537,7 +538,7 @@ export function Home({
                 const stale = rt.activity === "sleep" && elapsed > STALE_SLEEP_MS;
                 return (
                   <div key={rt.key} className="run-in" style={{ ...s.runCard, ...runCardAccent(v) }}>
-                    <button onClick={() => void stop(rt)} style={s.runBody}>
+                    <button onClick={() => void stop(rt)} style={s.runBody} aria-label={`${activityLabel(rt.activity)} — ${t("home.tapToStop")}`}>
                       <span style={{ ...s.runIcon, color: v.accent }}>
                         <Icon size={22} />
                         <span className="breathe" style={{ ...s.liveDot, background: v.accent }} />
@@ -552,7 +553,9 @@ export function Home({
                           {fmt(elapsed)}
                         </span>
                       </span>
-                      <span style={s.runStopHint}>{t("home.tapToStop")}</span>
+                      <span style={{ ...s.runStopHint, color: v.accent, display: "grid", placeItems: "center" }} aria-hidden>
+                        <StopIcon size={26} />
+                      </span>
                     </button>
                     {rt.activity === "feeding" && (
                       <button
