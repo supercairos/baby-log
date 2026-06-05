@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.8.0](https://github.com/supercairos/baby-log/compare/baby-log-v1.7.0...baby-log-v1.8.0) (2026-06-05)
+
+
+### Features
+
+* show a stop icon on the running-timer card instead of text ([03d7459](https://github.com/supercairos/baby-log/commit/03d7459d1ffdab76cc8773193be00641a9fed82b))
+* translate the UI with i18next (English, French, Spanish, German, Italian) ([cd0853f](https://github.com/supercairos/baby-log/commit/cd0853f48c825b4467a082a2bfa4ec0740684793))
+
+
+### Bug Fixes
+
+* drop the redundant "tap Stop to log" from the notification body ([fa9ea99](https://github.com/supercairos/baby-log/commit/fa9ea99505d69a6af2707735b688678117d63068))
+
 ## [1.7.0](https://github.com/supercairos/baby-log/compare/baby-log-v1.6.0...baby-log-v1.7.0) (2026-06-05)
 
 
