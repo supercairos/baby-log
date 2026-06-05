@@ -13,7 +13,10 @@ import { ACTIVITY_LABEL, feedingMeta } from "../lib/labels";
 import { clockTime } from "../lib/format";
 
 const TAG_PREFIX = "timer:";
-const ICON = `${import.meta.env.BASE_URL}pwa-192.png`;
+// Only a `badge` (the small status-bar glyph), no large `icon`: Android always shows a small
+// icon, so also setting a large icon makes the same mark appear twice (small top-left + large
+// right). The badge is a transparent monochrome glyph, not the full color app icon.
+const BADGE = `${import.meta.env.BASE_URL}badge-mono.png`;
 
 export function notificationsSupported(): boolean {
   return typeof window !== "undefined" && "Notification" in window && "serviceWorker" in navigator;
@@ -57,8 +60,7 @@ export async function syncTimerNotifications(running: RunningTimer[], childId: n
     const options = {
       tag: TAG_PREFIX + rt.key,
       body: `Started ${clockTime(rt.startedMs)}${meta ? ` · ${meta}` : ""} — tap Stop to log.`,
-      icon: ICON,
-      badge: ICON,
+      badge: BADGE,
       // NOT silent: on Android a silent notification skips the heads-up banner and sound and
       // lands quietly in the shade — easy to miss. No spam, because the loop above only reaches
       // here for timers not already on screen, so each running timer alerts exactly once.

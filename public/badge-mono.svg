@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Monochrome status-bar badge: a white bottle silhouette on transparent. Android tints it
+       and uses the alpha, so it must be a clean glyph (not the full color app icon). -->
+  <g fill="#ffffff">
+    <rect x="240" y="110" width="32" height="40" rx="16" />
+    <rect x="221" y="146" width="70" height="28" rx="11" />
+    <rect x="221" y="166" width="70" height="16" />
+    <rect x="194" y="176" width="124" height="244" rx="48" />
+  </g>
+</svg>

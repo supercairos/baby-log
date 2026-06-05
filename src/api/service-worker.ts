@@ -40,7 +40,6 @@ interface SwNotification {
   readonly tag: string;
   readonly title: string;
   readonly body: string;
-  readonly icon: string;
   readonly badge: string;
   close(): void;
 }
@@ -192,7 +191,6 @@ async function reshowIfStillRunning(n: SwNotification): Promise<void> {
   await sw.registration.showNotification(n.title, {
     tag: n.tag,
     body: n.body,
-    icon: n.icon,
     badge: n.badge,
     requireInteraction: true,
     renotify: false,
