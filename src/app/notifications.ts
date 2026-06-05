@@ -9,14 +9,21 @@
  * button may not render (tapping opens the app instead); Android/desktop Chrome show "Stop".
  */
 import type { RunningTimer } from "./hooks";
+import type { TimerActivityKey } from "../api";
 import { ACTIVITY_LABEL, feedingMeta } from "../lib/labels";
 import { clockTime } from "../lib/format";
 
 const TAG_PREFIX = "timer:";
-// Only a `badge` (the small status-bar glyph), no large `icon`: Android always shows a small
-// icon, so also setting a large icon makes the same mark appear twice (small top-left + large
-// right). The badge is a transparent monochrome glyph, not the full color app icon.
+// `badge` is the small monochrome status-bar glyph. `icon` is the large circle — Android always
+// draws that circle (filling it with a generated initial if empty), so rather than leave it
+// blank we give it a per-activity icon: it shows what's running (bottle / moon / figure) and is
+// distinct from the small app icon for sleep & tummy.
 const BADGE = `${import.meta.env.BASE_URL}badge-mono.png`;
+const ICON: Record<TimerActivityKey, string> = {
+  feeding: `${import.meta.env.BASE_URL}notif-feeding.png`,
+  sleep: `${import.meta.env.BASE_URL}notif-sleep.png`,
+  tummy: `${import.meta.env.BASE_URL}notif-tummy.png`,
+};
 
 export function notificationsSupported(): boolean {
   return typeof window !== "undefined" && "Notification" in window && "serviceWorker" in navigator;
@@ -60,6 +67,7 @@ export async function syncTimerNotifications(running: RunningTimer[], childId: n
     const options = {
       tag: TAG_PREFIX + rt.key,
       body: `Started ${clockTime(rt.startedMs)}${meta ? ` · ${meta}` : ""} — tap Stop to log.`,
+      icon: ICON[rt.activity],
       badge: BADGE,
       // NOT silent: on Android a silent notification skips the heads-up banner and sound and
       // lands quietly in the shade — easy to miss. No spam, because the loop above only reaches
