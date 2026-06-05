@@ -139,7 +139,18 @@ function coalesceDecisions(records: OutboxRecord[]): Map<LocalId, "consume" | "d
 }
 
 async function drain(client: BabyBuddyClient): Promise<FlushSummary> {
-  const records = (await allRecords()).filter((r) => !r.dead);
+  // Purge any legacy dead-lettered records. Older builds marked permanently-failed writes
+  // `dead` and kept them forever; they never run, only pile up, and (until fixed) could hide a
+  // running timer. New failures are dropped outright (see the catch below), so this just
+  // self-heals existing installs on the next flush.
+  const records: OutboxRecord[] = [];
+  for (const r of await allRecords()) {
+    if (r.dead) {
+      if (r.seq !== undefined) await removeRecord(r.seq);
+    } else {
+      records.push(r);
+    }
+  }
   const coalesce = coalesceDecisions(records);
   // localIds with a start-timer record still queued (not yet executed this pass). A
   // consume/discard must wait until its start runs first — regardless of seq order.
@@ -179,30 +190,31 @@ async function drain(client: BabyBuddyClient): Promise<FlushSummary> {
       const status = err instanceof BabyBuddyApiError ? err.status : 0;
       // Client errors (except the already-handled timer-gone race) won't self-heal.
       const permanent = (status >= 400 && status < 500) || attempts >= MAX_ATTEMPTS;
-      await updateRecord({
-        ...record,
-        attempts,
-        nextAttemptAt: permanent ? record.nextAttemptAt : now + backoffMs(attempts),
-        lastError: err instanceof Error ? err.message : String(err),
-        dead: permanent || undefined,
-      });
       if (permanent) {
-        // Tell the UI this write will never land (e.g. a rejected field) — it's not retrying.
+        // Give up and DROP the record: it will never land (a rejected 4xx, or out of retries),
+        // and a kept "dead" entry serves nothing here — it only accumulates and can mis-suppress
+        // a timer. Surface it once so the action isn't lost silently.
         emitOutboxError(`${actionLabel(m.kind)} failed — ${describeApiError(err)}`);
-        // Dead-letter the start. If a stop is also queued (coalesce), keep the mapping so the
-        // stop can still direct-create the entry from startedAt. If it's a LONE start (no
-        // queued stop), drop the mapping so it doesn't leave a phantom running card ticking
-        // forever for a timer the server never created.
+        if (record.seq !== undefined) await removeRecord(record.seq);
+        // If this was a LONE start (no queued stop), drop its mapping too so it doesn't leave a
+        // phantom running card for a timer the server never created. If a stop is also queued
+        // (coalesce), keep the mapping so the stop can still direct-create the entry.
         if (isStart && localId) {
           unprocessedStarts.delete(localId);
           if (!coalesce.has(localId)) await deleteTimerMapping(localId);
         }
         deadLettered++;
       } else {
+        await updateRecord({
+          ...record,
+          attempts,
+          nextAttemptAt: now + backoffMs(attempts),
+          lastError: err instanceof Error ? err.message : String(err),
+        });
         if (isStart && localId) blocked.add(localId);
         failed++;
+        remaining++;
       }
-      remaining++;
     }
   }
 
