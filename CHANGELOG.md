@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.7.0](https://github.com/supercairos/baby-log/compare/baby-log-v1.6.0...baby-log-v1.7.0) (2026-06-05)
+
+
+### Features
+
+* show the child's name in the timer notification ([e79f96f](https://github.com/supercairos/baby-log/commit/e79f96f5fa107c89480654f1e6197b0551992e40))
+
+
+### Bug Fixes
+
+* drop permanently-failed writes instead of keeping dead outbox entries ([5887bd1](https://github.com/supercairos/baby-log/commit/5887bd127b9c04c09e12ecd581c3d259685a98f6))
+* give the timer notification a per-activity large icon ([7ff20d7](https://github.com/supercairos/baby-log/commit/7ff20d76123d33977c83869ae77ccd27916cf9d6))
+
 ## [1.6.0](https://github.com/supercairos/baby-log/compare/baby-log-v1.5.1...baby-log-v1.6.0) (2026-06-05)
 
 
