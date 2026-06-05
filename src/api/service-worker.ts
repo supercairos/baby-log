@@ -205,6 +205,7 @@ async function timerStillRunning(data: TimerNotifData): Promise<boolean> {
   if (!data.localId) return false; // server-only card — the page owns its lifecycle
   const [maps, records] = await Promise.all([allTimerMappings(), allRecords()]);
   const stopQueued = records.some((r) => {
+    if (r.dead) return false; // a dead stop never runs — it doesn't mean the timer is stopping
     const m = r.mutation;
     return (
       (m.kind === "consume-feeding" ||

@@ -150,6 +150,7 @@ async function computeRunning(client: BabyBuddyClient, childId: number): Promise
 
   const pendingStops = new Set<LocalId>();
   for (const r of records) {
+    if (r.dead) continue; // a dead (permanently-failed) stop never runs — it must not hide its timer
     const m = r.mutation;
     if (m.kind === "consume-feeding" || m.kind === "consume-sleep" || m.kind === "consume-tummy" || m.kind === "discard-timer") {
       pendingStops.add(m.localId);
