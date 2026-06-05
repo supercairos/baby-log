@@ -109,6 +109,7 @@ export function Home({
 
   const accentOf = (a: ActivityKey) => palette.accents[a].accent;
   const child = children?.find((c) => c.id === childId) ?? null;
+  const childFirstName = child?.first_name ?? null; // shown in timer notifications
   const instanceHost = (() => {
     try {
       return new URL(connection.url).host;
@@ -126,8 +127,8 @@ export function Home({
 
   // Mirror running timers into OS notifications (with a Stop action) when enabled.
   useEffect(() => {
-    if (notify) void syncTimerNotifications(running, childId);
-  }, [notify, running, childId]);
+    if (notify) void syncTimerNotifications(running, childId, childFirstName);
+  }, [notify, running, childId, childFirstName]);
 
   // Stopping a timer from its notification (handled in the SW) → refresh the open app.
   useEffect(() => {
@@ -156,7 +157,7 @@ export function Home({
     }
     setNotify(true);
     localStorage.setItem("baby-log:notify", "on");
-    await syncTimerNotifications(running, childId);
+    await syncTimerNotifications(running, childId, childFirstName);
     show(
       running.length ? "Timer alerts on" : "Timer alerts on — you'll be notified while a timer runs",
       accentOf("feeding"),

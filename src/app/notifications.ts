@@ -44,8 +44,13 @@ async function readyRegistration(): Promise<ServiceWorkerRegistration | null> {
   return navigator.serviceWorker.ready.catch(() => null);
 }
 
-/** Reconcile notifications with the current running timers: show/refresh each, close removed. */
-export async function syncTimerNotifications(running: RunningTimer[], childId: number | null): Promise<void> {
+/** Reconcile notifications with the current running timers: show/refresh each, close removed.
+ *  `childName` (the selected child these timers belong to) is shown in the title. */
+export async function syncTimerNotifications(
+  running: RunningTimer[],
+  childId: number | null,
+  childName: string | null,
+): Promise<void> {
   if (!notificationsGranted()) return;
   const reg = await readyRegistration();
   if (!reg) return;
@@ -85,7 +90,10 @@ export async function syncTimerNotifications(running: RunningTimer[], childId: n
         feeding: rt.feeding,
       },
     };
-    await reg.showNotification(`${ACTIVITY_LABEL[rt.activity]} running`, options);
+    const title = childName
+      ? `${childName} · ${ACTIVITY_LABEL[rt.activity]} running`
+      : `${ACTIVITY_LABEL[rt.activity]} running`;
+    await reg.showNotification(title, options);
   }
 }
 
