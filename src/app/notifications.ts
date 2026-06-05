@@ -71,7 +71,7 @@ export async function syncTimerNotifications(
     const meta = rt.activity === "feeding" ? feedingMeta(rt.feeding?.type, rt.feeding?.method) : "";
     const options = {
       tag: TAG_PREFIX + rt.key,
-      body: `Started ${clockTime(rt.startedMs)}${meta ? ` · ${meta}` : ""} — tap Stop to log.`,
+      body: `Started ${clockTime(rt.startedMs)}${meta ? ` · ${meta}` : ""}`,
       icon: ICON[rt.activity],
       badge: BADGE,
       // NOT silent: on Android a silent notification skips the heads-up banner and sound and
