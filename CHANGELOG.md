@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.6.0](https://github.com/supercairos/baby-log/compare/baby-log-v1.5.1...baby-log-v1.6.0) (2026-06-05)
+
+
+### Features
+
+* keep the running-timer notification sticky (re-show if dismissed) ([a0d62c4](https://github.com/supercairos/baby-log/commit/a0d62c41b76187d570ecd0f4745965eb1ebf19ac))
+
+
+### Bug Fixes
+
+* don't let dead (failed) stop mutations hide a running timer ([ff9cf72](https://github.com/supercairos/baby-log/commit/ff9cf7297bcfcab3f2371f0bed2c63ee68724d46))
+* stop the timer notification showing its icon twice on Android ([bfece69](https://github.com/supercairos/baby-log/commit/bfece6988148c0dccc57a0e3227cfefbda01c556))
+
 ## [1.5.1](https://github.com/supercairos/baby-log/compare/baby-log-v1.5.0...baby-log-v1.5.1) (2026-06-04)
 
 
