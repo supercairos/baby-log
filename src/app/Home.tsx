@@ -4,7 +4,7 @@
  * outbox mapping) and reconciles with the server poll. All writes go through `submit()`,
  * which enqueues a Mutation, repaints, then flushes.
  */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   type BabyBuddyClient,
@@ -54,7 +54,8 @@ import {
   syncTimerNotifications,
 } from "./notifications";
 import { fmt, iso, nowIso, nowMs } from "../lib/format";
-import { greeting } from "../lib/datetime";
+import { clockTime, greeting } from "../lib/datetime";
+import { predictNext, type ActivityPrediction } from "../lib/predict";
 import { activityLabel, diaperMeta, feedingMeta } from "../lib/labels";
 import {
   buzz,
@@ -122,6 +123,24 @@ export function Home({
       return connection.url;
     }
   })();
+
+  // "Next ~" predictions for the activity tiles. Derived purely from the recent timeline +
+  // the child's age (see lib/predict), so it recomputes for free on each timeline refetch.
+  // Re-derived at most once a minute (and whenever entries/child change) — eta is otherwise
+  // static, so there's no point recomputing it on every 1s clock tick.
+  const nowMinute = Math.floor(now / 60_000);
+  const predictions = useMemo(
+    () => predictNext(entries ?? [], child?.birth_date, nowMinute * 60_000),
+    [entries, child, nowMinute],
+  );
+  // Confident-enough estimates, soonest first. An activity with a running timer is omitted
+  // (it's already in progress); the rest stay visible alongside the running card(s).
+  const upNext = useMemo(() => {
+    const busy = new Set<string>(running.map((r) => r.activity));
+    return (Object.values(predictions) as ActivityPrediction[])
+      .filter((p) => p.confidence >= 0.1 && !busy.has(p.activity))
+      .sort((a, b) => a.etaMs - b.etaMs);
+  }, [predictions, running]);
 
   // Background outbox flushing (online/focus/interval) — covers retries beyond submit().
   useEffect(() => startOutboxAutoFlush(client), [client]);
@@ -522,54 +541,78 @@ export function Home({
             )}
           </header>
 
-          {/* Running timers */}
+          {/* Running timers, then the discreet "up next" estimates. The estimates stay visible
+              while a timer runs (the running activity is filtered out of `upNext`); the idle
+              line shows only when nothing's running and there's nothing to estimate. */}
           <section style={s.runningWrap}>
-            {running.length === 0 ? (
+            {running.map((rt) => {
+              const v = palette.accents[rt.activity];
+              const Icon = ACTIVITY_ICON[rt.activity];
+              const elapsed = now - rt.startedMs;
+              const meta = rt.activity === "feeding" ? feedingMeta(rt.feeding?.type, rt.feeding?.method) : "";
+              const stale = rt.activity === "sleep" && elapsed > STALE_SLEEP_MS;
+              return (
+                <div key={rt.key} className="run-in" style={{ ...s.runCard, ...runCardAccent(v) }}>
+                  <button onClick={() => void stop(rt)} style={s.runBody} aria-label={`${activityLabel(rt.activity)} — ${t("home.tapToStop")}`}>
+                    <span style={{ ...s.runIcon, color: v.accent }}>
+                      <Icon size={22} />
+                      <span className="breathe" style={{ ...s.liveDot, background: v.accent }} />
+                    </span>
+                    <span style={s.runMeta}>
+                      <span style={s.runLabel}>
+                        {activityLabel(rt.activity)}
+                        {meta ? ` · ${meta}` : ""}
+                        {stale ? ` · ${t("home.stillGoing")}` : ""}
+                      </span>
+                      <span className="tick" style={{ ...s.runTime, color: v.accent }}>
+                        {fmt(elapsed)}
+                      </span>
+                    </span>
+                    <span style={{ ...s.runEdit, color: v.accent, borderColor: `${v.accent}55` }} aria-hidden>
+                      <StopIcon size={18} />
+                    </span>
+                  </button>
+                  {rt.activity === "feeding" && (
+                    <button
+                      onClick={() => void openFeedingRefine(rt)}
+                      style={{ ...s.runEdit, color: v.accent, borderColor: `${v.accent}55` }}
+                      aria-label={t("home.editFeeding")}
+                    >
+                      <EditIcon size={16} />
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+
+            {upNext.length > 0 ? (
+              <div style={s.estimates}>
+                <div style={s.estimatesHead}>{t("home.upNext")}</div>
+                {upNext.map((p) => {
+                  const v = palette.accents[p.activity];
+                  const Icon = ACTIVITY_ICON[p.activity];
+                  return (
+                    <div key={p.activity} style={s.estimateRow}>
+                      <span style={{ ...s.estimateIcon, background: `${v.accent}14`, color: v.accent }}>
+                        <Icon size={16} />
+                      </span>
+                      <span style={s.estimateLabel}>{activityLabel(p.activity)}</span>
+                      <span style={s.estimateTime}>
+                        {p.etaMs <= now + 60_000 ? t("home.dueNow") : `~${clockTime(p.etaMs)}`}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : running.length === 0 ? (
               <div style={s.idle}>
                 <div style={s.idleDot} />
-                {child ? t("home.nothingRunning", { name: child.first_name }) : t("home.nothingRunningGeneric")}
+                <div style={s.idleText}>
+                  <span style={s.idleTitle}>{child ? t("home.nothingRunning", { name: child.first_name }) : t("home.nothingRunningGeneric")}</span>
+                  <span style={s.idleHint}>{t("home.learnHint")}</span>
+                </div>
               </div>
-            ) : (
-              running.map((rt) => {
-                const v = palette.accents[rt.activity];
-                const Icon = ACTIVITY_ICON[rt.activity];
-                const elapsed = now - rt.startedMs;
-                const meta = rt.activity === "feeding" ? feedingMeta(rt.feeding?.type, rt.feeding?.method) : "";
-                const stale = rt.activity === "sleep" && elapsed > STALE_SLEEP_MS;
-                return (
-                  <div key={rt.key} className="run-in" style={{ ...s.runCard, ...runCardAccent(v) }}>
-                    <button onClick={() => void stop(rt)} style={s.runBody} aria-label={`${activityLabel(rt.activity)} — ${t("home.tapToStop")}`}>
-                      <span style={{ ...s.runIcon, color: v.accent }}>
-                        <Icon size={22} />
-                        <span className="breathe" style={{ ...s.liveDot, background: v.accent }} />
-                      </span>
-                      <span style={s.runMeta}>
-                        <span style={s.runLabel}>
-                          {activityLabel(rt.activity)}
-                          {meta ? ` · ${meta}` : ""}
-                          {stale ? ` · ${t("home.stillGoing")}` : ""}
-                        </span>
-                        <span className="tick" style={{ ...s.runTime, color: v.accent }}>
-                          {fmt(elapsed)}
-                        </span>
-                      </span>
-                      <span style={{ ...s.runEdit, color: v.accent, borderColor: `${v.accent}55` }} aria-hidden>
-                        <StopIcon size={18} />
-                      </span>
-                    </button>
-                    {rt.activity === "feeding" && (
-                      <button
-                        onClick={() => void openFeedingRefine(rt)}
-                        style={{ ...s.runEdit, color: v.accent, borderColor: `${v.accent}55` }}
-                        aria-label={t("home.editFeeding")}
-                      >
-                        <EditIcon size={16} />
-                      </button>
-                    )}
-                  </div>
-                );
-              })
-            )}
+            ) : null}
           </section>
 
           {/* Activity grid */}

@@ -102,8 +102,11 @@ export function makeStyles(p: Palette): Styles {
     childName: { fontSize: 16, fontWeight: 800, color: p.text },
 
     runningWrap: { marginTop: 26, display: "flex", flexDirection: "column", gap: 12, zIndex: 1 },
-    idle: { display: "flex", alignItems: "center", gap: 11, color: p.textFaint, fontSize: 14.5, padding: "20px 4px", fontWeight: 600 },
-    idleDot: { width: 7, height: 7, borderRadius: "50%", background: dark ? "#5a5266" : "#c7b79a", animation: "pulse 2.6s ease-in-out infinite" },
+    idle: { display: "flex", alignItems: "flex-start", gap: 12, padding: "16px 4px" },
+    idleDot: { width: 7, height: 7, borderRadius: "50%", background: dark ? "#5a5266" : "#c7b79a", animation: "pulse 2.6s ease-in-out infinite", marginTop: 6, flexShrink: 0 },
+    idleText: { display: "flex", flexDirection: "column", gap: 5 },
+    idleTitle: { color: p.textMuted, fontSize: 14.5, fontWeight: 700 },
+    idleHint: { color: p.textFaint, fontSize: 13, fontWeight: 500, lineHeight: 1.45, maxWidth: 300 },
     runCard: { display: "flex", alignItems: "center", gap: 14, padding: "15px 16px", border: dark ? "none" : `1px solid ${p.surfaceBorder}`, borderRadius: 22, textAlign: "left" },
     runBody: { display: "flex", alignItems: "center", gap: 14, flex: 1, minWidth: 0, background: "transparent", border: "none", padding: 0, color: "inherit", textAlign: "left" },
     runIcon: { position: "relative", display: "grid", placeItems: "center", width: 44, height: 44, borderRadius: 14, background: p.inner },
@@ -113,6 +116,15 @@ export function makeStyles(p: Palette): Styles {
     runTime: { color: p.text, fontSize: 30, fontWeight: 600, lineHeight: 1, fontFamily: p.serif },
     runStopHint: { fontSize: 11, color: p.textFaint, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, flexShrink: 0, alignSelf: "center" },
     runEdit: { display: "grid", placeItems: "center", width: 44, height: 44, borderRadius: 14, borderWidth: 1, borderStyle: "solid", background: p.inner, flexShrink: 0 },
+
+    // "Up next" estimates — deliberately discreet (no card chrome, muted text): purely
+    // informational, and only ever an estimate.
+    estimates: { display: "flex", flexDirection: "column", padding: "10px 6px 2px" },
+    estimatesHead: { fontSize: 11, letterSpacing: 1.5, textTransform: "uppercase", color: p.textFaint, fontWeight: 800, padding: "0 8px 4px" },
+    estimateRow: { display: "flex", alignItems: "center", gap: 11, padding: "7px 8px" },
+    estimateIcon: { display: "grid", placeItems: "center", width: 28, height: 28, borderRadius: 9, flexShrink: 0, opacity: 0.9 },
+    estimateLabel: { flex: 1, color: p.textMuted, fontSize: 14, fontWeight: 600 },
+    estimateTime: { fontSize: 14, fontWeight: 700, color: p.textMuted, letterSpacing: "-.1px" },
 
     grid: { marginTop: "auto", paddingTop: 30, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, zIndex: 1 },
     tile: {
