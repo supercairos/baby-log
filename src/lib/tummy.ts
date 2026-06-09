@@ -20,14 +20,19 @@ export interface TummyProgress {
   metGoal: boolean;
 }
 
-/** Recommended daily tummy-time (minutes) by age (AAP / Pathways.org / NIH Safe to Sleep). */
+/**
+ * Recommended daily tummy-time (minutes) by age, aligned to Huckleberry's tummy-time chart
+ * (consistent with AAP / Pathways.org / NIH Safe to Sleep): ~20 min/day for newborns through
+ * 1 month, ~30 by 2 months, ~45 by 3 months (their 30–60 range), and ≥60 from 4 months on
+ * (4–5 mo "60+", 6 mo+ "60–90+"). The goal is the floor — more is fine ("no such thing as too
+ * much"), and it's only ever a gentle daily target.
+ */
 function tummyGoalMinutes(months: number): number {
   if (!(months >= 0)) return 30; // unknown age → a safe middle target
-  if (months < 1) return 10;
-  if (months < 2) return 20;
-  if (months < 4) return 30;
-  if (months < 6) return 45;
-  return 60;
+  if (months < 2) return 20; // newborn–1 mo: a few short sessions
+  if (months < 3) return 30; // ~2 mo
+  if (months < 4) return 45; // ~3 mo (30–60)
+  return 60; // 4 mo+: build toward / maintain ≥60 min/day
 }
 
 /**
