@@ -97,6 +97,21 @@
     "noEntriesSub": "Erfasse über den Startbildschirm, oder füge oben einen vergangenen Eintrag hinzu.",
     "nap": "Nickerchen"
   },
+  "cal": {
+    "day": "Tag",
+    "week": "Woche",
+    "list": "Liste",
+    "summary": "Übersicht",
+    "today": "Heute",
+    "previous": "Zurück",
+    "next": "Weiter",
+    "longest": "max. {{duration}}",
+    "perDay": "{{count}}/Tag",
+    "everyInterval": "alle ~{{duration}}",
+    "wetSolid": "{{wet}} nass · {{solid}} fest",
+    "minPerDay": "{{value}} Min./Tag",
+    "goalMin": "Ziel {{goal}} Min."
+  },
   "sheet": {
     "feedingDetails": "Mahlzeit-Details",
     "logDiaper": "Windel erfassen",

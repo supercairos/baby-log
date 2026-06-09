@@ -97,6 +97,21 @@
     "noEntriesSub": "Registra dalla schermata Home, o aggiungi una voce passata sopra.",
     "nap": "Pisolino"
   },
+  "cal": {
+    "day": "Giorno",
+    "week": "Settimana",
+    "list": "Lista",
+    "summary": "Riepilogo",
+    "today": "Oggi",
+    "previous": "Precedente",
+    "next": "Successivo",
+    "longest": "max {{duration}}",
+    "perDay": "{{count}}/giorno",
+    "everyInterval": "ogni ~{{duration}}",
+    "wetSolid": "{{wet}} pipì · {{solid}} cacca",
+    "minPerDay": "{{value}} min/giorno",
+    "goalMin": "obiettivo {{goal}} min"
+  },
   "sheet": {
     "feedingDetails": "Dettagli poppata",
     "logDiaper": "Registra pannolino",

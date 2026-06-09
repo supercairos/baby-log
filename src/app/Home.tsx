@@ -5,6 +5,7 @@
  * which enqueues a Mutation, repaints, then flushes.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
   type BabyBuddyClient,
@@ -69,7 +70,7 @@ import {
   type RunningTimer,
 } from "./hooks";
 import { DiaperSheet, EntrySheet, FeedingSheet } from "./sheets";
-import { Timeline } from "./Timeline";
+import { Calendar } from "./Calendar";
 import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { useFocusTrap } from "./useFocusTrap";
 import type { EditDraft, EditTarget } from "./types";
@@ -93,6 +94,7 @@ export function Home({
   const { s, activeTile, runCardAccent, toastTone } = useStyles();
   const { palette, pref, cyclePref } = useTheme();
   const { t, i18n } = useTranslation();
+  const qc = useQueryClient();
   const now = useNow();
 
   const { children, childId, selectChild } = useChildren(client);
@@ -260,6 +262,7 @@ export function Home({
       .then(() => {
         refreshRunning();
         refreshTimeline();
+        void qc.invalidateQueries({ queryKey: ["calendar"] }); // refresh the calendar grids/summary
       })
       .catch(() => {});
   };
@@ -517,6 +520,45 @@ export function Home({
   const overlayOpen = menu || sheetOpen || undefined;
   const drawerRef = useFocusTrap<HTMLElement>(menu);
 
+  // Shared page header (home greeting + the journal). Same structure everywhere — only the
+  // big title changes — with the child subtitle/age and the multi-child switcher.
+  const renderHeader = (title: string) => (
+    <header style={s.header}>
+      <div style={s.greetRow}>
+        <button onClick={() => { buzz(); setMenu(true); }} style={s.iconBtn} aria-label={t("home.menu")}>
+          <MenuIcon size={22} />
+        </button>
+        <div style={s.greetWrap}>
+          <div style={s.greet}>{title}</div>
+          <div style={s.greetSub}>
+            {child ? t("home.tracking", { name: childName(child) }) : t("common.loading")}
+            {ageLabel && <span style={s.greetAge}> · {ageLabel}</span>}
+          </div>
+        </div>
+      </div>
+      {children && children.length > 1 && (
+        <div style={s.children}>
+          {children.map((c) => {
+            const sel = c.id === childId;
+            const initials = (c.first_name?.[0] ?? "·").toUpperCase();
+            return (
+              <button
+                key={c.id}
+                onClick={() => { buzz(); if (c.id != null) selectChild(c.id); }}
+                style={{ ...s.childChip, ...(sel ? s.childChipOn : {}) }}
+                aria-pressed={sel}
+                aria-label={childName(c)}
+              >
+                <span style={{ ...s.avatar, ...(sel ? s.avatarOn : {}) }}>{initials}</span>
+                {sel && <span style={s.childName}>{c.first_name}</span>}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </header>
+  );
+
   return (
     <div style={s.root}>
       <div style={s.ambient} />
@@ -531,40 +573,7 @@ export function Home({
           path="/"
           element={
             <>
-          <header style={s.header}>
-            <div style={s.greetRow}>
-              <button onClick={() => { buzz(); setMenu(true); }} style={s.iconBtn} aria-label={t("home.menu")}>
-                <MenuIcon size={22} />
-              </button>
-              <div style={s.greetWrap}>
-                <div style={s.greet}>{greeting()}</div>
-                <div style={s.greetSub}>
-                  {child ? t("home.tracking", { name: childName(child) }) : t("common.loading")}
-                  {ageLabel && <span style={s.greetAge}> · {ageLabel}</span>}
-                </div>
-              </div>
-            </div>
-            {children && children.length > 1 && (
-              <div style={s.children}>
-                {children.map((c) => {
-                  const sel = c.id === childId;
-                  const initials = (c.first_name?.[0] ?? "·").toUpperCase();
-                  return (
-                    <button
-                      key={c.id}
-                      onClick={() => { buzz(); if (c.id != null) selectChild(c.id); }}
-                      style={{ ...s.childChip, ...(sel ? s.childChipOn : {}) }}
-                      aria-pressed={sel}
-                      aria-label={childName(c)}
-                    >
-                      <span style={{ ...s.avatar, ...(sel ? s.avatarOn : {}) }}>{initials}</span>
-                      {sel && <span style={s.childName}>{c.first_name}</span>}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </header>
+          {renderHeader(greeting())}
 
           {/* Running timers, then the discreet "up next" estimates. The estimates stay visible
               while a timer runs (the running activity is filtered out of `upNext`); the idle
@@ -688,14 +697,16 @@ export function Home({
           path="/timeline"
           element={
             <>
-              <div style={s.topbar}>
-                <button onClick={() => { buzz(); setMenu(true); }} style={s.iconBtn} aria-label={t("home.menu")}>
-                  <MenuIcon size={22} />
-                </button>
-                <span style={s.topbarTitle}>{t("nav.timeline")}</span>
-                <span style={{ width: 42 }} />
-              </div>
-              <Timeline entries={entries} onAdd={openAdd} onEdit={openEdit} onDelete={removeEntry} />
+              {renderHeader(t("nav.timeline"))}
+              <Calendar
+                client={client}
+                childId={childId}
+                birthDate={child?.birth_date ?? null}
+                listEntries={entries}
+                onAdd={openAdd}
+                onEdit={openEdit}
+                onDelete={removeEntry}
+              />
             </>
           }
         />

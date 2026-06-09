@@ -40,6 +40,11 @@ function tummyGoalMinutes(months: number): number {
  * age-appropriate daily goal. A currently-running tummy timer isn't counted (it's not yet a
  * logged entry) — it shows live on the running card and rolls into the total once stopped.
  */
+/** The age-recommended daily tummy-time goal (minutes) for a child at `now`. */
+export function tummyGoalForAge(birthDate: string | null | undefined, now: number): number {
+  return tummyGoalMinutes(ageInMonths(birthDate, now));
+}
+
 export function tummyProgress(
   entries: TimelineEntry[],
   birthDate: string | null | undefined,

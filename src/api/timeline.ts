@@ -2,6 +2,7 @@
  * Unified timeline — Baby Buddy has no single "entries" endpoint, so we fetch feedings,
  * sleep, tummy-times and changes in parallel and merge/sort them into one stream.
  */
+import type { components } from "./generated/schema";
 import type { BabyBuddyClient } from "./client";
 import type { FeedingType, FeedingMethod, ActivityKey, EntryPath } from "./activities";
 import { unwrap } from "./errors";
@@ -25,6 +26,35 @@ export type TimelineEntry =
 
 const parse = (v: string | null | undefined): number => (v ? Date.parse(v) : 0);
 
+type Lists = {
+  feedings: components["schemas"]["Feeding"][];
+  sleep: components["schemas"]["Sleep"][];
+  tummy: components["schemas"]["TummyTime"][];
+  changes: components["schemas"]["DiaperChange"][];
+};
+
+/** Merge the four endpoint result sets into one newest-first stream of typed timeline entries. */
+function mergeEntries({ feedings, sleep, tummy, changes }: Lists): TimelineEntry[] {
+  const out: TimelineEntry[] = [];
+  for (const f of feedings) {
+    if (f.id == null) continue;
+    out.push({ id: f.id, activity: "feeding", path: "/api/feedings/", startMs: parse(f.start), endMs: f.end ? parse(f.end) : null, type: f.type, method: f.method, amount: f.amount ?? null, notes: f.notes ?? null });
+  }
+  for (const sl of sleep) {
+    if (sl.id == null) continue;
+    out.push({ id: sl.id, activity: "sleep", path: "/api/sleep/", startMs: parse(sl.start), endMs: sl.end ? parse(sl.end) : null, nap: sl.nap ?? null, notes: sl.notes ?? null });
+  }
+  for (const tt of tummy) {
+    if (tt.id == null) continue;
+    out.push({ id: tt.id, activity: "tummy", path: "/api/tummy-times/", startMs: parse(tt.start), endMs: tt.end ? parse(tt.end) : null, milestone: tt.milestone ?? null });
+  }
+  for (const c of changes) {
+    if (c.id == null) continue;
+    out.push({ id: c.id, activity: "diaper", path: "/api/changes/", startMs: parse(c.time), endMs: null, wet: c.wet, solid: c.solid, notes: c.notes ?? null });
+  }
+  return out.sort((a, b) => b.startMs - a.startMs);
+}
+
 /**
  * Fetch the most recent entries across all activity types for a child, newest first.
  * @param limitPer max rows pulled from each endpoint before merging (default 25).
@@ -41,59 +71,45 @@ export async function listRecentEntries(
     client.GET("/api/tummy-times/", { params: { query: { child, limit: limitPer, ordering: "-start" } } }),
     client.GET("/api/changes/", { params: { query: { child, limit: limitPer, ordering: "-time" } } }),
   ]);
+  return mergeEntries({
+    feedings: unwrap(feedings).results ?? [],
+    sleep: unwrap(sleep).results ?? [],
+    tummy: unwrap(tummy).results ?? [],
+    changes: unwrap(changes).results ?? [],
+  });
+}
 
-  const out: TimelineEntry[] = [];
+const ymd = (ms: number): string => {
+  const d = new Date(ms);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+};
 
-  for (const f of unwrap(feedings).results ?? []) {
-    if (f.id == null) continue;
-    out.push({
-      id: f.id,
-      activity: "feeding",
-      path: "/api/feedings/",
-      startMs: parse(f.start),
-      endMs: f.end ? parse(f.end) : null,
-      type: f.type,
-      method: f.method,
-      amount: f.amount ?? null,
-      notes: f.notes ?? null,
-    });
-  }
-  for (const sl of unwrap(sleep).results ?? []) {
-    if (sl.id == null) continue;
-    out.push({
-      id: sl.id,
-      activity: "sleep",
-      path: "/api/sleep/",
-      startMs: parse(sl.start),
-      endMs: sl.end ? parse(sl.end) : null,
-      nap: sl.nap ?? null,
-      notes: sl.notes ?? null,
-    });
-  }
-  for (const tt of unwrap(tummy).results ?? []) {
-    if (tt.id == null) continue;
-    out.push({
-      id: tt.id,
-      activity: "tummy",
-      path: "/api/tummy-times/",
-      startMs: parse(tt.start),
-      endMs: tt.end ? parse(tt.end) : null,
-      milestone: tt.milestone ?? null,
-    });
-  }
-  for (const c of unwrap(changes).results ?? []) {
-    if (c.id == null) continue;
-    out.push({
-      id: c.id,
-      activity: "diaper",
-      path: "/api/changes/",
-      startMs: parse(c.time),
-      endMs: null,
-      wet: c.wet,
-      solid: c.solid,
-      notes: c.notes ?? null,
-    });
-  }
-
-  return out.sort((a, b) => b.startMs - a.startMs);
+/**
+ * Fetch every entry overlapping the local window [fromMs, toMs) — for the calendar's day/week
+ * grids and summary. Timed activities are queried by `start` (widened 18 h on the low side so an
+ * overnight sleep that began the previous evening still shows); diaper changes by their `date`.
+ */
+export async function listEntriesInRange(
+  client: BabyBuddyClient,
+  childId: number,
+  fromMs: number,
+  toMs: number,
+): Promise<TimelineEntry[]> {
+  const child = String(childId);
+  const startMin = new Date(fromMs - 18 * 3_600_000).toISOString();
+  const startMax = new Date(toMs).toISOString();
+  const timed = { child, start_min: startMin, start_max: startMax, limit: 500, ordering: "-start" };
+  const [feedings, sleep, tummy, changes] = await Promise.all([
+    client.GET("/api/feedings/", { params: { query: timed } }),
+    client.GET("/api/sleep/", { params: { query: timed } }),
+    client.GET("/api/tummy-times/", { params: { query: timed } }),
+    client.GET("/api/changes/", { params: { query: { child, date_min: ymd(fromMs), date_max: ymd(toMs - 1), limit: 500, ordering: "-time" } } }),
+  ]);
+  return mergeEntries({
+    feedings: unwrap(feedings).results ?? [],
+    sleep: unwrap(sleep).results ?? [],
+    tummy: unwrap(tummy).results ?? [],
+    changes: unwrap(changes).results ?? [],
+  });
 }

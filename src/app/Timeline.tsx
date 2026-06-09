@@ -44,11 +44,14 @@ export function Timeline({
   onAdd,
   onEdit,
   onDelete,
+  showAdd = true,
 }: {
   entries: TimelineEntry[] | null;
-  onAdd: () => void;
+  onAdd?: () => void;
   onEdit: (e: TimelineEntry) => void;
   onDelete: (e: TimelineEntry) => void;
+  /** When false, the internal "Add entry" button is hidden (the calendar supplies its own). */
+  showAdd?: boolean;
 }) {
   const { s } = useStyles();
   const { palette } = useTheme();
@@ -56,12 +59,14 @@ export function Timeline({
 
   return (
     <section style={s.timeline}>
-      <button onClick={onAdd} style={s.addBtn}>
-        <span style={s.addPlus}>
-          <PlusIcon size={18} />
-        </span>
-        {t("timeline.addEntry")}
-      </button>
+      {showAdd && onAdd && (
+        <button onClick={onAdd} style={s.addBtn}>
+          <span style={s.addPlus}>
+            <PlusIcon size={18} />
+          </span>
+          {t("timeline.addEntry")}
+        </button>
+      )}
 
       {entries == null ? (
         <div style={s.empty}>

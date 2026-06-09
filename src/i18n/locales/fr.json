@@ -97,6 +97,21 @@
     "noEntriesSub": "Notez depuis l'accueil, ou ajoutez une entrée passée ci-dessus.",
     "nap": "Sieste"
   },
+  "cal": {
+    "day": "Jour",
+    "week": "Semaine",
+    "list": "Liste",
+    "summary": "Résumé",
+    "today": "Auj.",
+    "previous": "Précédent",
+    "next": "Suivant",
+    "longest": "max {{duration}}",
+    "perDay": "{{count}}/jour",
+    "everyInterval": "toutes les ~{{duration}}",
+    "wetSolid": "{{wet}} pipi · {{solid}} selles",
+    "minPerDay": "{{value}} min/jour",
+    "goalMin": "objectif {{goal}} min"
+  },
   "sheet": {
     "feedingDetails": "Détails du repas",
     "logDiaper": "Noter un change",

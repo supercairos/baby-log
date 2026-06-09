@@ -97,6 +97,21 @@
     "noEntriesSub": "Registra desde la pantalla de inicio, o añade una entrada pasada arriba.",
     "nap": "Siesta"
   },
+  "cal": {
+    "day": "Día",
+    "week": "Semana",
+    "list": "Lista",
+    "summary": "Resumen",
+    "today": "Hoy",
+    "previous": "Anterior",
+    "next": "Siguiente",
+    "longest": "máx {{duration}}",
+    "perDay": "{{count}}/día",
+    "everyInterval": "cada ~{{duration}}",
+    "wetSolid": "{{wet}} pis · {{solid}} caca",
+    "minPerDay": "{{value}} min/día",
+    "goalMin": "meta {{goal}} min"
+  },
   "sheet": {
     "feedingDetails": "Detalles de la toma",
     "logDiaper": "Registrar pañal",

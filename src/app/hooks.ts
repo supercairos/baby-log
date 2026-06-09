@@ -24,6 +24,7 @@ import {
   createBabyBuddyClient,
   listActiveTimers,
   listChildren,
+  listEntriesInRange,
   listRecentEntries,
   loadConnection,
   saveConnection,
@@ -270,6 +271,29 @@ export function useTimeline(client: BabyBuddyClient, childId: number | null) {
   );
 
   return { entries: childId == null ? [] : (data ?? null), refresh, removeLocal };
+}
+
+/**
+ * Entries overlapping a date window, for the calendar's day/week grids and summary. Keyed by the
+ * range so navigating weeks fetches fresh data; shares the "calendar" prefix so a write can
+ * invalidate every range at once. `enabled` lets the List mode skip the range fetch.
+ */
+export function useEntriesInRange(
+  client: BabyBuddyClient,
+  childId: number | null,
+  fromMs: number,
+  toMs: number,
+  enabled = true,
+) {
+  const { data, isFetching } = useQuery({
+    queryKey: ["calendar", childId, fromMs, toMs],
+    enabled: childId != null && enabled,
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
+    queryFn: () => listEntriesInRange(client, childId as number, fromMs, toMs),
+    placeholderData: (prev) => prev,
+  });
+  return { entries: childId == null ? null : (data ?? null), loading: isFetching };
 }
 
 export function buzz(ms = 15): void {

@@ -97,6 +97,21 @@
     "noEntriesSub": "Log from the home screen, or add a past entry above.",
     "nap": "Nap"
   },
+  "cal": {
+    "day": "Day",
+    "week": "Week",
+    "list": "List",
+    "summary": "Summary",
+    "today": "Today",
+    "previous": "Previous",
+    "next": "Next",
+    "longest": "longest {{duration}}",
+    "perDay": "{{count}}/day",
+    "everyInterval": "every ~{{duration}}",
+    "wetSolid": "{{wet}} wet · {{solid}} solid",
+    "minPerDay": "{{value}} min/day",
+    "goalMin": "goal {{goal}} min"
+  },
   "sheet": {
     "feedingDetails": "Feeding details",
     "logDiaper": "Log diaper",
