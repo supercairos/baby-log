@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.9.0](https://github.com/supercairos/baby-log/compare/baby-log-v1.8.0...baby-log-v1.9.0) (2026-06-09)
+
+
+### Features
+
+* add a notes field to the add/edit entry sheet ([b597b3b](https://github.com/supercairos/baby-log/commit/b597b3b87927b5e776527f3ec97f9f6e4ff12051))
+* predict next feed, nap & diaper from recent activity ([feb8167](https://github.com/supercairos/baby-log/commit/feb8167bd339c46015d2d05c6970dc5f30e02bda))
+* tummy-time goal, child age, and research-backed prediction refinements ([0af8311](https://github.com/supercairos/baby-log/commit/0af83110af955f2c3b263e68724be70411901fcb))
+
+
+### Bug Fixes
+
+* align tummy-time daily goals with Huckleberry's age chart ([bad4be1](https://github.com/supercairos/baby-log/commit/bad4be1fe2b59435a0b87078b6a771a371e2f676))
+
 ## [1.8.0](https://github.com/supercairos/baby-log/compare/baby-log-v1.7.0...baby-log-v1.8.0) (2026-06-05)
 
 
