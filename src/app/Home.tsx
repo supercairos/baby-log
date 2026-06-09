@@ -395,13 +395,15 @@ export function Home({
       solid: e.activity === "diaper" ? e.solid : false,
       startMs: e.startMs,
       endMs: e.endMs,
+      // Tummy-time has no `notes` column — its free text lives in `milestone`.
+      notes: (e.activity === "tummy" ? e.milestone : e.notes) ?? "",
     });
   };
 
   const openAdd = () => {
     buzz();
     setEditing({ isNew: true, activity: null });
-    setDraft({ type: null, method: null, wet: false, solid: false, startMs: nowMs(), endMs: null });
+    setDraft({ type: null, method: null, wet: false, solid: false, startMs: nowMs(), endMs: null, notes: "" });
   };
 
   const pickKind = (key: ActivityKey) => {
@@ -419,6 +421,7 @@ export function Home({
   const buildPatch = (target: EditTarget, d: EditDraft): EntryPatch | null => {
     const startIso = iso(d.startMs);
     const endIso = iso(d.endMs ?? d.startMs);
+    const notes = d.notes.trim() === "" ? null : d.notes; // empty clears the note server-side
     switch (target.path) {
       case "/api/feedings/": {
         // Preserve the existing method verbatim (the server accepts all 6 for any type);
@@ -426,14 +429,15 @@ export function Home({
         // rewrite a cross-client method (e.g. "self fed").
         const type = d.type ?? "breast milk";
         const method = d.method ?? METHODS_FOR_TYPE[type][0];
-        return { path: "/api/feedings/", body: { type, method, start: startIso, end: endIso } };
+        return { path: "/api/feedings/", body: { type, method, start: startIso, end: endIso, notes } };
       }
       case "/api/sleep/":
-        return { path: "/api/sleep/", body: { start: startIso, end: endIso } };
+        return { path: "/api/sleep/", body: { start: startIso, end: endIso, notes } };
       case "/api/tummy-times/":
-        return { path: "/api/tummy-times/", body: { start: startIso, end: endIso } };
+        // Tummy-time's free text is `milestone` (it has no `notes` column).
+        return { path: "/api/tummy-times/", body: { start: startIso, end: endIso, milestone: d.notes } };
       case "/api/changes/":
-        return childId == null ? null : { path: "/api/changes/", body: { child: childId, wet: d.wet, solid: d.solid, time: startIso } };
+        return childId == null ? null : { path: "/api/changes/", body: { child: childId, wet: d.wet, solid: d.solid, time: startIso, notes } };
       default:
         return null;
     }
@@ -463,10 +467,11 @@ export function Home({
     if (editing.isNew) {
       const startIso = iso(draft.startMs);
       const endIso = iso(draft.endMs ?? draft.startMs);
-      if (activity === "diaper") submit(logDiaperMutation(childId, { wet: draft.wet, solid: draft.solid, time: startIso }));
-      else if (activity === "feeding") submit(createFeedingMutation(childId, startIso, endIso, feedingFieldsFor({ type: draft.type, method: draft.method })));
-      else if (activity === "sleep") submit(createSleepMutation(childId, startIso, endIso));
-      else submit(createTummyMutation(childId, startIso, endIso));
+      const notes = draft.notes.trim() === "" ? null : draft.notes;
+      if (activity === "diaper") submit(logDiaperMutation(childId, { wet: draft.wet, solid: draft.solid, time: startIso, notes }));
+      else if (activity === "feeding") submit(createFeedingMutation(childId, startIso, endIso, { ...feedingFieldsFor({ type: draft.type, method: draft.method }), notes }));
+      else if (activity === "sleep") submit(createSleepMutation(childId, startIso, endIso, { notes }));
+      else submit(createTummyMutation(childId, startIso, endIso, draft.notes.trim() ? { milestone: draft.notes } : {}));
     } else if (editing.serverId != null) {
       const patch = buildPatch(editing, draft);
       if (patch) submit(updateEntryMutation(editing.serverId, patch));

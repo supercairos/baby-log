@@ -106,6 +106,8 @@
     "type": "Art",
     "method": "Methode",
     "contents": "Inhalt",
+    "notes": "Notizen",
+    "notesPlaceholder": "Optional",
     "activity": "Aktivität",
     "start": "Start",
     "time": "Zeit",

@@ -106,6 +106,8 @@
     "type": "Tipo",
     "method": "Metodo",
     "contents": "Contenuto",
+    "notes": "Note",
+    "notesPlaceholder": "Facoltativo",
     "activity": "Attività",
     "start": "Inizio",
     "time": "Orario",

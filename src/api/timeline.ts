@@ -18,10 +18,10 @@ export interface TimelineEntryBase {
 }
 
 export type TimelineEntry =
-  | (TimelineEntryBase & { activity: "feeding"; type: FeedingType; method: FeedingMethod; amount: number | null })
-  | (TimelineEntryBase & { activity: "sleep"; nap: boolean | null })
+  | (TimelineEntryBase & { activity: "feeding"; type: FeedingType; method: FeedingMethod; amount: number | null; notes: string | null })
+  | (TimelineEntryBase & { activity: "sleep"; nap: boolean | null; notes: string | null })
   | (TimelineEntryBase & { activity: "tummy"; milestone: string | null })
-  | (TimelineEntryBase & { activity: "diaper"; wet: boolean; solid: boolean });
+  | (TimelineEntryBase & { activity: "diaper"; wet: boolean; solid: boolean; notes: string | null });
 
 const parse = (v: string | null | undefined): number => (v ? Date.parse(v) : 0);
 
@@ -55,6 +55,7 @@ export async function listRecentEntries(
       type: f.type,
       method: f.method,
       amount: f.amount ?? null,
+      notes: f.notes ?? null,
     });
   }
   for (const sl of unwrap(sleep).results ?? []) {
@@ -66,6 +67,7 @@ export async function listRecentEntries(
       startMs: parse(sl.start),
       endMs: sl.end ? parse(sl.end) : null,
       nap: sl.nap ?? null,
+      notes: sl.notes ?? null,
     });
   }
   for (const tt of unwrap(tummy).results ?? []) {
@@ -89,6 +91,7 @@ export async function listRecentEntries(
       endMs: null,
       wet: c.wet,
       solid: c.solid,
+      notes: c.notes ?? null,
     });
   }
 

@@ -219,6 +219,7 @@ export function makeStyles(p: Palette): Styles {
     editHead: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 },
     editDel: { display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 12, background: dark ? "rgba(217,130,130,.12)" : "rgba(176,58,58,.1)", border: `1px solid ${dark ? "rgba(217,130,130,.3)" : "rgba(176,58,58,.3)"}`, color: p.danger, fontSize: 13.5, fontWeight: 700 },
     timeInput: { width: "100%", padding: "13px 16px", borderRadius: 14, fontSize: 15.5, fontWeight: 700, background: p.chipBg, border: `1px solid ${p.surfaceStrongBorder}`, color: p.text, fontFamily: p.body, colorScheme: dark ? "dark" : "light" },
+    notesInput: { width: "100%", padding: "12px 16px", borderRadius: 14, fontSize: 15, fontWeight: 600, background: p.chipBg, border: `1px solid ${p.surfaceStrongBorder}`, color: p.text, fontFamily: p.body, resize: "vertical", minHeight: 60, lineHeight: 1.4, boxSizing: "border-box" },
     durReadout: { marginTop: 10, fontSize: 13.5, fontWeight: 700, color: p.textMuted, display: "flex", alignItems: "center", gap: 6 },
     durBad: { color: p.danger },
 

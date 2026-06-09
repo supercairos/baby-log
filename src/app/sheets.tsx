@@ -273,6 +273,16 @@ export function EntrySheet({
               )}
             </>
           )}
+
+          <div style={s.sheetGroup}>{t("sheet.notes")}</div>
+          <textarea
+            value={draft.notes}
+            onChange={(e) => setDraft((d) => ({ ...d, notes: e.target.value }))}
+            placeholder={t("sheet.notesPlaceholder")}
+            rows={2}
+            style={s.notesInput}
+          />
+
           <button onClick={onSave} style={s.cta}>
             {adding ? t("sheet.addEntry") : t("sheet.saveChanges")}
           </button>

@@ -8,6 +8,9 @@ export interface EditDraft {
   solid: boolean;
   startMs: number;
   endMs: number | null;
+  /** Free-text note. Maps to `notes` for feeding/sleep/diaper, and to `milestone` for tummy
+   *  (the only free-text column tummy-time has server-side). */
+  notes: string;
 }
 
 /** What the add/edit sheet is operating on. */
