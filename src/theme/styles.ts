@@ -57,6 +57,7 @@ export function makeStyles(p: Palette): Styles {
     greetWrap: { display: "flex", flexDirection: "column", gap: 3 },
     greet: { color: p.text, fontFamily: p.serif, fontSize: 30, fontWeight: 600, letterSpacing: "-.5px", lineHeight: 1 },
     greetSub: { fontSize: 14.5, color: p.textMuted, fontWeight: 600 },
+    greetAge: { color: p.textFaint, fontWeight: 600 },
 
     topbar: {
       paddingTop: "calc(18px + env(safe-area-inset-top))",

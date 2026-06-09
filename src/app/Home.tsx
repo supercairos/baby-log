@@ -54,8 +54,9 @@ import {
   syncTimerNotifications,
 } from "./notifications";
 import { fmt, iso, nowIso, nowMs } from "../lib/format";
-import { clockTime, greeting } from "../lib/datetime";
+import { clockTime, formatAge, greeting } from "../lib/datetime";
 import { predictNext, type ActivityPrediction } from "../lib/predict";
+import { tummyProgress } from "../lib/tummy";
 import { activityLabel, diaperMeta, feedingMeta } from "../lib/labels";
 import {
   buzz,
@@ -133,6 +134,12 @@ export function Home({
     () => predictNext(entries ?? [], child?.birth_date, nowMinute * 60_000),
     [entries, child, nowMinute],
   );
+  // Today's tummy-time total vs the age-recommended daily goal — shown as a row in the same
+  // "up next" panel (not on the tile).
+  const tummy = useMemo(
+    () => (child ? tummyProgress(entries ?? [], child.birth_date, nowMinute * 60_000) : null),
+    [entries, child, nowMinute],
+  );
   // Confident-enough estimates, soonest first. An activity with a running timer is omitted
   // (it's already in progress); the rest stay visible alongside the running card(s).
   const upNext = useMemo(() => {
@@ -141,6 +148,16 @@ export function Home({
       .filter((p) => p.confidence >= 0.1 && !busy.has(p.activity))
       .sort((a, b) => a.etaMs - b.etaMs);
   }, [predictions, running]);
+  // Show the tummy stat unless a tummy timer is already running, and don't let a lone "0/x min"
+  // row pre-empt the cold-start nudge (only surface it once there's tummy time logged or other
+  // estimates to sit beside).
+  const tummyBusy = running.some((r) => r.activity === "tummy");
+  const showTummy = !!tummy && !tummyBusy && (tummy.todayMs > 0 || upNext.length > 0);
+  // Precise age beside the "Tracking …" line (recomputed daily, not every tick).
+  const ageLabel = useMemo(
+    () => (child?.birth_date ? formatAge(child.birth_date, new Date(nowMinute * 60_000)) : ""),
+    [child, nowMinute],
+  );
 
   // Background outbox flushing (online/focus/interval) — covers retries beyond submit().
   useEffect(() => startOutboxAutoFlush(client), [client]);
@@ -516,7 +533,10 @@ export function Home({
               </button>
               <div style={s.greetWrap}>
                 <div style={s.greet}>{greeting()}</div>
-                <div style={s.greetSub}>{child ? t("home.tracking", { name: childName(child) }) : t("common.loading")}</div>
+                <div style={s.greetSub}>
+                  {child ? t("home.tracking", { name: childName(child) }) : t("common.loading")}
+                  {ageLabel && <span style={s.greetAge}> · {ageLabel}</span>}
+                </div>
               </div>
             </div>
             {children && children.length > 1 && (
@@ -585,7 +605,7 @@ export function Home({
               );
             })}
 
-            {upNext.length > 0 ? (
+            {upNext.length > 0 || showTummy ? (
               <div style={s.estimates}>
                 <div style={s.estimatesHead}>{t("home.upNext")}</div>
                 {upNext.map((p) => {
@@ -603,6 +623,17 @@ export function Home({
                     </div>
                   );
                 })}
+                {showTummy && tummy && (
+                  <div style={s.estimateRow}>
+                    <span style={{ ...s.estimateIcon, background: `${palette.accents.tummy.accent}14`, color: palette.accents.tummy.accent }}>
+                      <ACTIVITY_ICON.tummy size={16} />
+                    </span>
+                    <span style={s.estimateLabel}>{activityLabel("tummy")}</span>
+                    <span style={{ ...s.estimateTime, ...(tummy.metGoal ? { color: palette.accents.tummy.accent } : {}) }}>
+                      {t("home.tummyToday", { done: Math.round(tummy.todayMs / 60_000), goal: tummy.goalMin })}
+                    </span>
+                  </div>
+                )}
               </div>
             ) : running.length === 0 ? (
               <div style={s.idle}>

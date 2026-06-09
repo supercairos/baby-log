@@ -12,11 +12,20 @@
  *   - emit a WINDOW (not a fake-precise minute) plus a CONFIDENCE so the UI can stay quiet when
  *     the data is too noisy to trust (newborn cluster feeding is genuinely unpredictable).
  *
- * Methods:
- *   - Sleep/nap: the wake-window model — next onset ≈ last wake time + typical wake window.
- *     Wake windows lengthen with age, so the age band is both the cold-start prior and the clamp.
- *   - Feeding & diaper: rolling MEDIAN of recent intervals (median shrugs off cluster feeds and
- *     overnight gaps that would wreck a mean).
+ * Methods (refined against the infant sleep/feeding literature):
+ *   - Sleep/nap: the wake-window model — next onset ≈ last wake time + typical wake window. This
+ *     is the behavioural proxy for the two-process model's homeostatic Process S; the time-of-day
+ *     structure stands in for the circadian Process C. Wake windows lengthen with age (the age
+ *     band is the cold-start prior + clamp) AND across the day, so observed windows are binned by
+ *     time-of-day and the bin matching the last wake is used; the pre-bed bin gets headroom so
+ *     bedtime isn't clamped to a nap ceiling.
+ *   - Feeding & diaper: recency-weighted median of recent intervals, split by circadian period
+ *     (day vs night) once a rhythm has emerged (~6 weeks) and predicted from the bucket matching
+ *     the current period — daytime feeds run tighter than the long overnight stretch.
+ *   - Non-stationarity: infant rhythms drift fastest in the early months, so all observed
+ *     estimates are RECENCY-WEIGHTED (EWMA-style exponential decay) — recent days dominate while
+ *     older data still informs. The weighted median keeps outlier-robustness; confidence uses the
+ *     effective (not raw) sample size so a long-stale history can't masquerade as certainty.
  *
  * Anchors older than a day are dropped: once logging lapses, the rhythm has likely reset and a
  * stale "overdue" hint would just be wrong.
@@ -52,31 +61,57 @@ const AGE_BASIS_CONFIDENCE = 0.25;
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
-function median(xs: number[]): number {
-  const s = [...xs].sort((a, b) => a - b);
-  const mid = s.length >> 1;
-  return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+/**
+ * Per-observation recency decay. Infant feeding/sleep rhythms are strongly non-stationary —
+ * they drift week to week (fastest in the early months) — so older observations are
+ * down-weighted, the standard EWMA remedy for concept drift. 0.85 ≈ a half-life of ~4–5
+ * observations, so roughly the last day or two dominate while older data still informs.
+ */
+const RECENCY_DECAY = 0.85;
+
+/** Recency weights for a NEWEST-FIRST list: weight 1, d, d², … (most recent gets the most). */
+function recencyWeights(n: number): number[] {
+  return Array.from({ length: n }, (_, i) => RECENCY_DECAY ** i);
 }
 
-/** Linear-interpolation quantile (q in 0..1). */
-function quantile(xs: number[], q: number): number {
-  const s = [...xs].sort((a, b) => a - b);
-  const pos = (s.length - 1) * q;
-  const lo = Math.floor(pos);
-  const hi = Math.ceil(pos);
-  return lo === hi ? s[lo] : s[lo] + (s[hi] - s[lo]) * (pos - lo);
+/**
+ * Weighted quantile (q in 0..1) — the recency-weighted analogue of a median (q=0.5) / IQR
+ * edge. Robust like a median (operates on order, not magnitude) but lets recent observations
+ * carry more weight, so it tracks drift without letting one outlier swing the estimate.
+ */
+function weightedQuantile(values: number[], weights: number[], q: number): number {
+  const order = values.map((_, i) => i).sort((a, b) => values[a] - values[b]);
+  const total = weights.reduce((a, b) => a + b, 0);
+  if (!(total > 0)) return NaN;
+  const target = q * total;
+  let cum = 0;
+  for (let k = 0; k < order.length; k++) {
+    const i = order[k];
+    const prev = cum;
+    cum += weights[i];
+    if (cum >= target) {
+      if (k === 0) return values[i];
+      const j = order[k - 1];
+      return values[j] + (values[i] - values[j]) * clamp((target - prev) / weights[i], 0, 1);
+    }
+  }
+  return values[order[order.length - 1]];
 }
 
-const mean = (xs: number[]): number => xs.reduce((a, b) => a + b, 0) / xs.length;
-
-/** Confidence from sample size and dispersion (coefficient of variation). */
-function intervalConfidence(intervals: number[]): number {
-  const n = intervals.length;
-  if (n < 1) return 0;
-  const m = mean(intervals);
-  if (!(m > 0)) return 0;
-  const cv = Math.sqrt(mean(intervals.map((x) => (x - m) ** 2))) / m;
-  const nScore = clamp(n / 6, 0, 1);
+/**
+ * Confidence from dispersion + effective sample size. Uses the weighted coefficient of
+ * variation (tight rhythm → high) and Kish's effective sample size n_eff = (Σw)²/Σw² (recency
+ * weighting shrinks the effective count, so a long-stale history can't masquerade as certainty).
+ */
+function weightedConfidence(values: number[], weights: number[]): number {
+  const W = weights.reduce((a, b) => a + b, 0);
+  if (!(W > 0) || values.length < 1) return 0;
+  const mean = values.reduce((s, v, i) => s + v * weights[i], 0) / W;
+  if (!(mean > 0)) return 0;
+  const variance = values.reduce((s, v, i) => s + weights[i] * (v - mean) ** 2, 0) / W;
+  const cv = Math.sqrt(variance) / mean;
+  const effN = (W * W) / weights.reduce((s, w) => s + w * w, 0);
+  const nScore = clamp(effN / 6, 0, 1);
   const cvScore = clamp(1 - cv, 0, 1);
   return Math.round(nScore * (0.4 + 0.6 * cvScore) * 100) / 100;
 }
@@ -126,24 +161,49 @@ function startsOf(entries: TimelineEntry[], activity: ActivityKey): number[] {
     .sort((a, b) => b - a);
 }
 
-/** Gaps (ms) between consecutive starts (newest first), kept only within a sane band. */
-function recentIntervals(starts: number[], minGap: number, maxGap: number, take = 8): number[] {
-  const out: number[] = [];
-  for (let i = 0; i + 1 < starts.length && out.length < take; i++) {
-    const gap = starts[i] - starts[i + 1];
-    if (gap >= minGap && gap <= maxGap) out.push(gap);
-  }
-  return out;
-}
+/**
+ * Day/night of a local timestamp. Daytime feeds/changes cluster tighter than the long
+ * overnight stretch, so splitting by period removes the overnight bias from the daytime
+ * estimate (day/night feeding rhythm consolidates ~2–4 months). Day = 07:00–19:00.
+ */
+const periodOf = (epochMs: number): "day" | "night" => {
+  const h = new Date(epochMs).getHours();
+  return h >= 7 && h < 19 ? "day" : "night";
+};
 
 const isDaytime = (epochMs: number): boolean => {
   const h = new Date(epochMs).getHours();
   return h >= 5 && h < 21;
 };
 
+/**
+ * Recent gaps (ms) between consecutive starts (newest first), within a sane band, each tagged
+ * with the period of the *earlier* event (the one the gap is measured from). Pulls up to `take`
+ * so the day/night buckets each have enough samples.
+ */
+function recentIntervals(
+  starts: number[],
+  minGap: number,
+  maxGap: number,
+  take = 20,
+): { gap: number; period: "day" | "night" }[] {
+  const out: { gap: number; period: "day" | "night" }[] = [];
+  for (let i = 0; i + 1 < starts.length && out.length < take; i++) {
+    const gap = starts[i] - starts[i + 1];
+    if (gap >= minGap && gap <= maxGap) out.push({ gap, period: periodOf(starts[i + 1]) });
+  }
+  return out;
+}
+
 // ── predictors ─────────────────────────────────────────────────────────────────
 
-/** Median-interval predictor for the rhythmic, point-in-time activities (feeding, diaper). */
+/**
+ * Recency-weighted interval predictor for the rhythmic, point-in-time activities (feeding,
+ * diaper). When the child is old enough for a circadian rhythm (`useCircadian`), it prefers the
+ * day/night bucket matching the last event's period — daytime feeds run ~2–3 h apart while the
+ * night stretches longer, so pooling both biases the daytime estimate. Recent observations are
+ * weighted more (rhythms drift), and the estimate is a weighted median for outlier-robustness.
+ */
 function predictInterval(
   activity: "feeding" | "diaper",
   starts: number[],
@@ -151,18 +211,25 @@ function predictInterval(
   minGap: number,
   maxGap: number,
   now: number,
+  useCircadian: boolean,
 ): ActivityPrediction | null {
   const last = starts[0];
   if (last == null || now - last > STALE_ANCHOR_MS) return null; // no/stale anchor
-  const intervals = recentIntervals(starts, minGap, maxGap);
-  if (intervals.length >= 3) {
+
+  const tagged = recentIntervals(starts, minGap, maxGap); // newest-first
+  const period = periodOf(last);
+  const matched = useCircadian ? tagged.filter((t) => t.period === period).map((t) => t.gap) : [];
+  const sample = matched.length >= 3 ? matched : tagged.map((t) => t.gap);
+
+  if (sample.length >= 3) {
+    const w = recencyWeights(sample.length);
     return {
       activity,
-      etaMs: last + median(intervals),
-      lowMs: last + quantile(intervals, 0.25),
-      highMs: last + quantile(intervals, 0.75),
+      etaMs: last + weightedQuantile(sample, w, 0.5),
+      lowMs: last + weightedQuantile(sample, w, 0.25),
+      highMs: last + weightedQuantile(sample, w, 0.75),
       basis: "pattern",
-      confidence: intervalConfidence(intervals),
+      confidence: weightedConfidence(sample, w),
     };
   }
   // Cold start: offset the last event by the age-based prior, ±25% as the window.
@@ -174,6 +241,28 @@ function predictInterval(
     basis: "age",
     confidence: AGE_BASIS_CONFIDENCE,
   };
+}
+
+/**
+ * Time-of-day bin for a wake window, keyed by the wake (sleep END) hour. Wake windows lengthen
+ * across the day — the first is shortest (high overnight sleep pressure), the pre-bed one is
+ * longest — so binning beats a single daily median.
+ */
+const wakeBin = (epochMs: number): 0 | 1 | 2 => {
+  const h = new Date(epochMs).getHours();
+  return h < 10 ? 0 : h < 14 ? 1 : 2;
+};
+
+/**
+ * Cold-start wake window (ms) from the age band, ramped by time of day: morning ≈ band.min,
+ * evening ≈ band.max. Wake windows lengthen across the day — e.g. a 6-month-old's run ~2.0 h
+ * (first nap) → ~2.75 h (pre-bed) per Huckleberry — so even without logged data the time of
+ * day shapes the guess.
+ */
+function rampedWakeWindow(band: { min: number; max: number }, lastWake: number): number {
+  const d = new Date(lastWake);
+  const frac = clamp((d.getHours() + d.getMinutes() / 60 - 7) / 12, 0, 1); // 07:00→0, 19:00→1
+  return (band.min + (band.max - band.min) * frac) * MIN;
 }
 
 /** Wake-window predictor for the next sleep onset. */
@@ -191,33 +280,42 @@ function predictSleep(entries: TimelineEntry[], months: number, now: number): Ac
   const minMs = band.min * MIN;
   const maxMs = band.max * MIN;
 
-  // Observed daytime wake windows: gap between one sleep's end and the next sleep's start.
-  // The 10-min..6-h gate drops night-waking blips and the overnight gap (a missing night-sleep
-  // log would otherwise look like an absurd ~14-h "wake window").
-  const windows: number[] = [];
+  // Observed daytime wake windows (gap between a sleep's end and the next sleep's start), each
+  // tagged with its time-of-day bin. The 10-min..6-h gate drops night-waking blips and the
+  // overnight gap (a missing night-sleep log would otherwise look like an absurd "wake window").
+  const windows: { gap: number; bin: 0 | 1 | 2 }[] = [];
   for (let i = 0; i + 1 < sleeps.length; i++) {
     const end = sleeps[i].endMs;
     if (end == null) continue;
     const gap = sleeps[i + 1].startMs - end;
-    if (gap >= 10 * MIN && gap <= 6 * HOUR && isDaytime(end)) windows.push(gap);
+    if (gap >= 10 * MIN && gap <= 6 * HOUR && isDaytime(end)) windows.push({ gap, bin: wakeBin(end) });
   }
 
-  if (windows.length >= 3) {
-    const ww = clamp(median(windows), minMs, maxMs); // clamp to the age band, per SweetSpot
+  const bin = wakeBin(lastWake);
+  // Reverse to newest-first so recency weighting favours the latest days.
+  const matched = windows.filter((w) => w.bin === bin).map((w) => w.gap).reverse();
+  const sample = matched.length >= 3 ? matched : windows.map((w) => w.gap).reverse();
+  // The pre-bed (evening) window is the day's longest, so give the late bin headroom above the
+  // nominal age band rather than clamping bedtime down to a daytime-nap ceiling.
+  const cap = bin === 2 ? maxMs * 1.3 : maxMs;
+
+  if (sample.length >= 3) {
+    const wts = recencyWeights(sample.length);
+    const ww = clamp(weightedQuantile(sample, wts, 0.5), minMs, cap); // clamp toward the age band
     return {
       activity: "sleep",
       etaMs: lastWake + ww,
       lowMs: lastWake + minMs,
-      highMs: lastWake + maxMs,
+      highMs: lastWake + cap,
       basis: "pattern",
-      confidence: intervalConfidence(windows),
+      confidence: weightedConfidence(sample, wts),
     };
   }
   return {
     activity: "sleep",
-    etaMs: lastWake + (minMs + maxMs) / 2,
+    etaMs: lastWake + rampedWakeWindow(band, lastWake),
     lowMs: lastWake + minMs,
-    highMs: lastWake + maxMs,
+    highMs: lastWake + cap,
     basis: "age",
     confidence: AGE_BASIS_CONFIDENCE,
   };
@@ -233,12 +331,15 @@ export function predictNext(
   now: number,
 ): Predictions {
   const months = ageInMonths(birthDate, now);
+  // A robust day/night rhythm isn't present until ~6–12 weeks, so only split feeds/changes by
+  // circadian period once the child is old enough; before that, pool all intervals.
+  const useCircadian = !(months >= 0) || months >= 1.5;
   const out: Predictions = {};
 
-  const feeding = predictInterval("feeding", startsOf(entries, "feeding"), feedingPrior(months), 5 * MIN, 14 * HOUR, now);
+  const feeding = predictInterval("feeding", startsOf(entries, "feeding"), feedingPrior(months), 5 * MIN, 14 * HOUR, now, useCircadian);
   if (feeding) out.feeding = feeding;
 
-  const diaper = predictInterval("diaper", startsOf(entries, "diaper"), DIAPER_PRIOR, 5 * MIN, 14 * HOUR, now);
+  const diaper = predictInterval("diaper", startsOf(entries, "diaper"), DIAPER_PRIOR, 5 * MIN, 14 * HOUR, now, useCircadian);
   if (diaper) out.diaper = diaper;
 
   const sleep = predictSleep(entries, months, now);
