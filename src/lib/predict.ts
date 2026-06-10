@@ -321,6 +321,100 @@ function predictSleep(entries: TimelineEntry[], months: number, now: number): Ac
   };
 }
 
+// ── sleep duration ────────────────────────────────────────────────────────────
+
+export interface SleepEndPrediction {
+  /** Predicted wake (epoch ms) for a sleep starting at `startMs`. */
+  endMs: number;
+  lowMs: number;
+  highMs: number;
+  basis: "pattern" | "age";
+  confidence: number;
+}
+
+/**
+ * Predict when a sleep STARTING at `startMs` will end.
+ *
+ * Two regimes, because they're driven by different clocks:
+ *  - NIGHT (start 17:00–04:00): the morning wake time is circadian and one of the day's most
+ *    stable anchors — predict the wake as the recency-weighted median of recent morning wake
+ *    clock-times, clamped to a sane 6–14 h night.
+ *  - NAP: durations cluster by position in the day, so sample recent nap durations in the
+ *    matching time-of-day bin (recency-weighted median + IQR). Catnap bins are inherently
+ *    noisy — the dispersion-based confidence stays low there, and callers should gate on it.
+ */
+export function predictSleepEnd(
+  entries: TimelineEntry[],
+  birthDate: string | null | undefined,
+  startMs: number,
+): SleepEndPrediction | null {
+  const months = ageInMonths(birthDate, startMs);
+  const sleeps = entries.filter(
+    (e): e is Extract<TimelineEntry, { activity: "sleep" }> => e.activity === "sleep" && e.endMs != null,
+  );
+  const startHour = new Date(startMs).getHours();
+  const isNightStart = startHour >= 17 || startHour < 4;
+
+  if (isNightStart) {
+    // Morning wake clock-times (minutes since midnight) of the final night segments, newest first.
+    const wakes = sleeps
+      .filter((e) => {
+        const eh = new Date(e.endMs as number).getHours();
+        return eh >= 4 && eh < 12 && (e.endMs as number) - e.startMs >= HOUR;
+      })
+      .sort((a, b) => (b.endMs as number) - (a.endMs as number))
+      .slice(0, 10)
+      .map((e) => {
+        const d = new Date(e.endMs as number);
+        return d.getHours() * 60 + d.getMinutes();
+      });
+    const dayStart = new Date(startMs);
+    dayStart.setHours(0, 0, 0, 0);
+    const toEnd = (clockMin: number): number => {
+      let end = dayStart.getTime() + clockMin * MIN;
+      while (end <= startMs + 2 * HOUR) end += DAY; // a 20:00 start wakes TOMORROW morning
+      return startMs + clamp(end - startMs, 6 * HOUR, 14 * HOUR);
+    };
+    if (wakes.length >= 3) {
+      const w = recencyWeights(wakes.length);
+      return {
+        endMs: toEnd(weightedQuantile(wakes, w, 0.5)),
+        lowMs: toEnd(weightedQuantile(wakes, w, 0.25)),
+        highMs: toEnd(weightedQuantile(wakes, w, 0.75)),
+        basis: "pattern",
+        confidence: weightedConfidence(wakes, w),
+      };
+    }
+    const end = startMs + 10.5 * HOUR;
+    return { endMs: end, lowMs: end - HOUR, highMs: end + HOUR, basis: "age", confidence: AGE_BASIS_CONFIDENCE };
+  }
+
+  // Nap: recent daytime durations, preferring the bin matching this start's time of day.
+  const naps = sleeps
+    .filter((e) => isDaytime(e.startMs))
+    .map((e) => ({ dur: (e.endMs as number) - e.startMs, bin: wakeBin(e.startMs), at: e.startMs }))
+    .filter((n) => n.dur >= 10 * MIN && n.dur <= 4 * HOUR)
+    .sort((a, b) => b.at - a.at)
+    .slice(0, 20);
+  const bin = wakeBin(startMs);
+  const matched = naps.filter((n) => n.bin === bin).map((n) => n.dur);
+  const sample = matched.length >= 3 ? matched : naps.map((n) => n.dur);
+  const bandLo = 25 * MIN;
+  const bandHi = 2.5 * HOUR;
+  if (sample.length >= 3) {
+    const w = recencyWeights(sample.length);
+    return {
+      endMs: startMs + clamp(weightedQuantile(sample, w, 0.5), bandLo, bandHi),
+      lowMs: startMs + clamp(weightedQuantile(sample, w, 0.25), bandLo, bandHi),
+      highMs: startMs + clamp(weightedQuantile(sample, w, 0.75), bandLo, bandHi),
+      basis: "pattern",
+      confidence: weightedConfidence(sample, w),
+    };
+  }
+  const prior = (months >= 0 && months < 4 ? 45 : 70) * MIN;
+  return { endMs: startMs + prior, lowMs: startMs + prior * 0.6, highMs: startMs + prior * 1.5, basis: "age", confidence: AGE_BASIS_CONFIDENCE };
+}
+
 /**
  * Predict the next feeding, sleep onset, and diaper change for a child from their recent
  * timeline entries. Any activity without a usable (recent) anchor is simply omitted.

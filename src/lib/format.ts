@@ -15,6 +15,14 @@ export function fmt(milliseconds: number): string {
   return h > 0 ? `${h}:${pad(m)}:${pad(sec)}` : `${m}:${pad(sec)}`;
 }
 
+/** Compact duration, e.g. "1h 5m" / "45m". */
+export function hm(milliseconds: number): string {
+  const total = Math.max(0, Math.round(milliseconds / 60_000));
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  return h ? `${h}h ${m}m` : `${m}m`;
+}
+
 /** Epoch ms → value for an `<input type="datetime-local">` (local wall-clock, no tz suffix). */
 export function toLocalInput(epochMs: number): string {
   if (Number.isNaN(epochMs)) return ""; // a cleared field, don't render "NaN-NaN-…"
