@@ -248,30 +248,45 @@ export function EntrySheet({
 
       {target.activity && (
         <>
-          <div style={s.sheetGroup}>{isTimed ? t("sheet.start") : t("sheet.time")}</div>
-          <input
-            type="datetime-local"
-            value={toLocalInput(draft.startMs)}
-            onChange={(e) => setDraft((d) => ({ ...d, startMs: fromLocalInput(e.target.value) }))}
-            style={s.timeInput}
-          />
-          {isTimed && (
+          {isTimed ? (
+            /* Start + End side by side on one row, each labelled. */
+            <div style={s.timeRow}>
+              <div style={s.timeCol}>
+                <div style={s.sheetGroup}>{t("sheet.start")}</div>
+                <input
+                  type="datetime-local"
+                  value={toLocalInput(draft.startMs)}
+                  onChange={(e) => setDraft((d) => ({ ...d, startMs: fromLocalInput(e.target.value) }))}
+                  style={{ ...s.timeInput, ...s.timeInputCompact }}
+                />
+              </div>
+              <div style={s.timeCol}>
+                <div style={s.sheetGroup}>{t("sheet.end")}</div>
+                <input
+                  type="datetime-local"
+                  value={toLocalInput(draft.endMs ?? draft.startMs)}
+                  min={toLocalInput(draft.startMs)}
+                  aria-invalid={endBeforeStart}
+                  onChange={(e) => setDraft((d) => ({ ...d, endMs: fromLocalInput(e.target.value) }))}
+                  style={{ ...s.timeInput, ...s.timeInputCompact }}
+                />
+              </div>
+            </div>
+          ) : (
             <>
-              <div style={s.sheetGroup}>{t("sheet.end")}</div>
+              <div style={s.sheetGroup}>{t("sheet.time")}</div>
               <input
                 type="datetime-local"
-                value={toLocalInput(draft.endMs ?? draft.startMs)}
-                min={toLocalInput(draft.startMs)}
-                aria-invalid={endBeforeStart}
-                onChange={(e) => setDraft((d) => ({ ...d, endMs: fromLocalInput(e.target.value) }))}
+                value={toLocalInput(draft.startMs)}
+                onChange={(e) => setDraft((d) => ({ ...d, startMs: fromLocalInput(e.target.value) }))}
                 style={s.timeInput}
               />
-              {draft.endMs != null && (
-                <div role="status" aria-live="polite" style={{ ...s.durReadout, ...(endBeforeStart ? s.durBad : {}) }}>
-                  {endBeforeStart ? t("sheet.endIsBeforeStart") : t("sheet.duration", { duration: fmt(draft.endMs - draft.startMs) })}
-                </div>
-              )}
             </>
+          )}
+          {isTimed && draft.endMs != null && (
+            <div role="status" aria-live="polite" style={{ ...s.durReadout, ...(endBeforeStart ? s.durBad : {}) }}>
+              {endBeforeStart ? t("sheet.endIsBeforeStart") : t("sheet.duration", { duration: fmt(draft.endMs - draft.startMs) })}
+            </div>
           )}
 
           <div style={s.sheetGroup}>{t("sheet.notes")}</div>
