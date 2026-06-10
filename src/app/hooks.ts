@@ -296,6 +296,36 @@ export function useEntriesInRange(
   return { entries: childId == null ? null : (data ?? null), loading: isFetching };
 }
 
+/**
+ * The device's coordinates, for sunrise/sunset on the day dial. Cached in localStorage so we
+ * prompt at most once; a denied/unavailable fix just leaves it null (the dial omits the sun
+ * markers). East-positive longitude, as the Geolocation API returns.
+ */
+const GEO_KEY = "baby-log:geo";
+export function useGeo(): { lat: number; lng: number } | null {
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(() => {
+    try {
+      const v = localStorage.getItem(GEO_KEY);
+      return v ? (JSON.parse(v) as { lat: number; lng: number }) : null;
+    } catch {
+      return null;
+    }
+  });
+  useEffect(() => {
+    if (coords || typeof navigator === "undefined" || !navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const c = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        localStorage.setItem(GEO_KEY, JSON.stringify(c));
+        setCoords(c);
+      },
+      () => {}, // denied / unavailable → no sun markers
+      { maximumAge: 86_400_000, timeout: 8000 },
+    );
+  }, [coords]);
+  return coords;
+}
+
 export function buzz(ms = 15): void {
   navigator?.vibrate?.(ms);
 }
