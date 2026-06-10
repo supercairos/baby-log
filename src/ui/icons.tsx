@@ -64,6 +64,20 @@ export const TummyIcon = (p: IconProps) => (
   </Svg>
 );
 
+export const SunriseIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M12 2v6M4.93 12.93l1.41 1.41M2 18h2M20 18h2M19.07 12.93l-1.41 1.41M22 22H2M8 6l4-4 4 4" />
+    <path d="M16 18a4 4 0 0 0-8 0" />
+  </Svg>
+);
+
+export const SunsetIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M12 8V2M4.93 12.93l1.41 1.41M2 18h2M20 18h2M19.07 12.93l-1.41 1.41M22 22H2M16 6l-4 4-4-4" />
+    <path d="M16 18a4 4 0 0 0-8 0" />
+  </Svg>
+);
+
 export const MenuIcon = (p: IconProps) => (
   <Svg strokeWidth={2} {...p}>
     <path d="M4 7h16M4 12h16M4 17h16" />

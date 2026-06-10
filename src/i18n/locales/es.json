@@ -105,6 +105,7 @@
     "today": "Hoy",
     "previous": "Anterior",
     "next": "Siguiente",
+    "inDuration": "en {{duration}}",
     "longest": "máx {{duration}}",
     "perDay": "{{count}}/día",
     "everyInterval": "cada ~{{duration}}",

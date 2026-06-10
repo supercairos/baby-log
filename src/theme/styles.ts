@@ -219,6 +219,10 @@ export function makeStyles(p: Palette): Styles {
     editHead: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 },
     editDel: { display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 12, background: dark ? "rgba(217,130,130,.12)" : "rgba(176,58,58,.1)", border: `1px solid ${dark ? "rgba(217,130,130,.3)" : "rgba(176,58,58,.3)"}`, color: p.danger, fontSize: 13.5, fontWeight: 700 },
     timeInput: { width: "100%", padding: "13px 16px", borderRadius: 14, fontSize: 15.5, fontWeight: 700, background: p.chipBg, border: `1px solid ${p.surfaceStrongBorder}`, color: p.text, fontFamily: p.body, colorScheme: dark ? "dark" : "light" },
+    timeRow: { display: "flex", gap: 10 },
+    timeCol: { flex: 1, minWidth: 0 },
+    // Two datetime-locals share one row — tighter metrics so both fit on a narrow phone.
+    timeInputCompact: { padding: "12px 10px", fontSize: 13.5, boxSizing: "border-box" },
     notesInput: { width: "100%", padding: "12px 16px", borderRadius: 14, fontSize: 15, fontWeight: 600, background: p.chipBg, border: `1px solid ${p.surfaceStrongBorder}`, color: p.text, fontFamily: p.body, resize: "vertical", minHeight: 60, lineHeight: 1.4, boxSizing: "border-box" },
     durReadout: { marginTop: 10, fontSize: 13.5, fontWeight: 700, color: p.textMuted, display: "flex", alignItems: "center", gap: 6 },
     durBad: { color: p.danger },
@@ -291,7 +295,10 @@ export function makeStyles(p: Palette): Styles {
     gridHourLabel: { position: "absolute", right: 6, transform: "translateY(-50%)", fontSize: 10, fontWeight: 700, color: p.textFainter },
     gridCol: { flex: 1, position: "relative", borderLeft: `1px solid ${p.surfaceBorder}` },
     gridLine: { position: "absolute", left: 0, right: 0, height: 1, background: p.surfaceBorder, opacity: 0.5 },
-    nowLine: { position: "absolute", left: 0, right: 0, height: 2, background: p.danger, zIndex: 5, opacity: 0.85 },
+    // Thin white line with teardrop caps at both ends (tails point along the line) — white in
+    // both themes. The caps' rotation is set inline per side.
+    nowLine: { position: "absolute", left: -1, right: -1, height: 2, borderRadius: 999, background: "#fff", zIndex: 5 },
+    nowCap: { position: "absolute", top: "50%", width: 9, height: 9, borderRadius: "50% 50% 50% 0", background: "#fff" },
     blkSleep: { position: "absolute", left: 1, right: 1, borderRadius: 4, border: "none", padding: 0, zIndex: 1 },
     blkBar: { position: "absolute", left: 1, right: 1, borderRadius: 3, border: "none", padding: 0, zIndex: 2 },
     blkDiaper: { position: "absolute", left: 1, right: 1, height: 3, borderRadius: 2, border: "none", padding: 0, zIndex: 3 },
@@ -304,6 +311,16 @@ export function makeStyles(p: Palette): Styles {
     statBig: { fontSize: 22, fontWeight: 600, fontFamily: p.serif, color: p.text, lineHeight: 1.1 },
     statSub: { fontSize: 12.5, fontWeight: 600, color: p.textFaint },
     addBar: { position: "sticky", bottom: 0, zIndex: 4, marginTop: 14, paddingTop: 12, paddingBottom: "calc(6px + env(safe-area-inset-bottom))", background: `linear-gradient(to top, ${p.bg} 72%, transparent)` },
+
+    radialWrap: { position: "relative", display: "flex", justifyContent: "center", padding: "10px 0 6px" },
+    radialSvg: { width: "100%", maxWidth: 340, height: "auto", display: "block", overflow: "visible" },
+    radialCenter: { position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, pointerEvents: "none", textAlign: "center" },
+    radialSmall: { fontSize: 13, fontWeight: 700, color: p.textMuted },
+    radialBig: { fontSize: 34, fontWeight: 600, fontFamily: p.serif, color: p.text, lineHeight: 1.05 },
+    radialActivity: { fontSize: 14, fontWeight: 800 },
+    radialStats: { display: "flex", flexDirection: "column", gap: 7, alignItems: "flex-start" },
+    radialStatRow: { display: "flex", alignItems: "center", gap: 9 },
+    radialStatValue: { fontSize: 15.5, fontWeight: 700, color: p.text, fontFamily: p.serif, letterSpacing: ".2px" },
 
     syncPill: { display: "inline-flex", alignItems: "center", gap: 7, fontSize: 12, fontWeight: 700, color: p.textFaint },
     syncDot: { width: 7, height: 7, borderRadius: "50%", background: feed, animation: "pulse 1.4s ease-in-out infinite" },

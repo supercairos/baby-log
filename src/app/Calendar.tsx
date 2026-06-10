@@ -8,10 +8,13 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import { useTranslation } from "react-i18next";
 import type { BabyBuddyClient, TimelineEntry } from "../api";
 import { useStyles, useTheme } from "../theme";
-import { ACTIVITY_ICON, PlusIcon } from "../ui/icons";
+import { ACTIVITY_ICON, PlusIcon, SunriseIcon, SunsetIcon } from "../ui/icons";
 import { clockTime } from "../lib/datetime";
+import { activityLabel } from "../lib/labels";
+import { predictNext, type ActivityPrediction } from "../lib/predict";
 import { tummyGoalForAge } from "../lib/tummy";
-import { useEntriesInRange, useNow, buzz } from "./hooks";
+import { sunTimes } from "../lib/sun";
+import { useEntriesInRange, useGeo, useNow, buzz } from "./hooks";
 import { Timeline } from "./Timeline";
 
 type CalMode = "day" | "week" | "list" | "summary";
@@ -146,6 +149,8 @@ export function Calendar({
         <Timeline entries={listEntries} showAdd={false} onEdit={onEdit} onDelete={onDelete} />
       ) : mode === "summary" ? (
         <SummaryView entries={rangeEntries} range={range} birthDate={birthDate} />
+      ) : mode === "day" ? (
+        <RadialDay entries={rangeEntries} range={range} birthDate={birthDate} onEdit={onEdit} />
       ) : (
         <TimeGrid entries={rangeEntries} range={range} hourPx={hourPx} onZoom={applyZoom} onEdit={onEdit} />
       )}
@@ -174,7 +179,248 @@ function periodLabel(mode: CalMode, range: Range): string {
   return `${startStr} – ${endStr}`;
 }
 
-// ── Day / Week time grid ────────────────────────────────────────────────────────
+// ── Radial day clock ─────────────────────────────────────────────────────────────
+// A 24-h ring: midnight at the bottom, noon at the top, morning down the left and evening
+// down the right — so the waking day arcs across the top. EVERYTHING lives on one fat ring:
+// timed activities as rounded arc pills, instants as dots — each carrying its activity icon so
+// the dial is legible at a glance. The centre shows the next-event prediction (today).
+const RCX = 160;
+const RCY = 160;
+const R_RING = 122; // the single ring everything sits on
+const RING_W = 30; // ring (and arc) thickness — fat enough to hold the icon badges
+
+const polar = (deg: number, rad: number) => {
+  const a = (deg * Math.PI) / 180;
+  return { x: RCX + rad * Math.sin(a), y: RCY - rad * Math.cos(a) };
+};
+const arcPath = (a0: number, a1: number, rad: number): string => {
+  const s = polar(a0, rad);
+  const e = polar(a1, rad);
+  const large = (a1 - a0 + 360) % 360 > 180 ? 1 : 0;
+  return `M ${s.x.toFixed(2)} ${s.y.toFixed(2)} A ${rad} ${rad} 0 ${large} 1 ${e.x.toFixed(2)} ${e.y.toFixed(2)}`;
+};
+
+function RadialDay({
+  entries,
+  range,
+  birthDate,
+  onEdit,
+}: {
+  entries: TimelineEntry[] | null;
+  range: Range;
+  birthDate: string | null | undefined;
+  onEdit: (e: TimelineEntry) => void;
+}) {
+  const { s } = useStyles();
+  const { palette } = useTheme();
+  const { t } = useTranslation();
+  const now = useNow(30_000);
+  const dayStart = range.days[0];
+  const dayEnd = dayStart + DAY_MS;
+  const isToday = dayStart === startOfDay(now);
+  const list = entries ?? [];
+
+  const angleOf = (ms: number) => ((clamp(ms, dayStart, dayEnd) - dayStart) / DAY_MS) * 360 + 180;
+
+  const sleeps = list.filter((e) => e.activity === "sleep" && e.endMs != null && e.endMs > dayStart && e.startMs < dayEnd);
+  const bars = list.filter((e) => (e.activity === "feeding" || e.activity === "tummy") && e.startMs < dayEnd && (e.endMs ?? e.startMs) >= dayStart);
+  const diapers = list.filter((e) => e.activity === "diaper" && e.startMs >= dayStart && e.startMs < dayEnd);
+
+  let sleepMs = 0;
+  for (const e of sleeps) sleepMs += Math.min(e.endMs as number, dayEnd) - Math.max(e.startMs, dayStart);
+  // Day stats for the dial centre (past days): totals per activity.
+  let tummyMs = 0;
+  for (const e of bars) {
+    if (e.activity !== "tummy") continue;
+    tummyMs += Math.min(e.endMs ?? e.startMs, dayEnd) - Math.max(e.startMs, dayStart);
+  }
+  const feedCount = list.filter((e) => e.activity === "feeding" && e.startMs >= dayStart && e.startMs < dayEnd).length;
+
+  // Predicted upcoming events (today only) — shown as dashed "ghost" markers on the ring.
+  const preds = isToday
+    ? (Object.values(predictNext(list, birthDate, now)) as ActivityPrediction[]).filter((p) => p.confidence >= 0.1)
+    : [];
+  const soonest = [...preds].sort((a, b) => a.etaMs - b.etaMs)[0];
+  const predMarks = preds.filter((p) => p.etaMs > now && p.etaMs < dayEnd);
+
+  // Sunrise / sunset for the viewed day (when we have a location).
+  const geo = useGeo();
+  const sun = geo ? sunTimes(dayStart + 12 * 3_600_000, geo.lat, geo.lng) : null;
+  const sunMarks = sun
+    ? ([
+        { key: "sunrise", ms: sun.sunrise, color: "#f3c14e" },
+        { key: "sunset", ms: sun.sunset, color: "#e8895b" },
+      ] as const).filter((m) => m.ms >= dayStart && m.ms < dayEnd)
+    : [];
+
+  const hours = [0, 6, 12, 18];
+  const hourLabel = (h: number) => `${h % 12 === 0 ? 12 : h % 12}${h < 12 ? "a" : "p"}`;
+
+  // Icon badge sitting on the ring at `deg` — a filled disc with the activity glyph, so every
+  // marker is identifiable at a glance. `dashed` renders the predicted ("ghost") variant.
+  const badge = (
+    key: string,
+    deg: number,
+    accent: string,
+    Icon: (p: { size?: number }) => ReactNode,
+    opts: { dashed?: boolean; onClick?: () => void } = {},
+  ) => {
+    const c = polar(deg, R_RING);
+    return (
+      <g key={key} style={{ color: accent, cursor: opts.onClick ? "pointer" : undefined }} onClick={opts.onClick}>
+        <circle cx={c.x} cy={c.y} r={10.5} fill={palette.bg} stroke={accent} strokeWidth={1.6} strokeDasharray={opts.dashed ? "2.5 2.5" : undefined} />
+        <g transform={`translate(${(c.x - 6.5).toFixed(2)}, ${(c.y - 6.5).toFixed(2)})`}>
+          <Icon size={13} />
+        </g>
+      </g>
+    );
+  };
+  const timeLabel = (key: string, deg: number, color: string, ms: number) => {
+    const lp = polar(deg, R_RING + 26);
+    return (
+      <text key={key} x={lp.x} y={lp.y} fill={color} fontSize={10} fontWeight={800} textAnchor="middle" dominantBaseline="middle">
+        {clockTime(ms)}
+      </text>
+    );
+  };
+
+  // The round linecap overshoots each path end by RING_W/2 (~28 min of angle), so a naively
+  // drawn arc reads ~1 h longer than the event. Inset BOTH ends by the cap's angular size so the
+  // visible pill spans exactly [start, end] — and when the event is too short for the caps to
+  // fit, draw no arc at all: the icon badge alone marks it (a fixed-size marker can't lie about
+  // duration the way a fat arc does).
+  const CAP_DEG = (RING_W / 2 / R_RING) * (180 / Math.PI);
+  const ringArc = (e: TimelineEntry) => {
+    const rawEnd = Math.max(e.endMs ?? e.startMs, e.startMs);
+    const a0 = angleOf(Math.max(e.startMs, dayStart));
+    const a1 = angleOf(Math.min(rawEnd, dayEnd));
+    if (a1 - a0 <= 2 * CAP_DEG + 0.5) return null; // shorter than the caps → badge only
+    return (
+      <path
+        key={`${e.path}${e.id}`}
+        d={arcPath(a0 + CAP_DEG, a1 - CAP_DEG, R_RING)}
+        fill="none"
+        stroke={palette.accents[e.activity].accent}
+        strokeWidth={RING_W}
+        strokeLinecap="round"
+        opacity={e.activity === "sleep" ? 0.45 : 0.8}
+        style={{ cursor: "pointer" }}
+        onClick={() => onEdit(e)}
+      />
+    );
+  };
+  const midDeg = (e: TimelineEntry) => {
+    const start = Math.max(e.startMs, dayStart);
+    const end = Math.min(Math.max(e.endMs ?? e.startMs, e.startMs), dayEnd);
+    return angleOf((start + end) / 2);
+  };
+
+  // All badges collected, sorted around the ring, then nudged apart so neighbours never overlap
+  // (events close in time would otherwise stack their badges on top of each other).
+  interface Mark {
+    key: string;
+    deg: number;
+    accent: string;
+    Icon: (p: { size?: number }) => ReactNode;
+    dashed?: boolean;
+    onClick?: () => void;
+    labelMs?: number;
+  }
+  const marks: Mark[] = [
+    ...[...sleeps, ...bars].map((e): Mark => ({ key: `b-${e.path}${e.id}`, deg: midDeg(e), accent: palette.accents[e.activity].accent, Icon: ACTIVITY_ICON[e.activity], onClick: () => onEdit(e) })),
+    ...diapers.map((e): Mark => ({ key: `b-${e.path}${e.id}`, deg: angleOf(e.startMs), accent: palette.accents.diaper.accent, Icon: ACTIVITY_ICON.diaper, onClick: () => onEdit(e) })),
+    ...predMarks.map((p): Mark => ({ key: `pb-${p.activity}`, deg: angleOf(p.etaMs), accent: palette.accents[p.activity].accent, Icon: ACTIVITY_ICON[p.activity], dashed: true, labelMs: p.etaMs })),
+    ...sunMarks.map((m): Mark => ({ key: `sb-${m.key}`, deg: angleOf(m.ms), accent: m.color, Icon: m.key === "sunrise" ? SunriseIcon : SunsetIcon, labelMs: m.ms })),
+  ].sort((a, b) => a.deg - b.deg);
+  const MIN_SEP = 11; // ≈ badge diameter at the ring radius, in degrees
+  for (let i = 1; i < marks.length; i++) {
+    if (marks[i].deg < marks[i - 1].deg + MIN_SEP) marks[i].deg = marks[i - 1].deg + MIN_SEP;
+  }
+
+  return (
+    <div style={s.radialWrap}>
+      <svg viewBox="0 0 320 320" style={s.radialSvg} role="img">
+        {/* the single fat ring everything sits on */}
+        <circle cx={RCX} cy={RCY} r={R_RING} fill="none" stroke={palette.surfaceBorder} strokeWidth={RING_W} opacity={0.35} />
+        {[...sleeps, ...bars].map((e) => ringArc(e))}
+        {marks.map((m) => (
+          <g key={m.key}>
+            {badge(m.key, m.deg, m.accent, m.Icon, { dashed: m.dashed, onClick: m.onClick })}
+            {m.labelMs != null && timeLabel(`${m.key}-t`, m.deg, m.accent, m.labelMs)}
+          </g>
+        ))}
+        {/* "now" — a rounded radial tick crossing the ring, drawn on top of arcs and badges */}
+        {isToday && now >= dayStart && now < dayEnd && (() => {
+          const deg = angleOf(now);
+          const p1 = polar(deg, R_RING - RING_W / 2 - 5);
+          const p2 = polar(deg, R_RING + RING_W / 2 + 5);
+          /* Teardrop cap: a circle + tip triangle (their union reads as a drop), with the tail
+             rotated to point at `toward` — i.e. along the line. */
+          const drop = (at: { x: number; y: number }, toward: { x: number; y: number }, key: string) => {
+            const ang = (Math.atan2(toward.y - at.y, toward.x - at.x) * 180) / Math.PI - 90;
+            return (
+              <g key={key} transform={`translate(${at.x.toFixed(2)}, ${at.y.toFixed(2)}) rotate(${ang.toFixed(1)})`} fill="#fff">
+                <circle r={4} />
+                <path d="M 3.46 2 L 0 9 L -3.46 2 Z" />
+              </g>
+            );
+          };
+          return (
+            /* thin white line with teardrop caps at both ends — white in both themes */
+            <g>
+              <line x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke="#fff" strokeWidth={2} strokeLinecap="round" />
+              {drop(p1, p2, "c1")}
+              {drop(p2, p1, "c2")}
+            </g>
+          );
+        })()}
+        {/* hour scale sits INSIDE the ring so it can't collide with the marker time labels */}
+        {hours.map((h) => {
+          const p = polar(angleOf(dayStart + h * 3_600_000), R_RING - 26);
+          return (
+            <text key={h} x={p.x} y={p.y} fill={palette.textFainter} fontSize={10} fontWeight={700} textAnchor="middle" dominantBaseline="middle">
+              {hourLabel(h)}
+            </text>
+          );
+        })}
+      </svg>
+
+      <div style={s.radialCenter}>
+        {soonest ? (
+          <>
+            <span style={s.radialSmall}>{t("home.upNext")}</span>
+            <span style={s.radialBig}>{soonest.etaMs <= now + 60_000 ? t("home.dueNow") : t("cal.inDuration", { duration: hm(soonest.etaMs - now) })}</span>
+            <span style={{ ...s.radialActivity, color: palette.accents[soonest.activity].accent }}>{activityLabel(soonest.activity)}</span>
+          </>
+        ) : (
+          /* Past day (or nothing left to predict): the day's totals, icon per activity. */
+          <div style={s.radialStats}>
+            {(
+              [
+                { key: "sleep", value: hm(sleepMs) },
+                { key: "feeding", value: `×${feedCount}` },
+                { key: "diaper", value: `×${diapers.length}` },
+                { key: "tummy", value: hm(tummyMs) },
+              ] as const
+            ).map(({ key, value }) => {
+              const Icon = ACTIVITY_ICON[key];
+              return (
+                <div key={key} style={s.radialStatRow}>
+                  <span style={{ color: palette.accents[key].accent, display: "grid", placeItems: "center" }}>
+                    <Icon size={15} />
+                  </span>
+                  <span style={s.radialStatValue}>{value}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Week time grid ───────────────────────────────────────────────────────────────
 function TimeGrid({
   entries,
   range,
@@ -285,7 +531,11 @@ function TimeGrid({
                 <div key={h} style={{ ...s.gridLine, top: h * hourPx }} />
               ))}
               {dayStart === todayStart && now < dayStart + DAY_MS && (
-                <div style={{ ...s.nowLine, top: ((now - dayStart) / DAY_MS) * gridH }} />
+                <div style={{ ...s.nowLine, top: ((now - dayStart) / DAY_MS) * gridH }}>
+                  {/* teardrop caps, tails pointing inward along the line */}
+                  <span style={{ ...s.nowCap, left: 0, transform: "translate(-50%, -50%) rotate(-135deg)" }} />
+                  <span style={{ ...s.nowCap, left: "100%", transform: "translate(-50%, -50%) rotate(45deg)" }} />
+                </div>
               )}
               {blocks.map((e) => renderBlock(e, dayStart, gridH, palette, onEdit, s)).filter(Boolean)}
             </div>
