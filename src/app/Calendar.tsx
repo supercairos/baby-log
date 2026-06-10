@@ -11,7 +11,8 @@ import { useStyles, useTheme } from "../theme";
 import { ACTIVITY_ICON, PlusIcon, SunriseIcon, SunsetIcon } from "../ui/icons";
 import { clockTime } from "../lib/datetime";
 import { activityLabel } from "../lib/labels";
-import { predictNext, type ActivityPrediction } from "../lib/predict";
+import { hm } from "../lib/format";
+import { predictNext, predictSleepEnd, type ActivityPrediction } from "../lib/predict";
 import { tummyGoalForAge } from "../lib/tummy";
 import { sunTimes } from "../lib/sun";
 import { useEntriesInRange, useGeo, useNow, buzz } from "./hooks";
@@ -49,13 +50,6 @@ const median = (xs: number[]): number => {
   const s = [...xs].sort((a, b) => a - b);
   const m = s.length >> 1;
   return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
-};
-/** Compact duration, e.g. "14h 10m" / "45m". */
-const hm = (ms: number): string => {
-  const total = Math.max(0, Math.round(ms / 60_000));
-  const h = Math.floor(total / 60);
-  const m = total % 60;
-  return h ? `${h}h ${m}m` : `${m}m`;
 };
 
 interface Range {
@@ -114,6 +108,8 @@ export function Calendar({
 
   const range = useMemo(() => rangeFor(mode, anchor), [mode, anchor]);
   const { entries: rangeEntries } = useEntriesInRange(client, childId, range.from, range.to, mode !== "list");
+  // Previous week, for the Résumé's week-over-week deltas.
+  const { entries: prevEntries } = useEntriesInRange(client, childId, range.from - 7 * DAY_MS, range.from, mode === "summary");
 
   const step = (dir: -1 | 1) => {
     buzz();
@@ -148,7 +144,7 @@ export function Calendar({
       {mode === "list" ? (
         <Timeline entries={listEntries} showAdd={false} onEdit={onEdit} onDelete={onDelete} />
       ) : mode === "summary" ? (
-        <SummaryView entries={rangeEntries} range={range} birthDate={birthDate} />
+        <SummaryView entries={rangeEntries} prevEntries={prevEntries} range={range} birthDate={birthDate} />
       ) : mode === "day" ? (
         <RadialDay entries={rangeEntries} range={range} birthDate={birthDate} onEdit={onEdit} />
       ) : (
@@ -268,7 +264,8 @@ function RadialDay({
     const c = polar(deg, R_RING);
     return (
       <g key={key} style={{ color: accent, cursor: opts.onClick ? "pointer" : undefined }} onClick={opts.onClick}>
-        <circle cx={c.x} cy={c.y} r={10.5} fill={palette.bg} stroke={accent} strokeWidth={1.6} strokeDasharray={opts.dashed ? "2.5 2.5" : undefined} />
+        {/* tileBase, not bg: `bg` is a CSS gradient string, which SVG would paint as black */}
+        <circle cx={c.x} cy={c.y} r={10.5} fill={palette.tileBase} stroke={accent} strokeWidth={1.6} strokeDasharray={opts.dashed ? "2.5 2.5" : undefined} />
         <g transform={`translate(${(c.x - 6.5).toFixed(2)}, ${(c.y - 6.5).toFixed(2)})`}>
           <Icon size={13} />
         </g>
@@ -343,6 +340,27 @@ function RadialDay({
         {/* the single fat ring everything sits on */}
         <circle cx={RCX} cy={RCY} r={R_RING} fill="none" stroke={palette.surfaceBorder} strokeWidth={RING_W} opacity={0.35} />
         {[...sleeps, ...bars].map((e) => ringArc(e))}
+        {/* predicted sleep: a dashed ghost arc spanning the expected onset → wake */}
+        {predMarks
+          .filter((p) => p.activity === "sleep")
+          .map((p) => {
+            const se = predictSleepEnd(list, birthDate, p.etaMs);
+            if (!se || se.confidence < 0.3) return null;
+            const a0 = angleOf(p.etaMs);
+            const a1 = Math.max(angleOf(Math.min(se.endMs, dayEnd)), a0 + 2);
+            return (
+              <path
+                key="pred-sleep-arc"
+                d={arcPath(a0, a1, R_RING)}
+                fill="none"
+                stroke={palette.accents.sleep.accent}
+                strokeWidth={7}
+                strokeLinecap="round"
+                strokeDasharray="2.5 6"
+                opacity={0.9}
+              />
+            );
+          })}
         {marks.map((m) => (
           <g key={m.key}>
             {badge(m.key, m.deg, m.accent, m.Icon, { dashed: m.dashed, onClick: m.onClick })}
@@ -356,19 +374,21 @@ function RadialDay({
           const p2 = polar(deg, R_RING + RING_W / 2 + 5);
           /* Teardrop cap: a circle + tip triangle (their union reads as a drop), with the tail
              rotated to point at `toward` — i.e. along the line. */
+          // White on the dark theme; ink on the light paper theme, where white would wash out.
+          const nowColor = palette.name === "dark" ? "#fff" : palette.text;
           const drop = (at: { x: number; y: number }, toward: { x: number; y: number }, key: string) => {
             const ang = (Math.atan2(toward.y - at.y, toward.x - at.x) * 180) / Math.PI - 90;
             return (
-              <g key={key} transform={`translate(${at.x.toFixed(2)}, ${at.y.toFixed(2)}) rotate(${ang.toFixed(1)})`} fill="#fff">
+              <g key={key} transform={`translate(${at.x.toFixed(2)}, ${at.y.toFixed(2)}) rotate(${ang.toFixed(1)})`} fill={nowColor}>
                 <circle r={4} />
                 <path d="M 3.46 2 L 0 9 L -3.46 2 Z" />
               </g>
             );
           };
           return (
-            /* thin white line with teardrop caps at both ends — white in both themes */
+            /* thin line with teardrop caps at both ends */
             <g>
-              <line x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke="#fff" strokeWidth={2} strokeLinecap="round" />
+              <line x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke={nowColor} strokeWidth={2} strokeLinecap="round" />
               {drop(p1, p2, "c1")}
               {drop(p2, p1, "c2")}
             </g>
@@ -537,7 +557,7 @@ function TimeGrid({
                   <span style={{ ...s.nowCap, left: "100%", transform: "translate(-50%, -50%) rotate(45deg)" }} />
                 </div>
               )}
-              {blocks.map((e) => renderBlock(e, dayStart, gridH, palette, onEdit, s)).filter(Boolean)}
+              {layoutDay(blocks, dayStart).map((le) => renderBlock(le, dayStart, gridH, palette, onEdit, s))}
             </div>
           );
         })}
@@ -546,44 +566,96 @@ function TimeGrid({
   );
 }
 
+/** An entry placed in the day column: clipped times plus its lane within the overlap cluster. */
+interface LaidOut {
+  e: TimelineEntry;
+  clipStart: number;
+  clipEnd: number;
+  lane: number;
+  lanes: number;
+}
+
+/**
+ * Lane layout for one day column — concurrent events split the column side by side instead of
+ * stacking invisibly. Classic interval-cluster algorithm: greedily assign each event the first
+ * free lane; when nothing overlaps anymore, the finished cluster's events all share its lane
+ * count as their width divisor. Instants (diapers) and very short events reserve a ~20-min slot
+ * for layout purposes so simultaneous ones still get distinct lanes.
+ */
+function layoutDay(entries: TimelineEntry[], dayStart: number): LaidOut[] {
+  const dayEnd = dayStart + DAY_MS;
+  const LAYOUT_MIN = 20 * 60_000;
+  const evs = entries
+    .filter((e) => Math.max(e.endMs ?? e.startMs, e.startMs) >= dayStart && e.startMs < dayEnd)
+    .map((e) => {
+      const clipStart = Math.max(e.startMs, dayStart);
+      const clipEnd = Math.min(Math.max(e.endMs ?? e.startMs, e.startMs), dayEnd);
+      return { e, clipStart, clipEnd, layoutEnd: Math.min(Math.max(clipEnd, clipStart + LAYOUT_MIN), dayEnd), lane: 0, lanes: 1 };
+    })
+    .sort((a, b) => a.clipStart - b.clipStart || b.layoutEnd - a.layoutEnd);
+
+  const laneEnds: number[] = [];
+  let cluster: typeof evs = [];
+  const flush = () => {
+    for (const ev of cluster) ev.lanes = laneEnds.length;
+    laneEnds.length = 0;
+    cluster = [];
+  };
+  for (const ev of evs) {
+    if (laneEnds.length > 0 && laneEnds.every((end) => end <= ev.clipStart)) flush();
+    let lane = laneEnds.findIndex((end) => end <= ev.clipStart);
+    if (lane === -1) {
+      lane = laneEnds.length;
+      laneEnds.push(0);
+    }
+    laneEnds[lane] = ev.layoutEnd;
+    ev.lane = lane;
+    cluster.push(ev);
+  }
+  flush();
+  return evs;
+}
+
 function renderBlock(
-  e: TimelineEntry,
+  le: LaidOut,
   dayStart: number,
   gridH: number,
   palette: ReturnType<typeof useTheme>["palette"],
   onEdit: (e: TimelineEntry) => void,
   s: Record<string, CSSProperties>,
 ): ReactNode {
-  const dayEnd = dayStart + DAY_MS;
+  const { e, clipStart, clipEnd, lane, lanes } = le;
   const accent = palette.accents[e.activity].accent;
-  const start = e.startMs;
-  const end = e.endMs ?? e.startMs;
-  if (end < dayStart || start >= dayEnd) return null; // doesn't intersect this day
-
-  const clipStart = Math.max(start, dayStart);
-  const clipEnd = Math.min(Math.max(end, start), dayEnd);
   const top = ((clipStart - dayStart) / DAY_MS) * gridH;
+  const left = `calc(${((lane / lanes) * 100).toFixed(3)}% + 1px)`;
+  const width = `calc(${(100 / lanes).toFixed(3)}% - 2px)`;
   const key = `${e.path}${e.id}`;
   const common = { onClick: () => onEdit(e), "aria-label": `${e.activity} ${clockTime(e.startMs)}` };
 
   if (e.activity === "diaper") {
-    return <button key={key} {...common} style={{ ...s.blkDiaper, top, background: accent }} />;
+    return <button key={key} {...common} style={{ ...s.blkDiaper, top, left, width, background: accent }} />;
   }
   const h = Math.max(3, ((clipEnd - clipStart) / DAY_MS) * gridH);
   if (e.activity === "sleep") {
-    return <button key={key} {...common} style={{ ...s.blkSleep, top, height: h, background: `${accent}3d`, borderLeft: `2px solid ${accent}` }} />;
+    return <button key={key} {...common} style={{ ...s.blkSleep, top, left, width, height: h, background: `${accent}3d`, borderLeft: `2px solid ${accent}` }} />;
   }
-  // feeding / tummy — solid bar on top of any sleep block
-  return <button key={key} {...common} style={{ ...s.blkBar, top, height: h, background: accent }} />;
+  // feeding / tummy — solid bar
+  return <button key={key} {...common} style={{ ...s.blkBar, top, left, width, height: h, background: accent }} />;
 }
 
 // ── Summary ────────────────────────────────────────────────────────────────────
+/** Signed compact duration for deltas, e.g. "+40m" / "−1h 05m". */
+const signedHm = (ms: number): string => `${ms < 0 ? "−" : "+"}${hm(Math.abs(ms))}`;
+const signedCount = (n: number): string => `${n < 0 ? "−" : "+"}${Math.abs(n)}`;
+
 function SummaryView({
   entries,
+  prevEntries,
   range,
   birthDate,
 }: {
   entries: TimelineEntry[] | null;
+  prevEntries: TimelineEntry[] | null;
   range: Range;
   birthDate: string | null | undefined;
 }) {
@@ -597,6 +669,19 @@ function SummaryView({
   // dividing across days that haven't happened yet.
   const days = Math.max(1, range.days.filter((d) => d <= now).length);
   const goal = tummyGoalForAge(birthDate, range.from);
+
+  // Week-over-week deltas, per day (the previous week always divides by its full 7 days).
+  const prev = useMemo(
+    () => summarize(prevEntries ?? [], range.from - 7 * DAY_MS, range.from),
+    [prevEntries, range],
+  );
+  const hasPrev = (prevEntries?.length ?? 0) > 0;
+  const delta = {
+    sleep: signedHm(stats.sleepMs / days - prev.sleepMs / 7),
+    feeding: signedCount(Math.round(stats.feedCount / days - prev.feedCount / 7)),
+    diaper: signedCount(Math.round(stats.diaperCount / days - prev.diaperCount / 7)),
+    tummy: signedHm(stats.tummyMs / days - prev.tummyMs / 7),
+  } as const;
 
   if (entries == null) return <div style={s.empty}><div className="spin" style={{ width: 28, height: 28, borderRadius: "50%", border: `3px solid ${palette.surfaceStrongBorder}`, borderTopColor: palette.accents.feeding.accent }} /></div>;
 
@@ -618,6 +703,7 @@ function SummaryView({
             <span style={s.statTitle}>{t(`activity.${c.key}`)}</span>
             <span style={s.statBig}>{c.big}</span>
             <span style={s.statSub}>{c.sub}</span>
+            {hasPrev && <span style={s.statDelta}>{t("cal.vsLastWeek", { delta: delta[c.key] })}</span>}
           </div>
         );
       })}
