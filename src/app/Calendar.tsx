@@ -22,7 +22,6 @@ type CalMode = "day" | "week" | "list" | "summary";
 const MODES: CalMode[] = ["day", "week", "list", "summary"];
 const MODE_KEY = "baby-log:calmode";
 
-const DAY_MS = 86_400_000;
 const DEFAULT_HOUR_PX = 24; // pixels per hour at default zoom (24 h ≈ 576 px)
 const MIN_HOUR_PX = 14;
 const MAX_HOUR_PX = 72;
@@ -57,10 +56,13 @@ interface Range {
   to: number;
   days: number[];
 }
+// Boundaries go through addDays (Date.setDate) rather than `+ n * DAY_MS`: on DST transition
+// days the local day is 23 or 25 hours, and fixed-ms arithmetic would shift the range by an
+// hour — dropping (or borrowing) entries at the edge of the day/week.
 function rangeFor(mode: CalMode, anchor: number): Range {
-  if (mode === "day") return { from: anchor, to: anchor + DAY_MS, days: [anchor] };
+  if (mode === "day") return { from: anchor, to: addDays(anchor, 1), days: [anchor] };
   const from = startOfWeek(anchor); // week + summary
-  return { from, to: from + 7 * DAY_MS, days: Array.from({ length: 7 }, (_, i) => addDays(from, i)) };
+  return { from, to: addDays(from, 7), days: Array.from({ length: 7 }, (_, i) => addDays(from, i)) };
 }
 
 export function Calendar({
@@ -109,7 +111,7 @@ export function Calendar({
   const range = useMemo(() => rangeFor(mode, anchor), [mode, anchor]);
   const { entries: rangeEntries } = useEntriesInRange(client, childId, range.from, range.to, mode !== "list");
   // Previous week, for the Résumé's week-over-week deltas.
-  const { entries: prevEntries } = useEntriesInRange(client, childId, range.from - 7 * DAY_MS, range.from, mode === "summary");
+  const { entries: prevEntries } = useEntriesInRange(client, childId, addDays(range.from, -7), range.from, mode === "summary");
 
   const step = (dir: -1 | 1) => {
     buzz();
@@ -167,7 +169,7 @@ function periodLabel(mode: CalMode, range: Range): string {
   if (mode === "day") {
     return new Date(range.from).toLocaleDateString(loc, { weekday: "long", day: "numeric", month: "short" });
   }
-  const end = new Date(range.to - DAY_MS);
+  const end = new Date(addDays(range.to, -1));
   const start = new Date(range.from);
   const sameMonth = start.getMonth() === end.getMonth();
   const startStr = start.toLocaleDateString(loc, { day: "numeric", ...(sameMonth ? {} : { month: "short" }) });
@@ -212,11 +214,11 @@ function RadialDay({
   const { t } = useTranslation();
   const now = useNow(30_000);
   const dayStart = range.days[0];
-  const dayEnd = dayStart + DAY_MS;
+  const dayEnd = addDays(dayStart, 1); // DST-safe: a local day can be 23 or 25 h
   const isToday = dayStart === startOfDay(now);
   const list = entries ?? [];
 
-  const angleOf = (ms: number) => ((clamp(ms, dayStart, dayEnd) - dayStart) / DAY_MS) * 360 + 180;
+  const angleOf = (ms: number) => ((clamp(ms, dayStart, dayEnd) - dayStart) / (dayEnd - dayStart)) * 360 + 180;
 
   const sleeps = list.filter((e) => e.activity === "sleep" && e.endMs != null && e.endMs > dayStart && e.startMs < dayEnd);
   const bars = list.filter((e) => (e.activity === "feeding" || e.activity === "tummy") && e.startMs < dayEnd && (e.endMs ?? e.startMs) >= dayStart);
@@ -394,9 +396,13 @@ function RadialDay({
             </g>
           );
         })()}
-        {/* hour scale sits INSIDE the ring so it can't collide with the marker time labels */}
+        {/* hour scale sits INSIDE the ring so it can't collide with the marker time labels.
+            Marks anchor to the actual LOCAL o'clock instant (setHours), so they stay truthful
+            on 23/25-hour DST days where `dayStart + h * 3_600_000` drifts off the wall clock. */}
         {hours.map((h) => {
-          const p = polar(angleOf(dayStart + h * 3_600_000), R_RING - 26);
+          const at = new Date(dayStart);
+          at.setHours(h, 0, 0, 0);
+          const p = polar(angleOf(at.getTime()), R_RING - 26);
           return (
             <text key={h} x={p.x} y={p.y} fill={palette.textFainter} fontSize={10} fontWeight={700} textAnchor="middle" dominantBaseline="middle">
               {hourLabel(h)}
@@ -550,14 +556,14 @@ function TimeGrid({
               {hours.map((h) => (
                 <div key={h} style={{ ...s.gridLine, top: h * hourPx }} />
               ))}
-              {dayStart === todayStart && now < dayStart + DAY_MS && (
-                <div style={{ ...s.nowLine, top: ((now - dayStart) / DAY_MS) * gridH }}>
+              {dayStart === todayStart && now < addDays(dayStart, 1) && (
+                <div style={{ ...s.nowLine, top: wallClockY(now, hourPx) }}>
                   {/* teardrop caps, tails pointing inward along the line */}
                   <span style={{ ...s.nowCap, left: 0, transform: "translate(-50%, -50%) rotate(-135deg)" }} />
                   <span style={{ ...s.nowCap, left: "100%", transform: "translate(-50%, -50%) rotate(45deg)" }} />
                 </div>
               )}
-              {layoutDay(blocks, dayStart).map((le) => renderBlock(le, dayStart, gridH, palette, onEdit, s))}
+              {layoutDay(blocks, dayStart).map((le) => renderBlock(le, hourPx, palette, onEdit, s))}
             </div>
           );
         })}
@@ -582,8 +588,15 @@ interface LaidOut {
  * count as their width divisor. Instants (diapers) and very short events reserve a ~20-min slot
  * for layout purposes so simultaneous ones still get distinct lanes.
  */
+/** Vertical position of an instant in a wall-clock-labelled grid: local h:mm × px/hour. This
+ *  keeps blocks aligned with the hour lines even on 23/25-hour DST days. */
+function wallClockY(ms: number, hourPx: number): number {
+  const d = new Date(ms);
+  return (d.getHours() + d.getMinutes() / 60 + d.getSeconds() / 3600) * hourPx;
+}
+
 function layoutDay(entries: TimelineEntry[], dayStart: number): LaidOut[] {
-  const dayEnd = dayStart + DAY_MS;
+  const dayEnd = addDays(dayStart, 1); // DST-safe
   const LAYOUT_MIN = 20 * 60_000;
   const evs = entries
     .filter((e) => Math.max(e.endMs ?? e.startMs, e.startMs) >= dayStart && e.startMs < dayEnd)
@@ -618,15 +631,14 @@ function layoutDay(entries: TimelineEntry[], dayStart: number): LaidOut[] {
 
 function renderBlock(
   le: LaidOut,
-  dayStart: number,
-  gridH: number,
+  hourPx: number,
   palette: ReturnType<typeof useTheme>["palette"],
   onEdit: (e: TimelineEntry) => void,
   s: Record<string, CSSProperties>,
 ): ReactNode {
   const { e, clipStart, clipEnd, lane, lanes } = le;
   const accent = palette.accents[e.activity].accent;
-  const top = ((clipStart - dayStart) / DAY_MS) * gridH;
+  const top = wallClockY(clipStart, hourPx);
   const left = `calc(${((lane / lanes) * 100).toFixed(3)}% + 1px)`;
   const width = `calc(${(100 / lanes).toFixed(3)}% - 2px)`;
   const key = `${e.path}${e.id}`;
@@ -635,7 +647,7 @@ function renderBlock(
   if (e.activity === "diaper") {
     return <button key={key} {...common} style={{ ...s.blkDiaper, top, left, width, background: accent }} />;
   }
-  const h = Math.max(3, ((clipEnd - clipStart) / DAY_MS) * gridH);
+  const h = Math.max(3, ((clipEnd - clipStart) / 3_600_000) * hourPx);
   if (e.activity === "sleep") {
     return <button key={key} {...common} style={{ ...s.blkSleep, top, left, width, height: h, background: `${accent}3d`, borderLeft: `2px solid ${accent}` }} />;
   }
@@ -672,7 +684,7 @@ function SummaryView({
 
   // Week-over-week deltas, per day (the previous week always divides by its full 7 days).
   const prev = useMemo(
-    () => summarize(prevEntries ?? [], range.from - 7 * DAY_MS, range.from),
+    () => summarize(prevEntries ?? [], addDays(range.from, -7), range.from),
     [prevEntries, range],
   );
   const hasPrev = (prevEntries?.length ?? 0) > 0;

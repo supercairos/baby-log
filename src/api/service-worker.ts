@@ -84,7 +84,7 @@ interface TimerNotifData {
   localId?: string;
   serverId?: number;
   startedAt: string;
-  feeding?: { type?: FeedingType | null; method?: FeedingMethod | null };
+  feeding?: { type?: FeedingType | null; method?: FeedingMethod | null; amount?: number | null };
 }
 
 // ── outbox flush ────────────────────────────────────────────────────────────
@@ -235,7 +235,9 @@ async function stopTimerFromNotification(d: TimerNotifData): Promise<void> {
     const allowed = METHODS_FOR_TYPE[type];
     const chosen = d.feeding?.method as FeedingMethod | undefined;
     const method = chosen && allowed.includes(chosen) ? chosen : allowed[0];
-    await enqueue(consumeTimerMutation("feeding", localId, d.childId, { type, method }));
+    // Keep the bottle amount the user set in the refine sheet (mirrors Home's stop path).
+    const amount = method === "bottle" ? (d.feeding?.amount ?? null) : null;
+    await enqueue(consumeTimerMutation("feeding", localId, d.childId, { type, method, amount }));
   } else if (d.activity === "sleep") {
     await enqueue(consumeTimerMutation("sleep", localId, d.childId));
   } else {
