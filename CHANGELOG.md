@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.10.0](https://github.com/supercairos/baby-log/compare/baby-log-v1.9.0...baby-log-v1.10.0) (2026-06-10)
+
+
+### Features
+
+* calendar views (day/week/list/summary) for the journal ([4d34bb7](https://github.com/supercairos/baby-log/commit/4d34bb7056802061ca3ebe4f5e8fabfa181b5f74))
+* radial 24-h day clock for the journal's Day view ([fb1169c](https://github.com/supercairos/baby-log/commit/fb1169c1d0fa89f2e0242f3dd34763f41830e2e8))
+* start & end side by side in the add/edit entry sheet ([3170208](https://github.com/supercairos/baby-log/commit/31702089d1e526d51d160f7f23113760fa0c6f96))
+* sunrise/sunset times (suncalc) and a one-shot geolocation hook ([18e844c](https://github.com/supercairos/baby-log/commit/18e844c40f66d3e3541985186da3bf3c4c12499f))
+
 ## [1.9.0](https://github.com/supercairos/baby-log/compare/baby-log-v1.8.0...baby-log-v1.9.0) (2026-06-09)
 
 
