@@ -69,7 +69,7 @@ export async function syncTimerNotifications(
 
   for (const rt of running) {
     if (onScreen.has(TAG_PREFIX + rt.key)) continue;
-    const meta = rt.activity === "feeding" ? feedingMeta(rt.feeding?.type, rt.feeding?.method) : "";
+    const meta = rt.activity === "feeding" ? feedingMeta(rt.feeding?.type, rt.feeding?.method, rt.feeding?.amount) : "";
     const options = {
       tag: TAG_PREFIX + rt.key,
       body: meta

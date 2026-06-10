@@ -12,16 +12,17 @@ import { clockTime, dayLabel } from "../lib/datetime";
 import { activityLabel, diaperMeta, feedingMeta } from "../lib/labels";
 import i18n from "../i18n";
 
-function entryMeta(e: TimelineEntry): string {
+/** The structured fields line + the free-text note (rendered on its own line below). */
+function entryParts(e: TimelineEntry): { meta: string; note: string | null } {
   switch (e.activity) {
     case "feeding":
-      return feedingMeta(e.type, e.method);
+      return { meta: feedingMeta(e.type, e.method, e.amount), note: e.notes };
     case "diaper":
-      return diaperMeta(e.wet, e.solid);
+      return { meta: diaperMeta(e.wet, e.solid), note: e.notes };
     case "sleep":
-      return e.nap ? i18n.t("timeline.nap") : "";
+      return { meta: e.nap ? i18n.t("timeline.nap") : "", note: e.notes };
     case "tummy":
-      return e.milestone ?? "";
+      return { meta: "", note: e.milestone }; // tummy's free text lives in `milestone`
   }
 }
 
@@ -87,7 +88,7 @@ export function Timeline({
             {group.items.map((e) => {
               const accent = palette.accents[e.activity].accent;
               const Icon = ACTIVITY_ICON[e.activity];
-              const meta = entryMeta(e);
+              const { meta, note } = entryParts(e);
               return (
                 <div key={`${e.path}${e.id}`} className="entry-in" style={s.entry}>
                   <button onClick={() => onEdit(e)} style={s.entryTap}>
@@ -99,6 +100,7 @@ export function Timeline({
                         {activityLabel(e.activity)}
                         {meta ? <span style={s.entryMeta}> · {meta}</span> : null}
                       </div>
+                      {note && <div style={s.entryNote}>“{note}”</div>}
                       <div style={s.entryTime}>
                         {clockTime(e.startMs)}
                         {e.endMs ? ` – ${clockTime(e.endMs)} · ${fmt(e.endMs - e.startMs)}` : ""}

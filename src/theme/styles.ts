@@ -117,6 +117,8 @@ export function makeStyles(p: Palette): Styles {
     runTime: { color: p.text, fontSize: 30, fontWeight: 600, lineHeight: 1, fontFamily: p.serif },
     runStopHint: { fontSize: 11, color: p.textFaint, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, flexShrink: 0, alignSelf: "center" },
     runEdit: { display: "grid", placeItems: "center", width: 44, height: 44, borderRadius: 14, borderWidth: 1, borderStyle: "solid", background: p.inner, flexShrink: 0 },
+    // A probably-forgotten timer (e.g. a 14h+ "sleep"): danger-tinted ring so the nudge is seen.
+    runCardStale: { boxShadow: `inset 0 0 0 1.5px ${p.danger}99, 0 10px 36px ${p.danger}22` },
 
     // "Up next" estimates — deliberately discreet (no card chrome, muted text): purely
     // informational, and only ever an estimate.
@@ -270,6 +272,8 @@ export function makeStyles(p: Palette): Styles {
     entryLabel: { color: p.text, fontSize: 15.5, fontFamily: p.serif, fontWeight: 600 },
     entryMeta: { color: p.textMuted, fontWeight: 500, fontFamily: p.body },
     entryTime: { fontSize: 13, color: p.textFaint, fontWeight: 600 },
+    // Free-text note on its own line, single-line ellipsis to keep rows compact.
+    entryNote: { fontSize: 13, color: p.textMuted, fontStyle: "italic", fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" },
     entryDel: { display: "grid", placeItems: "center", width: 44, height: 44, borderRadius: 11, background: "transparent", border: "none", color: p.textFainter, flexShrink: 0 },
     empty: { textAlign: "center", padding: "60px 20px", display: "flex", flexDirection: "column", alignItems: "center", gap: 10 },
     emptyIco: { display: "grid", placeItems: "center", width: 60, height: 60, borderRadius: 20, background: p.chipBg, color: p.textFaint, marginBottom: 4 },

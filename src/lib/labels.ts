@@ -22,8 +22,8 @@ export const feedTypeOptions = (): { id: FeedingType; label: string }[] =>
 export const feedMethodOptions = (): { id: FeedingMethod; label: string }[] =>
   FEED_METHODS.map((id) => ({ id, label: feedMethodLabel(id) }));
 
-export function feedingMeta(type?: FeedingType | null, method?: FeedingMethod | null): string {
-  return [type ? feedTypeLabel(type) : null, method ? feedMethodLabel(method) : null]
+export function feedingMeta(type?: FeedingType | null, method?: FeedingMethod | null, amount?: number | null): string {
+  return [type ? feedTypeLabel(type) : null, method ? feedMethodLabel(method) : null, amount != null ? `${amount} ml` : null]
     .filter(Boolean)
     .join(" · ");
 }
