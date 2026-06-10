@@ -23,6 +23,7 @@ import {
   createSleepMutation,
   createTummyMutation,
   deleteEntryMutation,
+  discardTimerMutation,
   enqueueMutation,
   flushOutbox,
   getLastFeedingChoice,
@@ -44,6 +45,7 @@ import {
   InstallIcon,
   MenuIcon,
   StopIcon,
+  TrashIcon,
   ThemeIcon,
   TimelineIcon,
 } from "../ui/icons";
@@ -168,9 +170,12 @@ export function Home({
     [entries, child, predictions],
   );
   const runningSleep = running.find((r) => r.activity === "sleep");
+  // Depend on the primitive startedMs, not the timer object: `find` returns a fresh reference
+  // every render, and Home re-renders every second — the object dep would re-run the prediction at 1 Hz.
+  const runningSleepStartedMs = runningSleep?.startedMs ?? null;
   const runningSleepEnd = useMemo(
-    () => (runningSleep ? predictSleepEnd(entries ?? [], child?.birth_date, runningSleep.startedMs) : null),
-    [entries, child, runningSleep],
+    () => (runningSleepStartedMs != null ? predictSleepEnd(entries ?? [], child?.birth_date, runningSleepStartedMs) : null),
+    [entries, child, runningSleepStartedMs],
   );
   // Last-night recap ("19:45 – 07:02 · 2 réveils") + today's bottle total (ml).
   const night = useMemo(() => lastNight(entries ?? [], nowMinute * 60_000), [entries, nowMinute]);
@@ -278,11 +283,16 @@ export function Home({
     const p = predictions.sleep;
     if (!p || p.basis !== "pattern" || p.confidence < 0.5) return;
     if (running.some((r) => r.activity === "sleep")) return;
-    const h = new Date(p.etaMs).getHours();
-    if (h >= 21 || h < 7) return; // quiet hours
+    const fireAt = p.etaMs - 10 * 60_000;
+    // Quiet hours apply to BOTH the predicted nap and the firing moment — a 07:05 prediction
+    // must not buzz the phone at 06:55.
+    const quiet = (ms: number) => {
+      const h = new Date(ms).getHours();
+      return h >= 21 || h < 7;
+    };
+    if (quiet(p.etaMs) || quiet(fireAt)) return;
     const bucket = Math.round(p.etaMs / (15 * 60_000));
     if (napFired.current === bucket) return;
-    const fireAt = p.etaMs - 10 * 60_000;
     if (fireAt - Date.now() < -5 * 60_000) return; // the window already passed
     const id = window.setTimeout(() => {
       napFired.current = bucket;
@@ -381,6 +391,29 @@ export function Home({
       }
       if (sheet?.type === "feeding") setSheet(null);
       show(t("toast.saved", { activity: activityLabel(rt.activity), duration: fmt(durationMs) }), accentOf(rt.activity));
+    } finally {
+      pending.current.delete(guard);
+    }
+  };
+
+  /** Discard a mistaken timer WITHOUT logging an entry (`DELETE /api/timers/<id>/` via the
+   *  outbox) — per the spec, the escape hatch for an accidental start. */
+  const discard = async (rt: RunningTimer) => {
+    if (childId == null) return;
+    const guard = `discard:${rt.key}`;
+    if (pending.current.has(guard)) return;
+    pending.current.add(guard);
+    buzz();
+    try {
+      let localId = rt.localId;
+      if (!localId) {
+        // Server-only timer (another device) — mint a mapping so the discard resolves its id.
+        localId = crypto.randomUUID();
+        await setTimerMapping({ localId, serverId: rt.serverId, startedAt: new Date(rt.startedMs).toISOString(), activity: rt.activity, childId });
+      }
+      submit(discardTimerMutation(localId));
+      if (sheet?.type === "feeding" && rt.activity === "feeding") setSheet(null);
+      show(t("toast.timerDiscarded"), palette.danger);
     } finally {
       pending.current.delete(guard);
     }
@@ -658,14 +691,14 @@ export function Home({
               const v = palette.accents[rt.activity];
               const Icon = ACTIVITY_ICON[rt.activity];
               const elapsed = now - rt.startedMs;
-              let meta = rt.activity === "feeding" ? feedingMeta(rt.feeding?.type, rt.feeding?.method) : "";
+              let meta = rt.activity === "feeding" ? feedingMeta(rt.feeding?.type, rt.feeding?.method, rt.feeding?.amount) : "";
               // The question a parent has the moment baby goes down: how long do I have?
               if (rt.activity === "sleep" && rt === runningSleep && runningSleepEnd && runningSleepEnd.confidence >= 0.3 && runningSleepEnd.endMs > now) {
                 meta = t("home.wakeAround", { time: clockTime(runningSleepEnd.endMs) });
               }
               const stale = rt.activity === "sleep" && elapsed > STALE_SLEEP_MS;
               return (
-                <div key={rt.key} className="run-in" style={{ ...s.runCard, ...runCardAccent(v) }}>
+                <div key={rt.key} className="run-in" style={{ ...s.runCard, ...runCardAccent(v), ...(stale ? s.runCardStale : {}) }}>
                   <button onClick={() => void stop(rt)} style={s.runBody} aria-label={`${activityLabel(rt.activity)} — ${t("home.tapToStop")}`}>
                     <span style={{ ...s.runIcon, color: v.accent }}>
                       <Icon size={22} />
@@ -675,7 +708,7 @@ export function Home({
                       <span style={s.runLabel}>
                         {activityLabel(rt.activity)}
                         {meta ? ` · ${meta}` : ""}
-                        {stale ? ` · ${t("home.stillGoing")}` : ""}
+                        {stale && <span style={{ color: palette.danger, fontWeight: 800 }}> · {t("home.stillGoing")}</span>}
                       </span>
                       <span className="tick" style={{ ...s.runTime, color: v.accent }}>
                         {fmt(elapsed)}
@@ -694,6 +727,14 @@ export function Home({
                       <EditIcon size={16} />
                     </button>
                   )}
+                  {/* discard: end a mistaken timer WITHOUT logging it (more prominent when stale) */}
+                  <button
+                    onClick={() => void discard(rt)}
+                    style={{ ...s.runEdit, color: stale ? palette.danger : palette.textFaint, borderColor: stale ? `${palette.danger}66` : palette.surfaceStrongBorder }}
+                    aria-label={t("home.discardTimer")}
+                  >
+                    <TrashIcon size={16} />
+                  </button>
                 </div>
               );
             })}
