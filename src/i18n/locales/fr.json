@@ -54,6 +54,13 @@
     "tapToStop": "appuyer pour arrêter",
     "tapToStart": "appuyer pour démarrer",
     "tummyToday": "{{done}}/{{goal}} min auj.",
+    "bottles": "Biberons",
+    "mlToday": "{{ml}} ml auj.",
+    "night": "Nuit",
+    "noWakings": "sans réveil",
+    "wakings_one": "{{count}} réveil",
+    "wakings_other": "{{count}} réveils",
+    "wakeAround": "réveil ~{{time}}",
     "tapToLog": "appuyer pour noter",
     "pickAndStart": "choisir & démarrer",
     "upNext": "À suivre",
@@ -74,6 +81,8 @@
     "themeLight": "Clair",
     "alertsOn": "Alertes · Activées",
     "alertsOff": "Alertes · Désactivées",
+    "napOn": "Alerte sieste · On",
+    "napOff": "Alerte sieste · Off",
     "install": "Ajouter à l'écran d'accueil",
     "disconnect": "Se déconnecter",
     "language": "Langue · {{lang}}"
@@ -84,6 +93,7 @@
     "diaperLogged": "Change noté · {{detail}}",
     "alertsOn": "Alertes activées",
     "alertsOnHint": "Alertes activées — vous serez prévenu pendant qu'une minuterie tourne",
+    "napAlertOn": "Alerte sieste activée — notification ~10 min avant la sieste estimée",
     "notifBlocked": "Les notifications sont bloquées — activez-les dans les réglages de votre navigateur.",
     "entryDeleted": "Entrée supprimée",
     "enterValidTime": "Saisissez une heure valide",
@@ -111,7 +121,8 @@
     "everyInterval": "toutes les ~{{duration}}",
     "wetSolid": "{{wet}} pipi · {{solid}} selles",
     "minPerDay": "{{value}} min/jour",
-    "goalMin": "objectif {{goal}} min"
+    "goalMin": "objectif {{goal}} min",
+    "vsLastWeek": "{{delta}} vs sem. dern."
   },
   "sheet": {
     "feedingDetails": "Détails du repas",
@@ -123,6 +134,7 @@
     "method": "Méthode",
     "contents": "Contenu",
     "notes": "Notes",
+    "amount": "Quantité (ml)",
     "notesPlaceholder": "Facultatif",
     "activity": "Activité",
     "start": "Début",
@@ -160,7 +172,10 @@
     "runningFor": "{{name}} · {{activity}} en cours",
     "started": "Démarré à {{time}}",
     "startedMeta": "Démarré à {{time}} · {{meta}}",
-    "stop": "Arrêter"
+    "stop": "Arrêter",
+    "napTitleFor": "{{name}} · sieste en approche",
+    "napTitle": "Sieste en approche",
+    "napBody": "Fenêtre de sommeil estimée vers {{time}}"
   },
   "action": {
     "start-timer": "Démarrage de la minuterie",

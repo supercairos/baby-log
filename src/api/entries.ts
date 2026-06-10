@@ -192,14 +192,14 @@ export async function deleteEntry(client: BabyBuddyClient, path: EntryPath, id: 
 
 // ── Read helpers ──────────────────────────────────────────────────────────────
 
-/** The child's last feeding `{type, method}`, to pre-select the next feeding's details. */
+/** The child's last feeding `{type, method, amount}`, to pre-select the next feeding's details. */
 export async function getLastFeedingChoice(
   client: BabyBuddyClient,
   childId: number,
-): Promise<Pick<FeedingFields, "type" | "method"> | null> {
+): Promise<Pick<FeedingFields, "type" | "method" | "amount"> | null> {
   const res = await client.GET("/api/feedings/", {
     params: { query: { child: String(childId), limit: 1, ordering: "-start" } },
   });
   const last = unwrap(res).results?.[0];
-  return last ? { type: last.type, method: last.method } : null;
+  return last ? { type: last.type, method: last.method, amount: last.amount ?? null } : null;
 }

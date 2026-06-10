@@ -54,6 +54,13 @@
     "tapToStop": "toca para parar",
     "tapToStart": "toca para empezar",
     "tummyToday": "{{done}}/{{goal}} min hoy",
+    "bottles": "Biberones",
+    "mlToday": "{{ml}} ml hoy",
+    "night": "Noche",
+    "noWakings": "sin despertares",
+    "wakings_one": "{{count}} despertar",
+    "wakings_other": "{{count}} despertares",
+    "wakeAround": "despertar ~{{time}}",
     "tapToLog": "toca para registrar",
     "pickAndStart": "elige y empieza",
     "upNext": "A continuación",
@@ -74,6 +81,8 @@
     "themeLight": "Claro",
     "alertsOn": "Alertas · Activadas",
     "alertsOff": "Alertas · Desactivadas",
+    "napOn": "Alerta de siesta · On",
+    "napOff": "Alerta de siesta · Off",
     "install": "Añadir a la pantalla de inicio",
     "disconnect": "Desconectar",
     "language": "Idioma · {{lang}}"
@@ -84,6 +93,7 @@
     "diaperLogged": "Pañal registrado · {{detail}}",
     "alertsOn": "Alertas activadas",
     "alertsOnHint": "Alertas activadas — recibirás avisos mientras un temporizador esté en curso",
+    "napAlertOn": "Alerta de siesta activada — aviso ~10 min antes de la siesta estimada",
     "notifBlocked": "Las notificaciones están bloqueadas — actívalas en los ajustes del navegador.",
     "entryDeleted": "Entrada eliminada",
     "enterValidTime": "Introduce una hora válida",
@@ -111,7 +121,8 @@
     "everyInterval": "cada ~{{duration}}",
     "wetSolid": "{{wet}} pis · {{solid}} caca",
     "minPerDay": "{{value}} min/día",
-    "goalMin": "meta {{goal}} min"
+    "goalMin": "meta {{goal}} min",
+    "vsLastWeek": "{{delta}} vs sem. pasada"
   },
   "sheet": {
     "feedingDetails": "Detalles de la toma",
@@ -123,6 +134,7 @@
     "method": "Método",
     "contents": "Contenido",
     "notes": "Notas",
+    "amount": "Cantidad (ml)",
     "notesPlaceholder": "Opcional",
     "activity": "Actividad",
     "start": "Inicio",
@@ -160,7 +172,10 @@
     "runningFor": "{{name}} · {{activity}} en curso",
     "started": "Iniciado a las {{time}}",
     "startedMeta": "Iniciado a las {{time}} · {{meta}}",
-    "stop": "Parar"
+    "stop": "Parar",
+    "napTitleFor": "{{name}} · siesta próxima",
+    "napTitle": "Siesta próxima",
+    "napBody": "Ventana de sueño estimada hacia las {{time}}"
   },
   "action": {
     "start-timer": "Iniciando el temporizador",

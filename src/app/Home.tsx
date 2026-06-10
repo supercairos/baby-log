@@ -52,11 +52,13 @@ import {
   clearTimerNotifications,
   notificationsSupported,
   requestNotificationPermission,
+  showNapNotification,
   syncTimerNotifications,
 } from "./notifications";
-import { fmt, iso, nowIso, nowMs } from "../lib/format";
+import { fmt, hm, iso, nowIso, nowMs } from "../lib/format";
 import { clockTime, formatAge, greeting } from "../lib/datetime";
-import { predictNext, type ActivityPrediction } from "../lib/predict";
+import { predictNext, predictSleepEnd, type ActivityPrediction } from "../lib/predict";
+import { lastNight } from "../lib/night";
 import { tummyProgress } from "../lib/tummy";
 import { activityLabel, diaperMeta, feedingMeta } from "../lib/labels";
 import {
@@ -80,7 +82,7 @@ const TILE_ORDER: ActivityKey[] = ["feeding", "sleep", "diaper", "tummy"];
 const STALE_SLEEP_MS = 14 * 3600_000;
 
 type Sheet = { type: "feeding"; localId: string } | { type: "diaper" } | null;
-type FeedSel = { type: FeedingType | null; method: FeedingMethod | null };
+type FeedSel = { type: FeedingType | null; method: FeedingMethod | null; amount?: number | null };
 
 export function Home({
   client,
@@ -112,6 +114,10 @@ export function Home({
   const [draft, setDraft] = useState<EditDraft | null>(null);
   const [lastFeed, setLastFeed] = useState<Record<number, FeedSel>>({});
   const [notify, setNotify] = useState(() => localStorage.getItem("baby-log:notify") === "on");
+  const [napAlert, setNapAlert] = useState(() => localStorage.getItem("baby-log:napalert") === "on");
+  // The predicted-nap window we already notified for (bucketed), so the per-minute prediction
+  // refresh can't re-fire the same alert.
+  const napFired = useRef<number>(0);
   // Synchronous in-flight guard so a rapid double-tap can't start/stop the same thing twice
   // (the `running` state updates async, too late to dedupe taps).
   const pending = useRef<Set<string>>(new Set());
@@ -155,6 +161,28 @@ export function Home({
   // estimates to sit beside).
   const tummyBusy = running.some((r) => r.activity === "tummy");
   const showTummy = !!tummy && !tummyBusy && (tummy.todayMs > 0 || upNext.length > 0);
+  // How long the predicted next sleep should last (shown beside its "up next" eta), and the
+  // predicted wake for a RUNNING sleep timer (shown on its card).
+  const nextSleepEnd = useMemo(
+    () => (predictions.sleep ? predictSleepEnd(entries ?? [], child?.birth_date, predictions.sleep.etaMs) : null),
+    [entries, child, predictions],
+  );
+  const runningSleep = running.find((r) => r.activity === "sleep");
+  const runningSleepEnd = useMemo(
+    () => (runningSleep ? predictSleepEnd(entries ?? [], child?.birth_date, runningSleep.startedMs) : null),
+    [entries, child, runningSleep],
+  );
+  // Last-night recap ("19:45 – 07:02 · 2 réveils") + today's bottle total (ml).
+  const night = useMemo(() => lastNight(entries ?? [], nowMinute * 60_000), [entries, nowMinute]);
+  const mlToday = useMemo(() => {
+    const dayStart = new Date(nowMinute * 60_000);
+    dayStart.setHours(0, 0, 0, 0);
+    let ml = 0;
+    for (const e of entries ?? []) {
+      if (e.activity === "feeding" && e.startMs >= dayStart.getTime() && e.amount != null) ml += e.amount;
+    }
+    return Math.round(ml);
+  }, [entries, nowMinute]);
   // Precise age beside the "Tracking …" line (recomputed daily, not every tick).
   const ageLabel = useMemo(
     () => (child?.birth_date ? formatAge(child.birth_date, new Date(nowMinute * 60_000)) : ""),
@@ -225,6 +253,44 @@ export function Home({
     show(running.length ? t("toast.alertsOn") : t("toast.alertsOnHint"), accentOf("feeding"));
   };
 
+  const toggleNapAlert = async () => {
+    buzz();
+    if (napAlert) {
+      setNapAlert(false);
+      localStorage.setItem("baby-log:napalert", "off");
+      return;
+    }
+    if (!(await requestNotificationPermission())) {
+      show(t("toast.notifBlocked"), palette.danger);
+      return;
+    }
+    setNapAlert(true);
+    localStorage.setItem("baby-log:napalert", "on");
+    show(t("toast.napAlertOn"), accentOf("sleep"));
+  };
+
+  // Nap-window alert: ~10 min before the predicted sleep onset, when the prediction comes from
+  // the child's own pattern with decent confidence. Skipped during quiet hours (21:00–07:00),
+  // while a sleep timer is already running, and re-fires at most once per predicted window
+  // (the prediction refreshes every minute — the bucket guard absorbs that).
+  useEffect(() => {
+    if (!napAlert) return;
+    const p = predictions.sleep;
+    if (!p || p.basis !== "pattern" || p.confidence < 0.5) return;
+    if (running.some((r) => r.activity === "sleep")) return;
+    const h = new Date(p.etaMs).getHours();
+    if (h >= 21 || h < 7) return; // quiet hours
+    const bucket = Math.round(p.etaMs / (15 * 60_000));
+    if (napFired.current === bucket) return;
+    const fireAt = p.etaMs - 10 * 60_000;
+    if (fireAt - Date.now() < -5 * 60_000) return; // the window already passed
+    const id = window.setTimeout(() => {
+      napFired.current = bucket;
+      void showNapNotification(p.etaMs, childFirstName);
+    }, Math.max(0, fireAt - Date.now()));
+    return () => window.clearTimeout(id);
+  }, [napAlert, predictions, running, childFirstName]);
+
   // Cycle the UI language (the choice is cached in localStorage by the detector).
   const cycleLanguage = () => {
     buzz();
@@ -268,12 +334,13 @@ export function Home({
   };
 
   const feedingFieldsFor = (
-    sel: { type?: FeedingType | null; method?: FeedingMethod | null } | undefined,
-  ): { type: FeedingType; method: FeedingMethod } => {
+    sel: { type?: FeedingType | null; method?: FeedingMethod | null; amount?: number | null } | undefined,
+  ): { type: FeedingType; method: FeedingMethod; amount: number | null } => {
     const type = sel?.type ?? "breast milk";
     const allowed = METHODS_FOR_TYPE[type];
     const method = sel?.method && allowed.includes(sel.method) ? sel.method : allowed[0];
-    return { type, method };
+    // Any bottle is measured (formula, fortified, pumped breast milk); drop it otherwise.
+    return { type, method, amount: method === "bottle" ? (sel?.amount ?? null) : null };
   };
 
   const start = async (activity: TimerActivityKey): Promise<string | null> => {
@@ -304,7 +371,7 @@ export function Home({
       if (rt.activity === "feeding") {
         const fields = feedingFieldsFor(rt.feeding ?? feedSel);
         submit(consumeTimerMutation("feeding", localId, childId, fields));
-        const next = { type: fields.type, method: fields.method };
+        const next = { type: fields.type, method: fields.method, amount: fields.amount };
         setLastFeed((p) => ({ ...p, [childId]: next }));
         localStorage.setItem(`baby-log:lastfeed:${childId}`, JSON.stringify(next));
       } else if (rt.activity === "sleep") {
@@ -323,7 +390,7 @@ export function Home({
   const openFeedingRefine = async (rt: RunningTimer) => {
     if (childId == null) return;
     buzz();
-    const sel: FeedSel = { type: rt.feeding?.type ?? null, method: rt.feeding?.method ?? null };
+    const sel: FeedSel = { type: rt.feeding?.type ?? null, method: rt.feeding?.method ?? null, amount: rt.feeding?.amount ?? null };
     let localId = rt.localId;
     if (!localId) {
       localId = crypto.randomUUID();
@@ -365,15 +432,22 @@ export function Home({
     buzz();
     const allowed = METHODS_FOR_TYPE[type];
     const method = feedSel.method && allowed.includes(feedSel.method) ? feedSel.method : allowed.length === 1 ? allowed[0] : null;
-    const next = { type, method };
+    const next = { type, method, amount: feedSel.amount ?? null };
     setFeedSel(next);
     if (sheet?.type === "feeding") void mergeTimerMapping(sheet.localId, { feeding: next }).then(refreshRunning);
     if (childId != null) setLastFeed((p) => ({ ...p, [childId]: next }));
   };
 
-  const selectMethod = (method: FeedingMethod) => {
+  const selectMethod = (method: FeedingMethod | null) => {
     buzz();
-    const next = { type: feedSel.type, method };
+    const next = { type: feedSel.type, method, amount: feedSel.amount ?? null };
+    setFeedSel(next);
+    if (sheet?.type === "feeding") void mergeTimerMapping(sheet.localId, { feeding: next }).then(refreshRunning);
+    if (childId != null) setLastFeed((p) => ({ ...p, [childId]: next }));
+  };
+
+  const selectAmount = (amount: number | null) => {
+    const next = { type: feedSel.type, method: feedSel.method, amount };
     setFeedSel(next);
     if (sheet?.type === "feeding") void mergeTimerMapping(sheet.localId, { feeding: next }).then(refreshRunning);
     if (childId != null) setLastFeed((p) => ({ ...p, [childId]: next }));
@@ -394,6 +468,7 @@ export function Home({
     setDraft({
       type: e.activity === "feeding" ? e.type : null,
       method: e.activity === "feeding" ? e.method : null,
+      amount: e.activity === "feeding" ? e.amount : null,
       wet: e.activity === "diaper" ? e.wet : false,
       solid: e.activity === "diaper" ? e.solid : false,
       startMs: e.startMs,
@@ -406,7 +481,7 @@ export function Home({
   const openAdd = () => {
     buzz();
     setEditing({ isNew: true, activity: null });
-    setDraft({ type: null, method: null, wet: false, solid: false, startMs: nowMs(), endMs: null, notes: "" });
+    setDraft({ type: null, method: null, amount: null, wet: false, solid: false, startMs: nowMs(), endMs: null, notes: "" });
   };
 
   const pickKind = (key: ActivityKey) => {
@@ -432,7 +507,7 @@ export function Home({
         // rewrite a cross-client method (e.g. "self fed").
         const type = d.type ?? "breast milk";
         const method = d.method ?? METHODS_FOR_TYPE[type][0];
-        return { path: "/api/feedings/", body: { type, method, start: startIso, end: endIso, notes } };
+        return { path: "/api/feedings/", body: { type, method, start: startIso, end: endIso, notes, amount: method === "bottle" ? d.amount : null } };
       }
       case "/api/sleep/":
         return { path: "/api/sleep/", body: { start: startIso, end: endIso, notes } };
@@ -472,7 +547,7 @@ export function Home({
       const endIso = iso(draft.endMs ?? draft.startMs);
       const notes = draft.notes.trim() === "" ? null : draft.notes;
       if (activity === "diaper") submit(logDiaperMutation(childId, { wet: draft.wet, solid: draft.solid, time: startIso, notes }));
-      else if (activity === "feeding") submit(createFeedingMutation(childId, startIso, endIso, { ...feedingFieldsFor({ type: draft.type, method: draft.method }), notes }));
+      else if (activity === "feeding") submit(createFeedingMutation(childId, startIso, endIso, { ...feedingFieldsFor({ type: draft.type, method: draft.method, amount: draft.amount }), notes }));
       else if (activity === "sleep") submit(createSleepMutation(childId, startIso, endIso, { notes }));
       else submit(createTummyMutation(childId, startIso, endIso, draft.notes.trim() ? { milestone: draft.notes } : {}));
     } else if (editing.serverId != null) {
@@ -583,7 +658,11 @@ export function Home({
               const v = palette.accents[rt.activity];
               const Icon = ACTIVITY_ICON[rt.activity];
               const elapsed = now - rt.startedMs;
-              const meta = rt.activity === "feeding" ? feedingMeta(rt.feeding?.type, rt.feeding?.method) : "";
+              let meta = rt.activity === "feeding" ? feedingMeta(rt.feeding?.type, rt.feeding?.method) : "";
+              // The question a parent has the moment baby goes down: how long do I have?
+              if (rt.activity === "sleep" && rt === runningSleep && runningSleepEnd && runningSleepEnd.confidence >= 0.3 && runningSleepEnd.endMs > now) {
+                meta = t("home.wakeAround", { time: clockTime(runningSleepEnd.endMs) });
+              }
               const stale = rt.activity === "sleep" && elapsed > STALE_SLEEP_MS;
               return (
                 <div key={rt.key} className="run-in" style={{ ...s.runCard, ...runCardAccent(v) }}>
@@ -619,12 +698,28 @@ export function Home({
               );
             })}
 
-            {upNext.length > 0 || showTummy ? (
+            {upNext.length > 0 || showTummy || night || mlToday > 0 ? (
               <div style={s.estimates}>
+                {night && (
+                  <div style={s.estimateRow}>
+                    <span style={{ ...s.estimateIcon, background: `${palette.accents.sleep.accent}14`, color: palette.accents.sleep.accent }}>
+                      <ACTIVITY_ICON.sleep size={16} />
+                    </span>
+                    <span style={s.estimateLabel}>{t("home.night")}</span>
+                    <span style={s.estimateTime}>
+                      {clockTime(night.startMs)} – {clockTime(night.endMs)} · {night.wakings === 0 ? t("home.noWakings") : t("home.wakings", { count: night.wakings })}
+                    </span>
+                  </div>
+                )}
                 <div style={s.estimatesHead}>{t("home.upNext")}</div>
                 {upNext.map((p) => {
                   const v = palette.accents[p.activity];
                   const Icon = ACTIVITY_ICON[p.activity];
+                  // The next sleep also says how long it should last ("~15:19 · ~45m").
+                  const durHint =
+                    p.activity === "sleep" && nextSleepEnd && nextSleepEnd.confidence >= 0.3
+                      ? ` · ~${hm(nextSleepEnd.endMs - p.etaMs)}`
+                      : "";
                   return (
                     <div key={p.activity} style={s.estimateRow}>
                       <span style={{ ...s.estimateIcon, background: `${v.accent}14`, color: v.accent }}>
@@ -633,6 +728,7 @@ export function Home({
                       <span style={s.estimateLabel}>{activityLabel(p.activity)}</span>
                       <span style={s.estimateTime}>
                         {p.etaMs <= now + 60_000 ? t("home.dueNow") : `~${clockTime(p.etaMs)}`}
+                        {durHint}
                       </span>
                     </div>
                   );
@@ -646,6 +742,15 @@ export function Home({
                     <span style={{ ...s.estimateTime, ...(tummy.metGoal ? { color: palette.accents.tummy.accent } : {}) }}>
                       {t("home.tummyToday", { done: Math.round(tummy.todayMs / 60_000), goal: tummy.goalMin })}
                     </span>
+                  </div>
+                )}
+                {mlToday > 0 && (
+                  <div style={s.estimateRow}>
+                    <span style={{ ...s.estimateIcon, background: `${palette.accents.feeding.accent}14`, color: palette.accents.feeding.accent }}>
+                      <ACTIVITY_ICON.feeding size={16} />
+                    </span>
+                    <span style={s.estimateLabel}>{t("home.bottles")}</span>
+                    <span style={s.estimateTime}>{t("home.mlToday", { ml: mlToday })}</span>
                   </div>
                 )}
               </div>
@@ -757,6 +862,12 @@ export function Home({
             {notify ? t("nav.alertsOn") : t("nav.alertsOff")}
           </button>
         )}
+        {notificationsSupported() && (
+          <button onClick={() => void toggleNapAlert()} style={s.navItem}>
+            <ACTIVITY_ICON.sleep size={20} />
+            {napAlert ? t("nav.napOn") : t("nav.napOff")}
+          </button>
+        )}
         {canInstall && (
           <button onClick={() => { buzz(); setMenu(false); void promptInstall(); }} style={s.navItem}>
             <InstallIcon size={20} />
@@ -781,8 +892,10 @@ export function Home({
         elapsedMs={feedingElapsed}
         type={feedSel.type}
         method={feedSel.method}
+        amount={feedSel.amount ?? null}
         onType={selectType}
         onMethod={selectMethod}
+        onAmount={selectAmount}
         onDone={() => { buzz(); setSheet(null); }}
       />
       <DiaperSheet open={sheet?.type === "diaper"} onLog={logDiaper} />

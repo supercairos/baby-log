@@ -51,7 +51,7 @@ export interface TimerMapping {
   activity: TimerActivityKey;
   childId: number;
   /** In-progress feeding refinement, applied to the running feeding timer (persisted). */
-  feeding?: { type?: FeedingType | null; method?: FeedingMethod | null };
+  feeding?: { type?: FeedingType | null; method?: FeedingMethod | null; amount?: number | null };
 }
 
 let dbPromise: Promise<IDBDatabase> | null = null;

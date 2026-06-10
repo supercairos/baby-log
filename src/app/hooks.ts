@@ -135,7 +135,7 @@ export interface RunningTimer {
   serverId?: number;
   activity: TimerActivityKey;
   startedMs: number;
-  feeding?: { type?: FeedingType | null; method?: FeedingMethod | null };
+  feeding?: { type?: FeedingType | null; method?: FeedingMethod | null; amount?: number | null };
 }
 
 async function computeRunning(client: BabyBuddyClient, childId: number): Promise<RunningTimer[]> {

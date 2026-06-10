@@ -54,6 +54,13 @@
     "tapToStop": "tap to stop",
     "tapToStart": "tap to start",
     "tummyToday": "{{done}}/{{goal}} min today",
+    "bottles": "Bottles",
+    "mlToday": "{{ml}} ml today",
+    "night": "Last night",
+    "noWakings": "no wakings",
+    "wakings_one": "{{count}} waking",
+    "wakings_other": "{{count}} wakings",
+    "wakeAround": "wake ~{{time}}",
     "tapToLog": "tap to log",
     "pickAndStart": "pick & start",
     "upNext": "Up next",
@@ -74,6 +81,8 @@
     "themeLight": "Light",
     "alertsOn": "Timer alerts · On",
     "alertsOff": "Timer alerts · Off",
+    "napOn": "Nap alert · On",
+    "napOff": "Nap alert · Off",
     "install": "Install on home screen",
     "disconnect": "Disconnect",
     "language": "Language · {{lang}}"
@@ -84,6 +93,7 @@
     "diaperLogged": "Diaper logged · {{detail}}",
     "alertsOn": "Timer alerts on",
     "alertsOnHint": "Timer alerts on — you'll be notified while a timer runs",
+    "napAlertOn": "Nap alerts on — you'll be notified ~10 min before the predicted nap",
     "notifBlocked": "Notifications are blocked — enable them in your browser settings.",
     "entryDeleted": "Entry deleted",
     "enterValidTime": "Enter a valid time",
@@ -111,7 +121,8 @@
     "everyInterval": "every ~{{duration}}",
     "wetSolid": "{{wet}} wet · {{solid}} solid",
     "minPerDay": "{{value}} min/day",
-    "goalMin": "goal {{goal}} min"
+    "goalMin": "goal {{goal}} min",
+    "vsLastWeek": "{{delta}} vs last week"
   },
   "sheet": {
     "feedingDetails": "Feeding details",
@@ -123,6 +134,7 @@
     "method": "Method",
     "contents": "Contents",
     "notes": "Notes",
+    "amount": "Amount (ml)",
     "notesPlaceholder": "Optional",
     "activity": "Activity",
     "start": "Start",
@@ -160,7 +172,10 @@
     "runningFor": "{{name}} · {{activity}} running",
     "started": "Started {{time}}",
     "startedMeta": "Started {{time}} · {{meta}}",
-    "stop": "Stop"
+    "stop": "Stop",
+    "napTitleFor": "{{name}} · nap window soon",
+    "napTitle": "Nap window soon",
+    "napBody": "Estimated sleep window around {{time}}"
   },
   "action": {
     "start-timer": "Starting the timer",

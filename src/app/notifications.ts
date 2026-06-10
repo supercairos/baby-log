@@ -106,3 +106,25 @@ export async function clearTimerNotifications(): Promise<void> {
   if (!reg) return;
   for (const n of await reg.getNotifications()) if (n.tag.startsWith(TAG_PREFIX)) n.close();
 }
+
+// ── Nap-window alert ──────────────────────────────────────────────────────────
+const NAP_TAG = "nap-window";
+
+/**
+ * One-shot "nap window approaching" notification (fired by the page ~10 min before the
+ * predicted sleep onset). Tagged so repeats replace rather than stack; tapping it just opens
+ * the app (the SW's default click path).
+ */
+export async function showNapNotification(etaMs: number, childName: string | null): Promise<void> {
+  if (!notificationsGranted()) return;
+  const reg = await readyRegistration();
+  if (!reg) return;
+  const title = childName ? i18n.t("notif.napTitleFor", { name: childName }) : i18n.t("notif.napTitle");
+  await reg.showNotification(title, {
+    tag: NAP_TAG, // same tag replaces a previous nap alert instead of stacking
+    body: i18n.t("notif.napBody", { time: clockTime(etaMs) }),
+    icon: ICON.sleep,
+    badge: BADGE,
+    data: { kind: "nap" as const },
+  });
+}

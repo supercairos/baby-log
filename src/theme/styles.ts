@@ -224,6 +224,10 @@ export function makeStyles(p: Palette): Styles {
     // Two datetime-locals share one row — tighter metrics so both fit on a narrow phone.
     timeInputCompact: { padding: "12px 10px", fontSize: 13.5, boxSizing: "border-box" },
     notesInput: { width: "100%", padding: "12px 16px", borderRadius: 14, fontSize: 15, fontWeight: 600, background: p.chipBg, border: `1px solid ${p.surfaceStrongBorder}`, color: p.text, fontFamily: p.body, resize: "vertical", minHeight: 60, lineHeight: 1.4, boxSizing: "border-box" },
+    // Bottle-amount slider (accentColor is set inline from the feeding accent).
+    sliderRow: { display: "flex", alignItems: "center", gap: 14, padding: "4px 2px" },
+    slider: { flex: 1, height: 28, margin: 0, cursor: "pointer" },
+    sliderValue: { minWidth: 58, textAlign: "right", fontSize: 16, fontWeight: 700, color: p.text, fontFamily: p.serif, fontVariantNumeric: "tabular-nums" },
     durReadout: { marginTop: 10, fontSize: 13.5, fontWeight: 700, color: p.textMuted, display: "flex", alignItems: "center", gap: 6 },
     durBad: { color: p.danger },
 
@@ -295,13 +299,15 @@ export function makeStyles(p: Palette): Styles {
     gridHourLabel: { position: "absolute", right: 6, transform: "translateY(-50%)", fontSize: 10, fontWeight: 700, color: p.textFainter },
     gridCol: { flex: 1, position: "relative", borderLeft: `1px solid ${p.surfaceBorder}` },
     gridLine: { position: "absolute", left: 0, right: 0, height: 1, background: p.surfaceBorder, opacity: 0.5 },
-    // Thin white line with teardrop caps at both ends (tails point along the line) — white in
-    // both themes. The caps' rotation is set inline per side.
-    nowLine: { position: "absolute", left: -1, right: -1, height: 2, borderRadius: 999, background: "#fff", zIndex: 5 },
-    nowCap: { position: "absolute", top: "50%", width: 9, height: 9, borderRadius: "50% 50% 50% 0", background: "#fff" },
-    blkSleep: { position: "absolute", left: 1, right: 1, borderRadius: 4, border: "none", padding: 0, zIndex: 1 },
-    blkBar: { position: "absolute", left: 1, right: 1, borderRadius: 3, border: "none", padding: 0, zIndex: 2 },
-    blkDiaper: { position: "absolute", left: 1, right: 1, height: 3, borderRadius: 2, border: "none", padding: 0, zIndex: 3 },
+    // Thin line with teardrop caps at both ends (tails point along the line). White on the dark
+    // theme; ink on the light paper theme, where white would wash out. Caps rotate inline per side.
+    nowLine: { position: "absolute", left: -1, right: -1, height: 2, borderRadius: 999, background: dark ? "#fff" : p.text, zIndex: 5 },
+    nowCap: { position: "absolute", top: "50%", width: 9, height: 9, borderRadius: "50% 50% 50% 0", background: dark ? "#fff" : p.text },
+    // left/width are set inline per block by the day column's lane layout (overlapping events
+    // share the column side by side).
+    blkSleep: { position: "absolute", borderRadius: 4, border: "none", padding: 0, zIndex: 1 },
+    blkBar: { position: "absolute", borderRadius: 3, border: "none", padding: 0, zIndex: 2 },
+    blkDiaper: { position: "absolute", height: 3, borderRadius: 2, border: "none", padding: 0, zIndex: 3 },
     gridAddBtn: { display: "flex", alignItems: "center", justifyContent: "center", width: "100%", marginTop: 18, padding: "13px", borderRadius: 16, background: `${feed}1f`, border: `1px solid ${feed}59`, color: feed, fontSize: 14.5, fontWeight: 800 },
 
     summaryGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 },
@@ -310,6 +316,7 @@ export function makeStyles(p: Palette): Styles {
     statTitle: { fontSize: 12.5, fontWeight: 700, color: p.textMuted },
     statBig: { fontSize: 22, fontWeight: 600, fontFamily: p.serif, color: p.text, lineHeight: 1.1 },
     statSub: { fontSize: 12.5, fontWeight: 600, color: p.textFaint },
+    statDelta: { fontSize: 11.5, fontWeight: 700, color: p.textFainter, marginTop: 2 },
     addBar: { position: "sticky", bottom: 0, zIndex: 4, marginTop: 14, paddingTop: 12, paddingBottom: "calc(6px + env(safe-area-inset-bottom))", background: `linear-gradient(to top, ${p.bg} 72%, transparent)` },
 
     radialWrap: { position: "relative", display: "flex", justifyContent: "center", padding: "10px 0 6px" },

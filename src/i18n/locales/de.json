@@ -54,6 +54,13 @@
     "tapToStop": "tippen zum Stoppen",
     "tapToStart": "tippen zum Starten",
     "tummyToday": "{{done}}/{{goal}} Min. heute",
+    "bottles": "Fläschchen",
+    "mlToday": "{{ml}} ml heute",
+    "night": "Nacht",
+    "noWakings": "ohne Aufwachen",
+    "wakings_one": "{{count}} Aufwachphase",
+    "wakings_other": "{{count}} Aufwachphasen",
+    "wakeAround": "Aufwachen ~{{time}}",
     "tapToLog": "tippen zum Erfassen",
     "pickAndStart": "wählen & starten",
     "upNext": "Als Nächstes",
@@ -74,6 +81,8 @@
     "themeLight": "Hell",
     "alertsOn": "Hinweise · An",
     "alertsOff": "Hinweise · Aus",
+    "napOn": "Schlaf-Alarm · An",
+    "napOff": "Schlaf-Alarm · Aus",
     "install": "Zum Startbildschirm",
     "disconnect": "Trennen",
     "language": "Sprache · {{lang}}"
@@ -84,6 +93,7 @@
     "diaperLogged": "Windel erfasst · {{detail}}",
     "alertsOn": "Hinweise an",
     "alertsOnHint": "Hinweise an — du wirst benachrichtigt, während ein Timer läuft",
+    "napAlertOn": "Schlaffenster-Alarm an — Hinweis ~10 Min. vor dem erwarteten Schläfchen",
     "notifBlocked": "Benachrichtigungen sind blockiert — aktiviere sie in den Browser-Einstellungen.",
     "entryDeleted": "Eintrag gelöscht",
     "enterValidTime": "Gib eine gültige Zeit ein",
@@ -111,7 +121,8 @@
     "everyInterval": "alle ~{{duration}}",
     "wetSolid": "{{wet}} nass · {{solid}} fest",
     "minPerDay": "{{value}} Min./Tag",
-    "goalMin": "Ziel {{goal}} Min."
+    "goalMin": "Ziel {{goal}} Min.",
+    "vsLastWeek": "{{delta}} ggü. Vorwoche"
   },
   "sheet": {
     "feedingDetails": "Mahlzeit-Details",
@@ -123,6 +134,7 @@
     "method": "Methode",
     "contents": "Inhalt",
     "notes": "Notizen",
+    "amount": "Menge (ml)",
     "notesPlaceholder": "Optional",
     "activity": "Aktivität",
     "start": "Start",
@@ -160,7 +172,10 @@
     "runningFor": "{{name}} · {{activity}} läuft",
     "started": "Gestartet um {{time}}",
     "startedMeta": "Gestartet um {{time}} · {{meta}}",
-    "stop": "Stoppen"
+    "stop": "Stoppen",
+    "napTitleFor": "{{name}} · Schläfchen naht",
+    "napTitle": "Schläfchen naht",
+    "napBody": "Geschätztes Schlaffenster gegen {{time}}"
   },
   "action": {
     "start-timer": "Timer wird gestartet",

@@ -4,6 +4,8 @@ import type { ActivityKey, EntryPath, FeedingType, FeedingMethod } from "../api"
 export interface EditDraft {
   type: FeedingType | null;
   method: FeedingMethod | null;
+  /** Bottle amount in ml (feeding only; null = not recorded / cleared). */
+  amount: number | null;
   wet: boolean;
   solid: boolean;
   startMs: number;

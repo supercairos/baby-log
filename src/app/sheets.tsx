@@ -13,12 +13,73 @@ import {
 } from "../api";
 import { useTranslation } from "react-i18next";
 import { useStyles, useTheme } from "../theme";
-import { activityLabel, feedMethodOptions, feedTypeOptions } from "../lib/labels";
+import { activityLabel, feedMethodLabel, feedMethodOptions, feedTypeOptions } from "../lib/labels";
 import { fmt, toLocalInput, fromLocalInput } from "../lib/format";
 import { ACTIVITY_ICON, TrashIcon } from "../ui/icons";
 import { buzz } from "./hooks";
 import { useFocusTrap } from "./useFocusTrap";
 import type { EditDraft, EditTarget } from "./types";
+
+/**
+ * Bottle-amount slider ladder — intelligent steps: 5 ml where precision matters (small bottles),
+ * 10 ml through the common range, 25 ml at the top. The slider moves over indexes of this list;
+ * index 0 = no amount.
+ */
+const ML_STEPS: number[] = [
+  ...Array.from({ length: 19 }, (_, i) => 10 + i * 5), // 10..100 by 5
+  ...Array.from({ length: 10 }, (_, i) => 110 + i * 10), // 110..200 by 10
+  ...Array.from({ length: 4 }, (_, i) => 225 + i * 25), // 225..300 by 25
+];
+const mlToIdx = (ml: number | null): number =>
+  ml == null ? 0 : 1 + ML_STEPS.reduce((best, v, i) => (Math.abs(v - ml) < Math.abs(ML_STEPS[best] - ml) ? i : best), 0);
+const idxToMl = (idx: number): number | null => (idx <= 0 ? null : ML_STEPS[Math.min(idx, ML_STEPS.length) - 1]);
+
+// ── Breast method as two toggles ───────────────────────────────────────────────
+// Gauche and Droite are independently toggleable; both lit maps to the server's
+// "both breasts" — no separate "Les deux" chip. Biberon stays an exclusive choice.
+type BreastSide = "left breast" | "right breast";
+const breastPressed = (m: FeedingMethod | null, side: BreastSide) => m === side || m === "both breasts";
+function toggleBreast(current: FeedingMethod | null, side: BreastSide): FeedingMethod | null {
+  const other: BreastSide = side === "left breast" ? "right breast" : "left breast";
+  if (current === side) return null; // last lit side tapped → nothing selected
+  if (current === "both breasts") return other;
+  if (current === other) return "both breasts";
+  return side;
+}
+
+function BreastMethodChips({
+  method,
+  accent,
+  onMethod,
+}: {
+  method: FeedingMethod | null;
+  accent: string;
+  onMethod: (m: FeedingMethod | null) => void;
+}) {
+  const { s, chipOn } = useStyles();
+  const sides: BreastSide[] = ["left breast", "right breast"];
+  return (
+    <div style={s.chips}>
+      {sides.map((side) => (
+        <button
+          key={side}
+          aria-pressed={breastPressed(method, side)}
+          onClick={() => { buzz(); onMethod(toggleBreast(method, side)); }}
+          style={{ ...s.chip, ...(breastPressed(method, side) ? chipOn(accent) : {}) }}
+        >
+          {feedMethodLabel(side)}
+        </button>
+      ))}
+      <button
+        aria-pressed={method === "bottle"}
+        onClick={() => { buzz(); onMethod("bottle"); }}
+        style={{ ...s.chip, ...(method === "bottle" ? chipOn(accent) : {}) }}
+      >
+        {feedMethodLabel("bottle")}
+      </button>
+    </div>
+  );
+}
 
 function SheetShell({ open, label, children }: { open: boolean; label: string; children: React.ReactNode }) {
   const { s } = useStyles();
@@ -44,16 +105,20 @@ export function FeedingSheet({
   elapsedMs,
   type,
   method,
+  amount,
   onType,
   onMethod,
+  onAmount,
   onDone,
 }: {
   open: boolean;
   elapsedMs: number | null;
   type: FeedingType | null;
   method: FeedingMethod | null;
+  amount: number | null;
   onType: (t: FeedingType) => void;
-  onMethod: (m: FeedingMethod) => void;
+  onMethod: (m: FeedingMethod | null) => void;
+  onAmount: (ml: number | null) => void;
   onDone: () => void;
 }) {
   const { s, chipOn } = useStyles();
@@ -80,7 +145,14 @@ export function FeedingSheet({
         ))}
       </div>
 
-      {allowedMethods.length > 0 && (
+      {/* A single allowed method (formula/fortified → bottle) is auto-selected — don't ask.
+          Breast milk gets the two-toggle chooser (both lit = "both breasts"). */}
+      {type === "breast milk" ? (
+        <>
+          <div style={s.sheetGroup}>{t("sheet.method")}</div>
+          <BreastMethodChips method={method} accent={feed} onMethod={onMethod} />
+        </>
+      ) : allowedMethods.length > 1 ? (
         <>
           <div style={s.sheetGroup}>{t("sheet.method")}</div>
           <div style={s.chips}>
@@ -89,6 +161,26 @@ export function FeedingSheet({
                 {m.label}
               </button>
             ))}
+          </div>
+        </>
+      ) : null}
+
+      {/* Any bottle is measured — formula/fortified (always bottle) AND pumped breast milk. */}
+      {method === "bottle" && (
+        <>
+          <div style={s.sheetGroup}>{t("sheet.amount")}</div>
+          <div style={s.sliderRow}>
+            <input
+              type="range"
+              min={0}
+              max={ML_STEPS.length}
+              step={1}
+              value={mlToIdx(amount)}
+              aria-label={t("sheet.amount")}
+              onChange={(e) => onAmount(idxToMl(Number(e.target.value)))}
+              style={{ ...s.slider, accentColor: feed }}
+            />
+            <span style={s.sliderValue}>{amount != null ? `${amount} ml` : "—"}</span>
           </div>
         </>
       )}
@@ -212,7 +304,14 @@ export function EntrySheet({
               </button>
             ))}
           </div>
-          {allowed.length > 0 && (
+          {/* A single allowed method (formula/fortified → bottle) is auto-selected — don't ask.
+              Breast milk gets the two-toggle chooser (both lit = "both breasts"). */}
+          {draft.type === "breast milk" ? (
+            <>
+              <div style={s.sheetGroup}>{t("sheet.method")}</div>
+              <BreastMethodChips method={draft.method} accent={feed} onMethod={(m) => setDraft((d) => ({ ...d, method: m }))} />
+            </>
+          ) : allowed.length > 1 ? (
             <>
               <div style={s.sheetGroup}>{t("sheet.method")}</div>
               <div style={s.chips}>
@@ -226,6 +325,25 @@ export function EntrySheet({
                     {m.label}
                   </button>
                 ))}
+              </div>
+            </>
+          ) : null}
+          {/* Any bottle is measured — formula/fortified (always bottle) AND pumped breast milk. */}
+          {draft.method === "bottle" && (
+            <>
+              <div style={s.sheetGroup}>{t("sheet.amount")}</div>
+              <div style={s.sliderRow}>
+                <input
+                  type="range"
+                  min={0}
+                  max={ML_STEPS.length}
+                  step={1}
+                  value={mlToIdx(draft.amount)}
+                  aria-label={t("sheet.amount")}
+                  onChange={(e) => setDraft((d) => ({ ...d, amount: idxToMl(Number(e.target.value)) }))}
+                  style={{ ...s.slider, accentColor: feed }}
+                />
+                <span style={s.sliderValue}>{draft.amount != null ? `${draft.amount} ml` : "—"}</span>
               </div>
             </>
           )}

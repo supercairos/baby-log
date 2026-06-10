@@ -54,6 +54,13 @@
     "tapToStop": "tocca per fermare",
     "tapToStart": "tocca per avviare",
     "tummyToday": "{{done}}/{{goal}} min oggi",
+    "bottles": "Biberon",
+    "mlToday": "{{ml}} ml oggi",
+    "night": "Notte",
+    "noWakings": "senza risvegli",
+    "wakings_one": "{{count}} risveglio",
+    "wakings_other": "{{count}} risvegli",
+    "wakeAround": "risveglio ~{{time}}",
     "tapToLog": "tocca per registrare",
     "pickAndStart": "scegli e avvia",
     "upNext": "Prossimi",
@@ -74,6 +81,8 @@
     "themeLight": "Chiaro",
     "alertsOn": "Avvisi · Attivi",
     "alertsOff": "Avvisi · Disattivi",
+    "napOn": "Avviso pisolino · On",
+    "napOff": "Avviso pisolino · Off",
     "install": "Aggiungi alla schermata Home",
     "disconnect": "Disconnetti",
     "language": "Lingua · {{lang}}"
@@ -84,6 +93,7 @@
     "diaperLogged": "Pannolino registrato · {{detail}}",
     "alertsOn": "Avvisi attivati",
     "alertsOnHint": "Avvisi attivati — riceverai una notifica mentre un timer è in corso",
+    "napAlertOn": "Avviso pisolino attivo — notifica ~10 min prima del pisolino stimato",
     "notifBlocked": "Le notifiche sono bloccate — attivale nelle impostazioni del browser.",
     "entryDeleted": "Voce eliminata",
     "enterValidTime": "Inserisci un orario valido",
@@ -111,7 +121,8 @@
     "everyInterval": "ogni ~{{duration}}",
     "wetSolid": "{{wet}} pipì · {{solid}} cacca",
     "minPerDay": "{{value}} min/giorno",
-    "goalMin": "obiettivo {{goal}} min"
+    "goalMin": "obiettivo {{goal}} min",
+    "vsLastWeek": "{{delta}} vs sett. scorsa"
   },
   "sheet": {
     "feedingDetails": "Dettagli poppata",
@@ -123,6 +134,7 @@
     "method": "Metodo",
     "contents": "Contenuto",
     "notes": "Note",
+    "amount": "Quantità (ml)",
     "notesPlaceholder": "Facoltativo",
     "activity": "Attività",
     "start": "Inizio",
@@ -160,7 +172,10 @@
     "runningFor": "{{name}} · {{activity}} in corso",
     "started": "Avviato alle {{time}}",
     "startedMeta": "Avviato alle {{time}} · {{meta}}",
-    "stop": "Ferma"
+    "stop": "Ferma",
+    "napTitleFor": "{{name}} · pisolino in arrivo",
+    "napTitle": "Pisolino in arrivo",
+    "napBody": "Finestra di sonno stimata verso le {{time}}"
   },
   "action": {
     "start-timer": "Avvio del timer",
