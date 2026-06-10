@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.11.0](https://github.com/supercairos/baby-log/compare/baby-log-v1.10.0...baby-log-v1.11.0) (2026-06-10)
+
+
+### Features
+
+* bottle amounts, breast-side toggles, night recap and nap alerts ([5035d07](https://github.com/supercairos/baby-log/commit/5035d07b86a338079a32bc4aa005fea9b7d8495d))
+* discard running timers and a visible stale-timer nudge ([2be08f2](https://github.com/supercairos/baby-log/commit/2be08f2c141c1c3c683321063713d64689c91fe7))
+* journal polish — week deltas, predicted-sleep arc, themed dial details ([665c367](https://github.com/supercairos/baby-log/commit/665c3674c16086c9f6e30af178597d3bf833ce16))
+* sleep-duration prediction and last-night derivation ([fee1035](https://github.com/supercairos/baby-log/commit/fee103556ff29892667e20192f5b14b5053747ef))
+* surface amounts and notes in the timeline list ([441eae2](https://github.com/supercairos/baby-log/commit/441eae23b9557c9e163604074b3eca9f8feb5c8f))
+
+
+### Bug Fixes
+
+* keep bottle amount on notification-stop; DST-safe calendar math ([ec2e3d2](https://github.com/supercairos/baby-log/commit/ec2e3d25a1688e10020f17a20e000c2e570dea4d))
+
 ## [1.10.0](https://github.com/supercairos/baby-log/compare/baby-log-v1.9.0...baby-log-v1.10.0) (2026-06-10)
 
 
