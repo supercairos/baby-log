@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.12.0](https://github.com/supercairos/baby-log/compare/baby-log-v1.11.0...baby-log-v1.12.0) (2026-06-29)
+
+
+### Features
+
+* live timeline refresh with new-entries pill and freshness line ([9ae3b9b](https://github.com/supercairos/baby-log/commit/9ae3b9bdba8968a1a7a0a976e367e2914e3841fb))
+
 ## [1.11.0](https://github.com/supercairos/baby-log/compare/baby-log-v1.10.0...baby-log-v1.11.0) (2026-06-10)
 
 
