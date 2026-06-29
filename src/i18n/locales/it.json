@@ -107,7 +107,10 @@
     "addEntry": "Aggiungi voce",
     "noEntries": "Ancora nessuna voce",
     "noEntriesSub": "Registra dalla schermata Home, o aggiungi una voce passata sopra.",
-    "nap": "Pisolino"
+    "nap": "Pisolino",
+    "newEntries_one": "{{count}} nuova",
+    "newEntries_other": "{{count}} nuove",
+    "updated": "Aggiornato {{ago}}"
   },
   "cal": {
     "day": "Giorno",

@@ -107,7 +107,10 @@
     "addEntry": "Eintrag hinzufügen",
     "noEntries": "Noch keine Einträge",
     "noEntriesSub": "Erfasse über den Startbildschirm, oder füge oben einen vergangenen Eintrag hinzu.",
-    "nap": "Nickerchen"
+    "nap": "Nickerchen",
+    "newEntries_one": "{{count}} neu",
+    "newEntries_other": "{{count}} neue",
+    "updated": "Aktualisiert {{ago}}"
   },
   "cal": {
     "day": "Tag",

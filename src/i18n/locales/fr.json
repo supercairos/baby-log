@@ -107,7 +107,10 @@
     "addEntry": "Ajouter une entrée",
     "noEntries": "Aucune entrée",
     "noEntriesSub": "Notez depuis l'accueil, ou ajoutez une entrée passée ci-dessus.",
-    "nap": "Sieste"
+    "nap": "Sieste",
+    "newEntries_one": "{{count}} nouvelle",
+    "newEntries_other": "{{count}} nouvelles",
+    "updated": "Mis à jour {{ago}}"
   },
   "cal": {
     "day": "Jour",

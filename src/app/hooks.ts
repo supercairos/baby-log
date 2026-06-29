@@ -230,7 +230,8 @@ const tkey = (path: EntryPath, id: number) => `${path}#${id}`;
 
 /**
  * The merged, newest-first timeline for a child, kept fresh by TanStack Query (refetch on a
- * 60s interval, on focus, and on reconnect) so another caregiver's edits show up here too.
+ * 30s interval, on focus, and on reconnect) so another caregiver's edits — and entries logged
+ * via the Home Assistant buttons — show up here too.
  * Optimistically-deleted rows are tombstoned and filtered out of every refetch until the
  * server confirms they're gone — otherwise a poll landing before the DELETE propagates would
  * resurrect them.
@@ -239,10 +240,10 @@ export function useTimeline(client: BabyBuddyClient, childId: number | null) {
   const qc = useQueryClient();
   const tombstones = useRef<Set<string>>(new Set());
 
-  const { data } = useQuery({
+  const { data, dataUpdatedAt } = useQuery({
     queryKey: ["timeline", childId],
     enabled: childId != null,
-    refetchInterval: 60_000,
+    refetchInterval: 30_000,
     refetchOnWindowFocus: true,
     queryFn: async () => {
       const fresh = await listRecentEntries(client, childId as number);
@@ -270,7 +271,8 @@ export function useTimeline(client: BabyBuddyClient, childId: number | null) {
     [qc, childId],
   );
 
-  return { entries: childId == null ? [] : (data ?? null), refresh, removeLocal };
+  // `updatedAt` is the last successful fetch time — drives the timeline's "updated Xs ago" line.
+  return { entries: childId == null ? [] : (data ?? null), refresh, removeLocal, updatedAt: dataUpdatedAt };
 }
 
 /**

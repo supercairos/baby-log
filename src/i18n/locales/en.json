@@ -107,7 +107,10 @@
     "addEntry": "Add entry",
     "noEntries": "No entries yet",
     "noEntriesSub": "Log from the home screen, or add a past entry above.",
-    "nap": "Nap"
+    "nap": "Nap",
+    "newEntries_one": "{{count}} new",
+    "newEntries_other": "{{count}} new",
+    "updated": "Updated {{ago}}"
   },
   "cal": {
     "day": "Day",

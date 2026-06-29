@@ -70,6 +70,7 @@ export function Calendar({
   childId,
   birthDate,
   listEntries,
+  listUpdatedAt,
   onAdd,
   onEdit,
   onDelete,
@@ -78,6 +79,7 @@ export function Calendar({
   childId: number | null;
   birthDate: string | null | undefined;
   listEntries: TimelineEntry[] | null;
+  listUpdatedAt?: number;
   onAdd: () => void;
   onEdit: (e: TimelineEntry) => void;
   onDelete: (e: TimelineEntry) => void;
@@ -144,7 +146,7 @@ export function Calendar({
       )}
 
       {mode === "list" ? (
-        <Timeline entries={listEntries} showAdd={false} onEdit={onEdit} onDelete={onDelete} />
+        <Timeline entries={listEntries} updatedAt={listUpdatedAt} showAdd={false} onEdit={onEdit} onDelete={onDelete} />
       ) : mode === "summary" ? (
         <SummaryView entries={rangeEntries} prevEntries={prevEntries} range={range} birthDate={birthDate} />
       ) : mode === "day" ? (

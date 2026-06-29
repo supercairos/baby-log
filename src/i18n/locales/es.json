@@ -107,7 +107,10 @@
     "addEntry": "Añadir entrada",
     "noEntries": "Aún no hay entradas",
     "noEntriesSub": "Registra desde la pantalla de inicio, o añade una entrada pasada arriba.",
-    "nap": "Siesta"
+    "nap": "Siesta",
+    "newEntries_one": "{{count}} nueva",
+    "newEntries_other": "{{count}} nuevas",
+    "updated": "Actualizado {{ago}}"
   },
   "cal": {
     "day": "Día",

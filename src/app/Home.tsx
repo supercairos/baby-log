@@ -103,7 +103,7 @@ export function Home({
 
   const { children, childId, selectChild } = useChildren(client);
   const { running, refresh: refreshRunning } = useRunningTimers(client, childId);
-  const { entries, refresh: refreshTimeline, removeLocal } = useTimeline(client, childId);
+  const { entries, refresh: refreshTimeline, removeLocal, updatedAt: timelineUpdatedAt } = useTimeline(client, childId);
   const { toast, show } = useToast();
   const { canInstall, promptInstall } = usePwaInstall();
 
@@ -238,6 +238,27 @@ export function Home({
     };
     navigator.serviceWorker.addEventListener("message", onMessage);
     return () => navigator.serviceWorker.removeEventListener("message", onMessage);
+  }, [refreshRunning, refreshTimeline]);
+
+  // Foreground-resume refresh. TanStack already polls (15s timers / 30s timeline) and refetches
+  // on focus, but iOS standalone PWAs fire focus/visibility inconsistently, so a resume can be
+  // missed and the app shows stale data until the next interval. Re-fetch running timers + the
+  // timeline whenever the app comes back to the foreground (or reconnects) so events logged
+  // elsewhere — the Home Assistant buttons or the other caregiver — appear right away.
+  useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState !== "visible") return;
+      refreshRunning();
+      refreshTimeline();
+    };
+    document.addEventListener("visibilitychange", refresh);
+    window.addEventListener("pageshow", refresh); // iOS bfcache resume — focus often doesn't fire
+    window.addEventListener("online", refresh);
+    return () => {
+      document.removeEventListener("visibilitychange", refresh);
+      window.removeEventListener("pageshow", refresh);
+      window.removeEventListener("online", refresh);
+    };
   }, [refreshRunning, refreshTimeline]);
 
   const toggleNotify = async () => {
@@ -849,6 +870,7 @@ export function Home({
                 childId={childId}
                 birthDate={child?.birth_date ?? null}
                 listEntries={entries}
+                listUpdatedAt={timelineUpdatedAt}
                 onAdd={openAdd}
                 onEdit={openEdit}
                 onDelete={removeEntry}
