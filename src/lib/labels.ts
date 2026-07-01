@@ -4,7 +4,7 @@
  * the active language; components re-render on a language change via `useTranslation`, and
  * these helpers (and the meta builders) read the current translation each call.
  */
-import type { FeedingType, FeedingMethod, ActivityKey } from "../api";
+import type { FeedingType, FeedingMethod, MedicationUnit, ActivityKey } from "../api";
 import i18n from "../i18n";
 
 const FEED_TYPES: FeedingType[] = ["breast milk", "formula", "fortified breast milk", "solid food"];
@@ -33,4 +33,12 @@ export function diaperMeta(wet: boolean, solid: boolean): string {
   if (solid) return i18n.t("diaper.solid");
   if (wet) return i18n.t("diaper.wet");
   return "";
+}
+
+export const medUnitLabel = (unit: MedicationUnit): string => i18n.t(`medUnit.${unit}`);
+
+/** Meta line for a medication entry: "Paracetamol · 2.5 ml". */
+export function medicationMeta(name: string, dosage?: number | null, unit?: MedicationUnit | null): string {
+  const dose = dosage != null ? `${dosage}${unit ? ` ${medUnitLabel(unit)}` : ""}` : null;
+  return [name.trim() || null, dose].filter(Boolean).join(" · ");
 }

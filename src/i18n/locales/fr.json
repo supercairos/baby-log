@@ -25,7 +25,14 @@
     "feeding": "Repas",
     "sleep": "Sommeil",
     "diaper": "Change",
-    "tummy": "Sur le ventre"
+    "tummy": "Sur le ventre",
+    "medication": "Médicament"
+  },
+  "medUnit": {
+    "mg": "mg",
+    "ml": "ml",
+    "tablets": "comprimés",
+    "drops": "gouttes"
   },
   "feedType": {
     "breast milk": "Sein",
@@ -101,7 +108,8 @@
     "enterValidTime": "Saisissez une heure valide",
     "endBeforeStart": "La fin ne peut pas précéder le début",
     "timeFuture": "L'heure ne peut pas être dans le futur",
-    "pickDiaper": "Choisissez pipi, selles, ou les deux"
+    "pickDiaper": "Choisissez pipi, selles, ou les deux",
+    "medNameRequired": "Saisissez le nom du médicament"
   },
   "timeline": {
     "addEntry": "Ajouter une entrée",
@@ -138,6 +146,9 @@
     "type": "Type",
     "method": "Méthode",
     "contents": "Contenu",
+    "medName": "Médicament",
+    "medNamePlaceholder": "ex. vitamine D, paracétamol",
+    "dose": "Dose",
     "notes": "Notes",
     "amount": "Quantité (ml)",
     "notesPlaceholder": "Facultatif",
@@ -187,6 +198,7 @@
     "consume": "Enregistrement de l'activité",
     "create": "Ajout de l'entrée",
     "log-diaper": "Enregistrement du change",
+    "log-medication": "Enregistrement du médicament",
     "update-entry": "Enregistrement de la modification",
     "delete-entry": "Suppression de l'entrée",
     "generic": "Enregistrement",

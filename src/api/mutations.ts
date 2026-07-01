@@ -21,6 +21,7 @@ import type {
   SleepFields,
   TummyFields,
   DiaperFields,
+  MedicationFields,
   EntryPatch,
 } from "./entries";
 import { enqueue } from "./outbox";
@@ -69,6 +70,7 @@ export type Mutation =
     })
   | (MutationBase & { kind: "discard-timer"; localId: LocalId })
   | (MutationBase & { kind: "log-diaper"; childId: number; fields: DiaperFields })
+  | (MutationBase & { kind: "log-medication"; childId: number; fields: MedicationFields })
   | (MutationBase & {
       kind: "create-feeding";
       childId: number;
@@ -151,6 +153,10 @@ export function logDiaperMutation(childId: number, fields: DiaperFields): Mutati
   return { kind: "log-diaper", mutationId: newId(), at: nowIso(), childId, fields };
 }
 
+export function logMedicationMutation(childId: number, fields: MedicationFields): Mutation {
+  return { kind: "log-medication", mutationId: newId(), at: nowIso(), childId, fields };
+}
+
 // ── Backdated / manual timeline entries (no timer) ────────────────────────────
 
 export function createFeedingMutation(childId: number, start: IsoDateTime, end: IsoDateTime, fields: FeedingFields): Mutation {
@@ -199,6 +205,8 @@ export function mutationLabel(m: Mutation): string {
       return "Discard timer";
     case "log-diaper":
       return "Log diaper";
+    case "log-medication":
+      return "Log medication";
     case "create-feeding":
       return "Add feeding";
     case "create-sleep":

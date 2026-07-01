@@ -25,7 +25,14 @@
     "feeding": "Toma",
     "sleep": "Sueño",
     "diaper": "Pañal",
-    "tummy": "Boca abajo"
+    "tummy": "Boca abajo",
+    "medication": "Medicamento"
+  },
+  "medUnit": {
+    "mg": "mg",
+    "ml": "ml",
+    "tablets": "comprimidos",
+    "drops": "gotas"
   },
   "feedType": {
     "breast milk": "Pecho",
@@ -101,7 +108,8 @@
     "enterValidTime": "Introduce una hora válida",
     "endBeforeStart": "El fin no puede ser anterior al inicio",
     "timeFuture": "La hora no puede estar en el futuro",
-    "pickDiaper": "Elige pis, caca o ambos"
+    "pickDiaper": "Elige pis, caca o ambos",
+    "medNameRequired": "Introduce el nombre del medicamento"
   },
   "timeline": {
     "addEntry": "Añadir entrada",
@@ -138,6 +146,9 @@
     "type": "Tipo",
     "method": "Método",
     "contents": "Contenido",
+    "medName": "Medicamento",
+    "medNamePlaceholder": "p. ej. vitamina D, paracetamol",
+    "dose": "Dosis",
     "notes": "Notas",
     "amount": "Cantidad (ml)",
     "notesPlaceholder": "Opcional",
@@ -187,6 +198,7 @@
     "consume": "Guardando la actividad",
     "create": "Añadiendo la entrada",
     "log-diaper": "Registrando el pañal",
+    "log-medication": "Registrando el medicamento",
     "update-entry": "Guardando el cambio",
     "delete-entry": "Eliminando la entrada",
     "generic": "Guardando",

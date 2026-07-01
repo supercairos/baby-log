@@ -64,6 +64,15 @@ export const TummyIcon = (p: IconProps) => (
   </Svg>
 );
 
+/** Medication — a two-tone capsule laid on the bottom-left→top-right diagonal, split across
+ *  the middle. Hand-drawn (Lucide/Phosphor "pill" reads poorly at small sizes here). */
+export const PillIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="3" y="8" width="18" height="8" rx="4" transform="rotate(-45 12 12)" />
+    <path d="M9 9l6 6" />
+  </Svg>
+);
+
 export const SunriseIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M12 2v6M4.93 12.93l1.41 1.41M2 18h2M20 18h2M19.07 12.93l-1.41 1.41M22 22H2M8 6l4-4 4 4" />
@@ -162,4 +171,5 @@ export const ACTIVITY_ICON: Record<ActivityKey, (p: IconProps) => React.ReactEle
   sleep: MoonIcon,
   diaper: DropIcon,
   tummy: TummyIcon,
+  medication: PillIcon,
 };

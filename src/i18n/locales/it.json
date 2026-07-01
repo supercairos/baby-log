@@ -25,7 +25,14 @@
     "feeding": "Poppata",
     "sleep": "Sonno",
     "diaper": "Pannolino",
-    "tummy": "Pancia in giù"
+    "tummy": "Pancia in giù",
+    "medication": "Farmaco"
+  },
+  "medUnit": {
+    "mg": "mg",
+    "ml": "ml",
+    "tablets": "compresse",
+    "drops": "gocce"
   },
   "feedType": {
     "breast milk": "Seno",
@@ -101,7 +108,8 @@
     "enterValidTime": "Inserisci un orario valido",
     "endBeforeStart": "La fine non può precedere l'inizio",
     "timeFuture": "L'orario non può essere nel futuro",
-    "pickDiaper": "Scegli pipì, feci o entrambi"
+    "pickDiaper": "Scegli pipì, feci o entrambi",
+    "medNameRequired": "Inserisci il nome del farmaco"
   },
   "timeline": {
     "addEntry": "Aggiungi voce",
@@ -138,6 +146,9 @@
     "type": "Tipo",
     "method": "Metodo",
     "contents": "Contenuto",
+    "medName": "Farmaco",
+    "medNamePlaceholder": "es. vitamina D, paracetamolo",
+    "dose": "Dose",
     "notes": "Note",
     "amount": "Quantità (ml)",
     "notesPlaceholder": "Facoltativo",
@@ -187,6 +198,7 @@
     "consume": "Salvataggio dell'attività",
     "create": "Aggiunta della voce",
     "log-diaper": "Registrazione del pannolino",
+    "log-medication": "Registrazione del farmaco",
     "update-entry": "Salvataggio della modifica",
     "delete-entry": "Eliminazione della voce",
     "generic": "Salvataggio",

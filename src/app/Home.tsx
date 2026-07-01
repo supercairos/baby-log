@@ -16,6 +16,7 @@ import {
   type Mutation,
   type TimelineEntry,
   type TimerActivityKey,
+  ACTIVITIES,
   METHODS_FOR_TYPE,
   childName,
   consumeTimerMutation,
@@ -28,6 +29,7 @@ import {
   flushOutbox,
   getLastFeedingChoice,
   logDiaperMutation,
+  logMedicationMutation,
   mergeTimerMapping,
   onOutboxError,
   setTimerMapping,
@@ -202,7 +204,7 @@ export function Home({
   useEffect(
     () =>
       onOutboxError((f) => {
-        const known = new Set(["start-timer", "log-diaper", "update-entry", "delete-entry"]);
+        const known = new Set(["start-timer", "log-diaper", "log-medication", "update-entry", "delete-entry"]);
         const key = f.actionKind.startsWith("consume")
           ? "consume"
           : f.actionKind.startsWith("create")
@@ -466,6 +468,8 @@ export function Home({
       setSheet({ type: "diaper" });
       return;
     }
+    // Medication isn't a home tile and never runs as a timer — it's logged from the journal only.
+    if (activity === "medication") return;
     const guard = `start:${activity}`;
     if (pending.current.has(guard)) return; // rapid double-tap → ignore the second
     pending.current.add(guard);
@@ -525,6 +529,9 @@ export function Home({
       amount: e.activity === "feeding" ? e.amount : null,
       wet: e.activity === "diaper" ? e.wet : false,
       solid: e.activity === "diaper" ? e.solid : false,
+      medName: e.activity === "medication" ? e.name : "",
+      dosage: e.activity === "medication" ? e.dosage : null,
+      dosageUnit: e.activity === "medication" ? e.dosageUnit : null,
       startMs: e.startMs,
       endMs: e.endMs,
       // Tummy-time has no `notes` column — its free text lives in `milestone`.
@@ -535,7 +542,7 @@ export function Home({
   const openAdd = () => {
     buzz();
     setEditing({ isNew: true, activity: null });
-    setDraft({ type: null, method: null, amount: null, wet: false, solid: false, startMs: nowMs(), endMs: null, notes: "" });
+    setDraft({ type: null, method: null, amount: null, wet: false, solid: false, medName: "", dosage: null, dosageUnit: null, startMs: nowMs(), endMs: null, notes: "" });
   };
 
   const pickKind = (key: ActivityKey) => {
@@ -543,7 +550,8 @@ export function Home({
     setEditing((t) => (t ? { ...t, activity: key } : t));
     setDraft((d) => {
       if (!d) return d;
-      if (key === "diaper") return { ...d, endMs: null };
+      // Instant activities (diaper, medication) log a single moment — no span.
+      if (!ACTIVITIES[key].timed) return { ...d, endMs: null };
       // Default to a 15-min span ENDING now — Baby Buddy rejects future times.
       const end = nowMs();
       return { ...d, startMs: end - 15 * 60_000, endMs: end };
@@ -570,6 +578,8 @@ export function Home({
         return { path: "/api/tummy-times/", body: { start: startIso, end: endIso, milestone: d.notes } };
       case "/api/changes/":
         return childId == null ? null : { path: "/api/changes/", body: { child: childId, wet: d.wet, solid: d.solid, time: startIso, notes } };
+      case "/api/medication/":
+        return childId == null ? null : { path: "/api/medication/", body: { child: childId, name: d.medName.trim(), dosage: d.dosage, dosage_unit: d.dosageUnit ?? undefined, time: startIso, notes } };
       default:
         return null;
     }
@@ -594,6 +604,10 @@ export function Home({
       show(t("toast.pickDiaper"), palette.danger);
       return;
     }
+    if (editing.activity === "medication" && !draft.medName.trim()) {
+      show(t("toast.medNameRequired"), palette.danger);
+      return;
+    }
     buzz();
     const { activity } = editing;
     if (editing.isNew) {
@@ -601,6 +615,7 @@ export function Home({
       const endIso = iso(draft.endMs ?? draft.startMs);
       const notes = draft.notes.trim() === "" ? null : draft.notes;
       if (activity === "diaper") submit(logDiaperMutation(childId, { wet: draft.wet, solid: draft.solid, time: startIso, notes }));
+      else if (activity === "medication") submit(logMedicationMutation(childId, { name: draft.medName.trim(), dosage: draft.dosage, dosage_unit: draft.dosageUnit ?? undefined, time: startIso, notes }));
       else if (activity === "feeding") submit(createFeedingMutation(childId, startIso, endIso, { ...feedingFieldsFor({ type: draft.type, method: draft.method, amount: draft.amount }), notes }));
       else if (activity === "sleep") submit(createSleepMutation(childId, startIso, endIso, { notes }));
       else submit(createTummyMutation(childId, startIso, endIso, draft.notes.trim() ? { milestone: draft.notes } : {}));

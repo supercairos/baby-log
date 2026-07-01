@@ -6,6 +6,7 @@
 import {
   ACTIVITIES,
   DIAPER_STATES,
+  MEDICATION_UNITS,
   METHODS_FOR_TYPE,
   type ActivityKey,
   type FeedingMethod,
@@ -13,7 +14,7 @@ import {
 } from "../api";
 import { useTranslation } from "react-i18next";
 import { useStyles, useTheme } from "../theme";
-import { activityLabel, feedMethodLabel, feedMethodOptions, feedTypeOptions } from "../lib/labels";
+import { activityLabel, feedMethodLabel, feedMethodOptions, feedTypeOptions, medUnitLabel } from "../lib/labels";
 import { fmt, toLocalInput, fromLocalInput } from "../lib/format";
 import { ACTIVITY_ICON, TrashIcon } from "../ui/icons";
 import { buzz } from "./hooks";
@@ -237,13 +238,15 @@ export function EntrySheet({
   const { t } = useTranslation();
   const { palette } = useTheme();
   const feed = palette.accents.feeding.accent;
+  const med = palette.accents.medication.accent;
   const open = !!(target && draft);
 
   if (!target || !draft) return <SheetShell open={false} label={t("sheet.entry")}>{null}</SheetShell>;
 
   const adding = target.isNew;
   const needsKind = adding && !target.activity;
-  const isTimed = target.activity != null && target.activity !== "diaper";
+  // Timed activities (feeding/sleep/tummy) get start+end; instant ones (diaper/medication) a single time.
+  const isTimed = target.activity != null && ACTIVITIES[target.activity].timed;
   const allowed = draft.type ? METHODS_FOR_TYPE[draft.type] : [];
   const endBeforeStart = draft.endMs != null && draft.endMs < draft.startMs;
   const label = target.activity ? activityLabel(target.activity) : t("sheet.entry");
@@ -360,6 +363,46 @@ export function EntrySheet({
             <button aria-pressed={draft.solid} onClick={() => { buzz(); setDraft((d) => ({ ...d, solid: !d.solid })); }} style={{ ...s.chip, ...(draft.solid ? chipOn("#c9a86a") : {}) }}>
               {draft.solid ? "✓ " : ""}{t("diaper.solid")}
             </button>
+          </div>
+        </>
+      )}
+
+      {target.activity === "medication" && (
+        <>
+          <div style={s.sheetGroup}>{t("sheet.medName")}</div>
+          <input
+            type="text"
+            value={draft.medName}
+            onChange={(e) => setDraft((d) => ({ ...d, medName: e.target.value }))}
+            placeholder={t("sheet.medNamePlaceholder")}
+            autoComplete="off"
+            style={s.timeInput}
+          />
+          <div style={s.sheetGroup}>{t("sheet.dose")}</div>
+          <div style={s.sliderRow}>
+            <input
+              type="number"
+              inputMode="decimal"
+              min={0}
+              step="any"
+              value={draft.dosage ?? ""}
+              onChange={(e) => setDraft((d) => ({ ...d, dosage: e.target.value === "" ? null : Number(e.target.value) }))}
+              placeholder="—"
+              aria-label={t("sheet.dose")}
+              style={{ ...s.timeInput, flex: "0 0 96px", width: 96 }}
+            />
+            <div style={s.chips}>
+              {MEDICATION_UNITS.map((u) => (
+                <button
+                  key={u}
+                  aria-pressed={draft.dosageUnit === u}
+                  onClick={() => { buzz(); setDraft((d) => ({ ...d, dosageUnit: d.dosageUnit === u ? null : u })); }}
+                  style={{ ...s.chip, ...(draft.dosageUnit === u ? chipOn(med) : {}) }}
+                >
+                  {medUnitLabel(u)}
+                </button>
+              ))}
+            </div>
           </div>
         </>
       )}

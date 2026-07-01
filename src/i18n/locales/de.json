@@ -25,7 +25,14 @@
     "feeding": "Mahlzeit",
     "sleep": "Schlaf",
     "diaper": "Windel",
-    "tummy": "Bauchzeit"
+    "tummy": "Bauchzeit",
+    "medication": "Medikament"
+  },
+  "medUnit": {
+    "mg": "mg",
+    "ml": "ml",
+    "tablets": "Tabletten",
+    "drops": "Tropfen"
   },
   "feedType": {
     "breast milk": "Brust",
@@ -101,7 +108,8 @@
     "enterValidTime": "Gib eine gültige Zeit ein",
     "endBeforeStart": "Das Ende darf nicht vor dem Start liegen",
     "timeFuture": "Die Zeit darf nicht in der Zukunft liegen",
-    "pickDiaper": "Wähle nass, Stuhl oder beides"
+    "pickDiaper": "Wähle nass, Stuhl oder beides",
+    "medNameRequired": "Namen des Medikaments eingeben"
   },
   "timeline": {
     "addEntry": "Eintrag hinzufügen",
@@ -138,6 +146,9 @@
     "type": "Art",
     "method": "Methode",
     "contents": "Inhalt",
+    "medName": "Medikament",
+    "medNamePlaceholder": "z. B. Vitamin D, Paracetamol",
+    "dose": "Dosis",
     "notes": "Notizen",
     "amount": "Menge (ml)",
     "notesPlaceholder": "Optional",
@@ -187,6 +198,7 @@
     "consume": "Aktivität wird gespeichert",
     "create": "Eintrag wird hinzugefügt",
     "log-diaper": "Windel wird erfasst",
+    "log-medication": "Medikament wird erfasst",
     "update-entry": "Änderung wird gespeichert",
     "delete-entry": "Eintrag wird gelöscht",
     "generic": "Speichern",
