@@ -108,14 +108,21 @@ export async function listEntriesInRange(
   const startMin = new Date(fromMs - 18 * 3_600_000).toISOString();
   const startMax = new Date(toMs).toISOString();
   const timed = { child, start_min: startMin, start_max: startMax, limit: 500, ordering: "-start" };
-  // Instant entries (changes, medication) are windowed by their calendar `date`.
-  const instant = { child, date_min: ymd(fromMs), date_max: ymd(toMs - 1), limit: 500, ordering: "-time" };
+  // Diaper changes: `date_min`/`date_max` filter on the calendar day (inclusive), so the last
+  // day is `toMs - 1`.
+  const changesWindow = { child, date_min: ymd(fromMs), date_max: ymd(toMs - 1), limit: 500, ordering: "-time" };
+  // Medication's `date_max` is quirky: it compares against `time` at MIDNIGHT (a datetime, not
+  // the whole day), so `date_max = <last day>` drops any dose logged after 00:00 that day — and
+  // `time_min`/`time_max` are silently ignored by this endpoint. So widen a day on each side and
+  // let the day/week/summary views (which clip to exact day boundaries) drop the overshoot.
+  const DAY_MS = 86_400_000;
+  const medWindow = { child, date_min: ymd(fromMs - DAY_MS), date_max: ymd(toMs + DAY_MS), limit: 500, ordering: "-time" };
   const [feedings, sleep, tummy, changes, medication] = await Promise.all([
     client.GET("/api/feedings/", { params: { query: timed } }),
     client.GET("/api/sleep/", { params: { query: timed } }),
     client.GET("/api/tummy-times/", { params: { query: timed } }),
-    client.GET("/api/changes/", { params: { query: instant } }),
-    client.GET("/api/medication/", { params: { query: instant } }),
+    client.GET("/api/changes/", { params: { query: changesWindow } }),
+    client.GET("/api/medication/", { params: { query: medWindow } }),
   ]);
   return mergeEntries({
     feedings: unwrap(feedings).results ?? [],
