@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.13.0](https://github.com/supercairos/baby-log/compare/baby-log-v1.12.0...baby-log-v1.13.0) (2026-07-02)
+
+
+### Features
+
+* log medication entries from the journal ([98a3f67](https://github.com/supercairos/baby-log/commit/98a3f67620958aa543b07b256d1c75a5cff5a8e4))
+* log medication entries from the journal ([8b473f6](https://github.com/supercairos/baby-log/commit/8b473f6741a53fe2f9d5935d7cf1966fc59b59ee))
+* repeat-last-dose chips and a double-dose guard for medication ([45077bf](https://github.com/supercairos/baby-log/commit/45077bfc5ca0085382213f8111202c761ad94f3b))
+* repeat-last-dose chips and a double-dose guard for medication ([a9c03ba](https://github.com/supercairos/baby-log/commit/a9c03ba136def05aeed36cabf87c82960e8b50dc))
+
+
+### Bug Fixes
+
+* show medication in day/week calendar views ([0c844c1](https://github.com/supercairos/baby-log/commit/0c844c16004497beeff5b1c3890225ff956e632e))
+
 ## [1.12.0](https://github.com/supercairos/baby-log/compare/baby-log-v1.11.0...baby-log-v1.12.0) (2026-06-29)
 
 
