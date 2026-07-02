@@ -61,6 +61,8 @@ export interface MedicationFields {
   name: string;
   dosage?: number | null;
   dosage_unit?: MedicationUnit;
+  /** Minimum gap before the next dose, as a Baby Buddy `HH:MM:SS` duration string. */
+  next_dose_interval?: string | null;
   time?: IsoDateTime;
   notes?: string | null;
 }
@@ -177,7 +179,7 @@ export type EntryPatch =
   | { path: "/api/sleep/"; body: { start?: IsoDateTime; end?: IsoDateTime; nap?: boolean | null; notes?: string | null } }
   | { path: "/api/tummy-times/"; body: { start?: IsoDateTime; end?: IsoDateTime; milestone?: string } }
   | { path: "/api/changes/"; body: { child: number; wet: boolean; solid: boolean; time?: IsoDateTime; color?: DiaperChange["color"]; amount?: number | null; notes?: string | null } }
-  | { path: "/api/medication/"; body: { child: number; name: string; dosage?: number | null; dosage_unit?: MedicationUnit; time?: IsoDateTime; notes?: string | null } };
+  | { path: "/api/medication/"; body: { child: number; name: string; dosage?: number | null; dosage_unit?: MedicationUnit; next_dose_interval?: string | null; time?: IsoDateTime; notes?: string | null } };
 
 export async function updateEntry(client: BabyBuddyClient, id: number, patch: EntryPatch): Promise<void> {
   const params = { path: { id: String(id) } };

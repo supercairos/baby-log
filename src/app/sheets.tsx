@@ -14,12 +14,16 @@ import {
 } from "../api";
 import { useTranslation } from "react-i18next";
 import { useStyles, useTheme } from "../theme";
-import { activityLabel, feedMethodLabel, feedMethodOptions, feedTypeOptions, medUnitLabel } from "../lib/labels";
+import { activityLabel, feedMethodLabel, feedMethodOptions, feedTypeOptions, medicationMeta, medUnitLabel } from "../lib/labels";
 import { fmt, toLocalInput, fromLocalInput } from "../lib/format";
 import { ACTIVITY_ICON, TrashIcon } from "../ui/icons";
 import { buzz } from "./hooks";
 import { useFocusTrap } from "./useFocusTrap";
-import type { EditDraft, EditTarget } from "./types";
+import type { EditDraft, EditTarget, RecentMed } from "./types";
+
+/** Preset minimum-gap options (hours) offered for a medication's next dose. */
+const MED_INTERVAL_HOURS = [4, 6, 8, 12, 24] as const;
+const HOUR_MS = 3_600_000;
 
 /**
  * Bottle-amount slider ladder — intelligent steps: 5 ml where precision matters (small bottles),
@@ -223,6 +227,7 @@ export function EntrySheet({
   target,
   draft,
   setDraft,
+  recentMeds,
   onPickKind,
   onSave,
   onDelete,
@@ -230,6 +235,7 @@ export function EntrySheet({
   target: EditTarget | null;
   draft: EditDraft | null;
   setDraft: (update: (d: EditDraft) => EditDraft) => void;
+  recentMeds: RecentMed[];
   onPickKind: (key: ActivityKey) => void;
   onSave: () => void;
   onDelete: () => void;
@@ -369,6 +375,33 @@ export function EntrySheet({
 
       {target.activity === "medication" && (
         <>
+          {/* One-tap "repeat last dose": recent distinct meds prefill name + dose + interval. */}
+          {recentMeds.length > 0 && (
+            <>
+              <div style={s.sheetGroup}>{t("sheet.recentDoses")}</div>
+              <div style={s.chips}>
+                {recentMeds.map((m) => {
+                  const on =
+                    draft.medName.trim().toLowerCase() === m.name.toLowerCase() &&
+                    draft.dosage === m.dosage &&
+                    draft.dosageUnit === m.dosageUnit;
+                  return (
+                    <button
+                      key={m.name.toLowerCase()}
+                      aria-pressed={on}
+                      onClick={() => {
+                        buzz();
+                        setDraft((d) => ({ ...d, medName: m.name, dosage: m.dosage, dosageUnit: m.dosageUnit, nextDoseMs: m.nextDoseMs }));
+                      }}
+                      style={{ ...s.chip, ...(on ? chipOn(med) : {}) }}
+                    >
+                      {medicationMeta(m.name, m.dosage, m.dosageUnit)}
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
           <div style={s.sheetGroup}>{t("sheet.medName")}</div>
           <input
             type="text"
@@ -403,6 +436,20 @@ export function EntrySheet({
                 </button>
               ))}
             </div>
+          </div>
+          {/* Optional minimum gap before the next dose — powers the home-screen double-dose guard. */}
+          <div style={s.sheetGroup}>{t("sheet.nextDoseAfter")}</div>
+          <div style={s.chips}>
+            {MED_INTERVAL_HOURS.map((h) => (
+              <button
+                key={h}
+                aria-pressed={draft.nextDoseMs === h * HOUR_MS}
+                onClick={() => { buzz(); setDraft((d) => ({ ...d, nextDoseMs: d.nextDoseMs === h * HOUR_MS ? null : h * HOUR_MS })); }}
+                style={{ ...s.chip, ...(draft.nextDoseMs === h * HOUR_MS ? chipOn(med) : {}) }}
+              >
+                {t("sheet.hoursShort", { h })}
+              </button>
+            ))}
           </div>
         </>
       )}

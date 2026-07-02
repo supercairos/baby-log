@@ -78,7 +78,9 @@
     "menu": "Menu",
     "closeMenu": "Chiudi menu",
     "close": "Chiudi",
-    "version": "Baby Log v{{version}}"
+    "version": "Baby Log v{{version}}",
+    "doseOkFrom": "ok dalle ~{{time}}",
+    "doseLastAgo": "ultima dose {{ago}} fa"
   },
   "nav": {
     "home": "Home",
@@ -161,7 +163,10 @@
     "addEntry": "Aggiungi voce",
     "addActivity": "Aggiungi · {{activity}}",
     "editActivity": "Modifica · {{activity}}",
-    "saveChanges": "Salva"
+    "saveChanges": "Salva",
+    "recentDoses": "Recenti",
+    "nextDoseAfter": "Prossima dose dopo",
+    "hoursShort": "{{h}} h"
   },
   "login": {
     "connectManually": "Connessione manuale",
