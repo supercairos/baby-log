@@ -16,7 +16,7 @@
  */
 import type { components } from "./generated/schema";
 import type { BabyBuddyClient } from "./client";
-import type { FeedingType, FeedingMethod, EntryPath } from "./activities";
+import type { FeedingType, FeedingMethod, MedicationUnit, EntryPath } from "./activities";
 import {
   BabyBuddyApiError,
   TimerAlreadyConsumedError,
@@ -29,6 +29,7 @@ export type Feeding = components["schemas"]["Feeding"];
 export type Sleep = components["schemas"]["Sleep"];
 export type TummyTime = components["schemas"]["TummyTime"];
 export type DiaperChange = components["schemas"]["DiaperChange"];
+export type Medication = components["schemas"]["Medication"];
 
 /** ISO-8601 UTC datetime string (we store UTC, render local). */
 export type IsoDateTime = string;
@@ -53,6 +54,16 @@ export interface DiaperFields {
   time?: IsoDateTime;
   color?: DiaperChange["color"];
   amount?: number | null;
+  notes?: string | null;
+}
+export interface MedicationFields {
+  /** Name of the medication administered (required by the server). */
+  name: string;
+  dosage?: number | null;
+  dosage_unit?: MedicationUnit;
+  /** Minimum gap before the next dose, as a Baby Buddy `HH:MM:SS` duration string. */
+  next_dose_interval?: string | null;
+  time?: IsoDateTime;
   notes?: string | null;
 }
 
@@ -109,6 +120,16 @@ export async function logDiaperChange(
   return unwrap(res);
 }
 
+/** Log a medication — instant, no timer. `/api/medication/` requires `name`. */
+export async function createMedication(
+  client: BabyBuddyClient,
+  childId: number,
+  fields: MedicationFields,
+): Promise<Medication> {
+  const res = await client.POST("/api/medication/", { body: { child: childId, ...fields } });
+  return unwrap(res);
+}
+
 export async function createFeeding(
   client: BabyBuddyClient,
   childId: number,
@@ -157,7 +178,8 @@ export type EntryPatch =
   | { path: "/api/feedings/"; body: { type: FeedingType; method: FeedingMethod; start?: IsoDateTime; end?: IsoDateTime; amount?: number | null; notes?: string | null } }
   | { path: "/api/sleep/"; body: { start?: IsoDateTime; end?: IsoDateTime; nap?: boolean | null; notes?: string | null } }
   | { path: "/api/tummy-times/"; body: { start?: IsoDateTime; end?: IsoDateTime; milestone?: string } }
-  | { path: "/api/changes/"; body: { child: number; wet: boolean; solid: boolean; time?: IsoDateTime; color?: DiaperChange["color"]; amount?: number | null; notes?: string | null } };
+  | { path: "/api/changes/"; body: { child: number; wet: boolean; solid: boolean; time?: IsoDateTime; color?: DiaperChange["color"]; amount?: number | null; notes?: string | null } }
+  | { path: "/api/medication/"; body: { child: number; name: string; dosage?: number | null; dosage_unit?: MedicationUnit; next_dose_interval?: string | null; time?: IsoDateTime; notes?: string | null } };
 
 export async function updateEntry(client: BabyBuddyClient, id: number, patch: EntryPatch): Promise<void> {
   const params = { path: { id: String(id) } };
@@ -174,6 +196,9 @@ export async function updateEntry(client: BabyBuddyClient, id: number, patch: En
     case "/api/changes/":
       unwrap(await client.PATCH("/api/changes/{id}/", { params, body: patch.body }));
       return;
+    case "/api/medication/":
+      unwrap(await client.PATCH("/api/medication/{id}/", { params, body: patch.body }));
+      return;
   }
 }
 
@@ -186,7 +211,9 @@ export async function deleteEntry(client: BabyBuddyClient, path: EntryPath, id: 
         ? await client.DELETE("/api/sleep/{id}/", { params })
         : path === "/api/tummy-times/"
           ? await client.DELETE("/api/tummy-times/{id}/", { params })
-          : await client.DELETE("/api/changes/{id}/", { params });
+          : path === "/api/changes/"
+            ? await client.DELETE("/api/changes/{id}/", { params })
+            : await client.DELETE("/api/medication/{id}/", { params });
   if (!res.response.ok && res.response.status !== 404) unwrap(res); // 404 = already deleted
 }
 

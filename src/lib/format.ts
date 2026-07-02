@@ -47,6 +47,37 @@ export function ms(isoString: string | null | undefined): number | null {
   return Number.isNaN(t) ? null : t;
 }
 
+// ── Django DurationField (medication `next_dose_interval`) ────────────────────
+// Baby Buddy stores `next_dose_interval` as a DRF DurationField. It serializes as
+// `[D ]HH:MM:SS[.ffffff]` (e.g. "04:00:00", or "1 00:00:00" for a full day). We also
+// tolerate Python's `str(timedelta)` form ("1 day, 6:00:00") in case another client wrote it.
+const DURATION_RE = /^(?:(\d+)\s+(?:days?,?\s+)?)?(\d{1,3}):(\d{1,2}):(\d{1,2})(?:[.,](\d+))?$/;
+
+/** Parse a Baby Buddy duration string into milliseconds, or null if empty/unparseable. */
+export function parseDurationMs(value: string | null | undefined): number | null {
+  if (!value) return null;
+  const m = value.trim().match(DURATION_RE);
+  if (!m) return null;
+  const [, d, h, min, sec, frac] = m;
+  const total =
+    (d ? Number(d) : 0) * 86_400_000 +
+    Number(h) * 3_600_000 +
+    Number(min) * 60_000 +
+    Number(sec) * 1000 +
+    (frac ? Math.round(Number(`0.${frac}`) * 1000) : 0);
+  return Number.isFinite(total) ? total : null;
+}
+
+/** Milliseconds → the `HH:MM:SS` string Baby Buddy accepts for a DurationField. */
+export function toDurationField(milliseconds: number): string {
+  const total = Math.max(0, Math.round(milliseconds / 1000));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const sec = total % 60;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(h)}:${pad(m)}:${pad(sec)}`;
+}
+
 /**
  * Server-clock correction. A device whose clock runs ahead of the Baby Buddy server makes it
  * reject "future" start/end times ("La date/heure ne peut pas être dans le futur"). We learn

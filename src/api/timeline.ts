@@ -4,7 +4,7 @@
  */
 import type { components } from "./generated/schema";
 import type { BabyBuddyClient } from "./client";
-import type { FeedingType, FeedingMethod, ActivityKey, EntryPath } from "./activities";
+import type { FeedingType, FeedingMethod, MedicationUnit, ActivityKey, EntryPath } from "./activities";
 import { unwrap } from "./errors";
 
 export interface TimelineEntryBase {
@@ -22,7 +22,8 @@ export type TimelineEntry =
   | (TimelineEntryBase & { activity: "feeding"; type: FeedingType; method: FeedingMethod; amount: number | null; notes: string | null })
   | (TimelineEntryBase & { activity: "sleep"; nap: boolean | null; notes: string | null })
   | (TimelineEntryBase & { activity: "tummy"; milestone: string | null })
-  | (TimelineEntryBase & { activity: "diaper"; wet: boolean; solid: boolean; notes: string | null });
+  | (TimelineEntryBase & { activity: "diaper"; wet: boolean; solid: boolean; notes: string | null })
+  | (TimelineEntryBase & { activity: "medication"; name: string; dosage: number | null; dosageUnit: MedicationUnit | null; nextDoseInterval: string | null; notes: string | null });
 
 const parse = (v: string | null | undefined): number => (v ? Date.parse(v) : 0);
 
@@ -31,10 +32,11 @@ type Lists = {
   sleep: components["schemas"]["Sleep"][];
   tummy: components["schemas"]["TummyTime"][];
   changes: components["schemas"]["DiaperChange"][];
+  medication: components["schemas"]["Medication"][];
 };
 
-/** Merge the four endpoint result sets into one newest-first stream of typed timeline entries. */
-function mergeEntries({ feedings, sleep, tummy, changes }: Lists): TimelineEntry[] {
+/** Merge the endpoint result sets into one newest-first stream of typed timeline entries. */
+function mergeEntries({ feedings, sleep, tummy, changes, medication }: Lists): TimelineEntry[] {
   const out: TimelineEntry[] = [];
   for (const f of feedings) {
     if (f.id == null) continue;
@@ -52,6 +54,10 @@ function mergeEntries({ feedings, sleep, tummy, changes }: Lists): TimelineEntry
     if (c.id == null) continue;
     out.push({ id: c.id, activity: "diaper", path: "/api/changes/", startMs: parse(c.time), endMs: null, wet: c.wet, solid: c.solid, notes: c.notes ?? null });
   }
+  for (const md of medication) {
+    if (md.id == null) continue;
+    out.push({ id: md.id, activity: "medication", path: "/api/medication/", startMs: parse(md.time), endMs: null, name: md.name, dosage: md.dosage ?? null, dosageUnit: md.dosage_unit ?? null, nextDoseInterval: md.next_dose_interval ?? null, notes: md.notes ?? null });
+  }
   return out.sort((a, b) => b.startMs - a.startMs);
 }
 
@@ -65,17 +71,19 @@ export async function listRecentEntries(
   limitPer = 25,
 ): Promise<TimelineEntry[]> {
   const child = String(childId);
-  const [feedings, sleep, tummy, changes] = await Promise.all([
+  const [feedings, sleep, tummy, changes, medication] = await Promise.all([
     client.GET("/api/feedings/", { params: { query: { child, limit: limitPer, ordering: "-start" } } }),
     client.GET("/api/sleep/", { params: { query: { child, limit: limitPer, ordering: "-start" } } }),
     client.GET("/api/tummy-times/", { params: { query: { child, limit: limitPer, ordering: "-start" } } }),
     client.GET("/api/changes/", { params: { query: { child, limit: limitPer, ordering: "-time" } } }),
+    client.GET("/api/medication/", { params: { query: { child, limit: limitPer, ordering: "-time" } } }),
   ]);
   return mergeEntries({
     feedings: unwrap(feedings).results ?? [],
     sleep: unwrap(sleep).results ?? [],
     tummy: unwrap(tummy).results ?? [],
     changes: unwrap(changes).results ?? [],
+    medication: unwrap(medication).results ?? [],
   });
 }
 
@@ -100,16 +108,27 @@ export async function listEntriesInRange(
   const startMin = new Date(fromMs - 18 * 3_600_000).toISOString();
   const startMax = new Date(toMs).toISOString();
   const timed = { child, start_min: startMin, start_max: startMax, limit: 500, ordering: "-start" };
-  const [feedings, sleep, tummy, changes] = await Promise.all([
+  // Diaper changes: `date_min`/`date_max` filter on the calendar day (inclusive), so the last
+  // day is `toMs - 1`.
+  const changesWindow = { child, date_min: ymd(fromMs), date_max: ymd(toMs - 1), limit: 500, ordering: "-time" };
+  // Medication's `date_max` is quirky: it compares against `time` at MIDNIGHT (a datetime, not
+  // the whole day), so `date_max = <last day>` drops any dose logged after 00:00 that day — and
+  // `time_min`/`time_max` are silently ignored by this endpoint. So widen a day on each side and
+  // let the day/week/summary views (which clip to exact day boundaries) drop the overshoot.
+  const DAY_MS = 86_400_000;
+  const medWindow = { child, date_min: ymd(fromMs - DAY_MS), date_max: ymd(toMs + DAY_MS), limit: 500, ordering: "-time" };
+  const [feedings, sleep, tummy, changes, medication] = await Promise.all([
     client.GET("/api/feedings/", { params: { query: timed } }),
     client.GET("/api/sleep/", { params: { query: timed } }),
     client.GET("/api/tummy-times/", { params: { query: timed } }),
-    client.GET("/api/changes/", { params: { query: { child, date_min: ymd(fromMs), date_max: ymd(toMs - 1), limit: 500, ordering: "-time" } } }),
+    client.GET("/api/changes/", { params: { query: changesWindow } }),
+    client.GET("/api/medication/", { params: { query: medWindow } }),
   ]);
   return mergeEntries({
     feedings: unwrap(feedings).results ?? [],
     sleep: unwrap(sleep).results ?? [],
     tummy: unwrap(tummy).results ?? [],
     changes: unwrap(changes).results ?? [],
+    medication: unwrap(medication).results ?? [],
   });
 }

@@ -50,6 +50,7 @@ import {
   createSleep,
   createTummyTime,
   logDiaperChange,
+  createMedication,
   updateEntry,
   deleteEntry,
 } from "./entries";
@@ -272,6 +273,10 @@ async function executeRecord(
 
     case "log-diaper":
       await logDiaperChange(client, m.childId, m.fields);
+      return;
+
+    case "log-medication":
+      await createMedication(client, m.childId, m.fields);
       return;
 
     case "create-feeding":

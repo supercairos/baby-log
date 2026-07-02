@@ -11,7 +11,7 @@ import { useStyles, useTheme } from "../theme";
 import { ACTIVITY_ICON, ClockIcon, PlusIcon, TrashIcon } from "../ui/icons";
 import { fmt } from "../lib/format";
 import { clockTime, dayLabel } from "../lib/datetime";
-import { activityLabel, diaperMeta, feedingMeta } from "../lib/labels";
+import { activityLabel, diaperMeta, feedingMeta, medicationMeta } from "../lib/labels";
 import i18n, { currentLocale } from "../i18n";
 
 /** The structured fields line + the free-text note (rendered on its own line below). */
@@ -25,6 +25,8 @@ function entryParts(e: TimelineEntry): { meta: string; note: string | null } {
       return { meta: e.nap ? i18n.t("timeline.nap") : "", note: e.notes };
     case "tummy":
       return { meta: "", note: e.milestone }; // tummy's free text lives in `milestone`
+    case "medication":
+      return { meta: medicationMeta(e.name, e.dosage, e.dosageUnit), note: e.notes };
   }
 }
 

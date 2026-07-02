@@ -225,6 +225,7 @@ function RadialDay({
   const sleeps = list.filter((e) => e.activity === "sleep" && e.endMs != null && e.endMs > dayStart && e.startMs < dayEnd);
   const bars = list.filter((e) => (e.activity === "feeding" || e.activity === "tummy") && e.startMs < dayEnd && (e.endMs ?? e.startMs) >= dayStart);
   const diapers = list.filter((e) => e.activity === "diaper" && e.startMs >= dayStart && e.startMs < dayEnd);
+  const meds = list.filter((e) => e.activity === "medication" && e.startMs >= dayStart && e.startMs < dayEnd);
 
   let sleepMs = 0;
   for (const e of sleeps) sleepMs += Math.min(e.endMs as number, dayEnd) - Math.max(e.startMs, dayStart);
@@ -330,6 +331,7 @@ function RadialDay({
   const marks: Mark[] = [
     ...[...sleeps, ...bars].map((e): Mark => ({ key: `b-${e.path}${e.id}`, deg: midDeg(e), accent: palette.accents[e.activity].accent, Icon: ACTIVITY_ICON[e.activity], onClick: () => onEdit(e) })),
     ...diapers.map((e): Mark => ({ key: `b-${e.path}${e.id}`, deg: angleOf(e.startMs), accent: palette.accents.diaper.accent, Icon: ACTIVITY_ICON.diaper, onClick: () => onEdit(e) })),
+    ...meds.map((e): Mark => ({ key: `b-${e.path}${e.id}`, deg: angleOf(e.startMs), accent: palette.accents.medication.accent, Icon: ACTIVITY_ICON.medication, onClick: () => onEdit(e) })),
     ...predMarks.map((p): Mark => ({ key: `pb-${p.activity}`, deg: angleOf(p.etaMs), accent: palette.accents[p.activity].accent, Icon: ACTIVITY_ICON[p.activity], dashed: true, labelMs: p.etaMs })),
     ...sunMarks.map((m): Mark => ({ key: `sb-${m.key}`, deg: angleOf(m.ms), accent: m.color, Icon: m.key === "sunrise" ? SunriseIcon : SunsetIcon, labelMs: m.ms })),
   ].sort((a, b) => a.deg - b.deg);
@@ -646,7 +648,8 @@ function renderBlock(
   const key = `${e.path}${e.id}`;
   const common = { onClick: () => onEdit(e), "aria-label": `${e.activity} ${clockTime(e.startMs)}` };
 
-  if (e.activity === "diaper") {
+  // Instant entries (diaper, medication) render as a small dot marker rather than a bar.
+  if (e.activity === "diaper" || e.activity === "medication") {
     return <button key={key} {...common} style={{ ...s.blkDiaper, top, left, width, background: accent }} />;
   }
   const h = Math.max(3, ((clipEnd - clipStart) / 3_600_000) * hourPx);

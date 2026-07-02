@@ -140,6 +140,7 @@ export const darkPalette: Palette = {
     sleep: { accent: "#9db4d4", glow: "rgba(157,180,212,.30)" },
     diaper: { accent: "#a4c8a0", glow: "rgba(164,200,160,.30)" },
     tummy: { accent: "#d9a0b4", glow: "rgba(217,160,180,.30)" },
+    medication: { accent: "#b3a4e0", glow: "rgba(179,164,224,.30)" },
   },
 };
 
@@ -194,6 +195,7 @@ export const lightPalette: Palette = {
     sleep: { accent: "#2f6d7a", glow: "rgba(47,109,122,.20)" },
     diaper: { accent: "#5d7a3a", glow: "rgba(93,122,58,.20)" },
     tummy: { accent: "#9a4a6b", glow: "rgba(154,74,107,.20)" },
+    medication: { accent: "#5b53a6", glow: "rgba(91,83,166,.20)" },
   },
 };
 

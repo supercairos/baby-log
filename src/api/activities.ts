@@ -17,10 +17,12 @@ import type { components } from "./generated/schema";
 export type FeedingType = components["schemas"]["Feeding"]["type"];
 /** Feeding `method` enum, straight from the generated schema (6 values). */
 export type FeedingMethod = components["schemas"]["Feeding"]["method"];
+/** Medication `dosage_unit` enum, straight from the generated schema (mg/ml/tablets/drops). */
+export type MedicationUnit = NonNullable<components["schemas"]["Medication"]["dosage_unit"]>;
 
-/** All four activities. */
-export type ActivityKey = "feeding" | "sleep" | "diaper" | "tummy";
-/** Activities that run as a timer (everything except instant diaper changes). */
+/** All activities. Medication is instant like diaper (a `time`, no duration). */
+export type ActivityKey = "feeding" | "sleep" | "diaper" | "tummy" | "medication";
+/** Activities that run as a timer (everything except instant diaper changes / medication). */
 export type TimerActivityKey = "feeding" | "sleep" | "tummy";
 
 /** Entry endpoint each activity consumes a timer into / creates an entry on. */
@@ -28,7 +30,8 @@ export type EntryPath =
   | "/api/feedings/"
   | "/api/sleep/"
   | "/api/tummy-times/"
-  | "/api/changes/";
+  | "/api/changes/"
+  | "/api/medication/";
 
 export interface ActivityDef {
   key: ActivityKey;
@@ -53,6 +56,7 @@ export const ACTIVITIES: Record<ActivityKey, ActivityDef> = {
   sleep: { key: "sleep", label: "Sleep", timerName: TIMER_NAMES.sleep, entryPath: "/api/sleep/", timed: true },
   tummy: { key: "tummy", label: "Tummy time", timerName: TIMER_NAMES.tummy, entryPath: "/api/tummy-times/", timed: true },
   diaper: { key: "diaper", label: "Diaper", entryPath: "/api/changes/", timed: false },
+  medication: { key: "medication", label: "Medication", entryPath: "/api/medication/", timed: false },
 };
 
 /**
@@ -101,6 +105,9 @@ export const METHODS_FOR_TYPE: Record<FeedingType, FeedingMethod[]> = {
   "fortified breast milk": ["bottle"],
   "solid food": ["parent fed", "self fed"],
 };
+
+/** Dosage units offered in the medication sheet, in chooser order. From the schema enum. */
+export const MEDICATION_UNITS: MedicationUnit[] = ["mg", "ml", "tablets", "drops"];
 
 /** Diaper change presets (wet / solid / both). `/api/changes/` requires both booleans. */
 export const DIAPER_STATES = [

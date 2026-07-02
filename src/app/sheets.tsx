@@ -6,6 +6,7 @@
 import {
   ACTIVITIES,
   DIAPER_STATES,
+  MEDICATION_UNITS,
   METHODS_FOR_TYPE,
   type ActivityKey,
   type FeedingMethod,
@@ -13,12 +14,16 @@ import {
 } from "../api";
 import { useTranslation } from "react-i18next";
 import { useStyles, useTheme } from "../theme";
-import { activityLabel, feedMethodLabel, feedMethodOptions, feedTypeOptions } from "../lib/labels";
+import { activityLabel, feedMethodLabel, feedMethodOptions, feedTypeOptions, medicationMeta, medUnitLabel } from "../lib/labels";
 import { fmt, toLocalInput, fromLocalInput } from "../lib/format";
 import { ACTIVITY_ICON, TrashIcon } from "../ui/icons";
 import { buzz } from "./hooks";
 import { useFocusTrap } from "./useFocusTrap";
-import type { EditDraft, EditTarget } from "./types";
+import type { EditDraft, EditTarget, RecentMed } from "./types";
+
+/** Preset minimum-gap options (hours) offered for a medication's next dose. */
+const MED_INTERVAL_HOURS = [4, 6, 8, 12, 24] as const;
+const HOUR_MS = 3_600_000;
 
 /**
  * Bottle-amount slider ladder — intelligent steps: 5 ml where precision matters (small bottles),
@@ -222,6 +227,7 @@ export function EntrySheet({
   target,
   draft,
   setDraft,
+  recentMeds,
   onPickKind,
   onSave,
   onDelete,
@@ -229,6 +235,7 @@ export function EntrySheet({
   target: EditTarget | null;
   draft: EditDraft | null;
   setDraft: (update: (d: EditDraft) => EditDraft) => void;
+  recentMeds: RecentMed[];
   onPickKind: (key: ActivityKey) => void;
   onSave: () => void;
   onDelete: () => void;
@@ -237,13 +244,15 @@ export function EntrySheet({
   const { t } = useTranslation();
   const { palette } = useTheme();
   const feed = palette.accents.feeding.accent;
+  const med = palette.accents.medication.accent;
   const open = !!(target && draft);
 
   if (!target || !draft) return <SheetShell open={false} label={t("sheet.entry")}>{null}</SheetShell>;
 
   const adding = target.isNew;
   const needsKind = adding && !target.activity;
-  const isTimed = target.activity != null && target.activity !== "diaper";
+  // Timed activities (feeding/sleep/tummy) get start+end; instant ones (diaper/medication) a single time.
+  const isTimed = target.activity != null && ACTIVITIES[target.activity].timed;
   const allowed = draft.type ? METHODS_FOR_TYPE[draft.type] : [];
   const endBeforeStart = draft.endMs != null && draft.endMs < draft.startMs;
   const label = target.activity ? activityLabel(target.activity) : t("sheet.entry");
@@ -360,6 +369,87 @@ export function EntrySheet({
             <button aria-pressed={draft.solid} onClick={() => { buzz(); setDraft((d) => ({ ...d, solid: !d.solid })); }} style={{ ...s.chip, ...(draft.solid ? chipOn("#c9a86a") : {}) }}>
               {draft.solid ? "✓ " : ""}{t("diaper.solid")}
             </button>
+          </div>
+        </>
+      )}
+
+      {target.activity === "medication" && (
+        <>
+          {/* One-tap "repeat last dose": recent distinct meds prefill name + dose + interval. */}
+          {recentMeds.length > 0 && (
+            <>
+              <div style={s.sheetGroup}>{t("sheet.recentDoses")}</div>
+              <div style={s.chips}>
+                {recentMeds.map((m) => {
+                  const on =
+                    draft.medName.trim().toLowerCase() === m.name.toLowerCase() &&
+                    draft.dosage === m.dosage &&
+                    draft.dosageUnit === m.dosageUnit;
+                  return (
+                    <button
+                      key={m.name.toLowerCase()}
+                      aria-pressed={on}
+                      onClick={() => {
+                        buzz();
+                        setDraft((d) => ({ ...d, medName: m.name, dosage: m.dosage, dosageUnit: m.dosageUnit, nextDoseMs: m.nextDoseMs }));
+                      }}
+                      style={{ ...s.chip, ...(on ? chipOn(med) : {}) }}
+                    >
+                      {medicationMeta(m.name, m.dosage, m.dosageUnit)}
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
+          <div style={s.sheetGroup}>{t("sheet.medName")}</div>
+          <input
+            type="text"
+            value={draft.medName}
+            onChange={(e) => setDraft((d) => ({ ...d, medName: e.target.value }))}
+            placeholder={t("sheet.medNamePlaceholder")}
+            autoComplete="off"
+            style={s.timeInput}
+          />
+          <div style={s.sheetGroup}>{t("sheet.dose")}</div>
+          <div style={s.sliderRow}>
+            <input
+              type="number"
+              inputMode="decimal"
+              min={0}
+              step="any"
+              value={draft.dosage ?? ""}
+              onChange={(e) => setDraft((d) => ({ ...d, dosage: e.target.value === "" ? null : Number(e.target.value) }))}
+              placeholder="—"
+              aria-label={t("sheet.dose")}
+              style={{ ...s.timeInput, flex: "0 0 96px", width: 96 }}
+            />
+            <div style={s.chips}>
+              {MEDICATION_UNITS.map((u) => (
+                <button
+                  key={u}
+                  aria-pressed={draft.dosageUnit === u}
+                  onClick={() => { buzz(); setDraft((d) => ({ ...d, dosageUnit: d.dosageUnit === u ? null : u })); }}
+                  style={{ ...s.chip, ...(draft.dosageUnit === u ? chipOn(med) : {}) }}
+                >
+                  {medUnitLabel(u)}
+                </button>
+              ))}
+            </div>
+          </div>
+          {/* Optional minimum gap before the next dose — powers the home-screen double-dose guard. */}
+          <div style={s.sheetGroup}>{t("sheet.nextDoseAfter")}</div>
+          <div style={s.chips}>
+            {MED_INTERVAL_HOURS.map((h) => (
+              <button
+                key={h}
+                aria-pressed={draft.nextDoseMs === h * HOUR_MS}
+                onClick={() => { buzz(); setDraft((d) => ({ ...d, nextDoseMs: d.nextDoseMs === h * HOUR_MS ? null : h * HOUR_MS })); }}
+                style={{ ...s.chip, ...(draft.nextDoseMs === h * HOUR_MS ? chipOn(med) : {}) }}
+              >
+                {t("sheet.hoursShort", { h })}
+              </button>
+            ))}
           </div>
         </>
       )}

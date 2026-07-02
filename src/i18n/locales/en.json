@@ -25,7 +25,14 @@
     "feeding": "Feeding",
     "sleep": "Sleep",
     "diaper": "Diaper",
-    "tummy": "Tummy time"
+    "tummy": "Tummy time",
+    "medication": "Medication"
+  },
+  "medUnit": {
+    "mg": "mg",
+    "ml": "ml",
+    "tablets": "tablets",
+    "drops": "drops"
   },
   "feedType": {
     "breast milk": "Breast",
@@ -71,7 +78,9 @@
     "menu": "Menu",
     "closeMenu": "Close menu",
     "close": "Close",
-    "version": "Baby Log v{{version}}"
+    "version": "Baby Log v{{version}}",
+    "doseOkFrom": "ok from ~{{time}}",
+    "doseLastAgo": "last dose {{ago}} ago"
   },
   "nav": {
     "home": "Home",
@@ -101,7 +110,8 @@
     "enterValidTime": "Enter a valid time",
     "endBeforeStart": "End time can't be before start",
     "timeFuture": "Time can't be in the future",
-    "pickDiaper": "Pick wet, solid, or both"
+    "pickDiaper": "Pick wet, solid, or both",
+    "medNameRequired": "Enter the medication name"
   },
   "timeline": {
     "addEntry": "Add entry",
@@ -138,6 +148,9 @@
     "type": "Type",
     "method": "Method",
     "contents": "Contents",
+    "medName": "Medication",
+    "medNamePlaceholder": "e.g. Vitamin D, paracetamol",
+    "dose": "Dose",
     "notes": "Notes",
     "amount": "Amount (ml)",
     "notesPlaceholder": "Optional",
@@ -150,7 +163,10 @@
     "addEntry": "Add entry",
     "addActivity": "Add {{activity}}",
     "editActivity": "Edit {{activity}}",
-    "saveChanges": "Save changes"
+    "saveChanges": "Save changes",
+    "recentDoses": "Recent",
+    "nextDoseAfter": "Next dose after",
+    "hoursShort": "{{h}}h"
   },
   "login": {
     "connectManually": "Connect manually",
@@ -187,6 +203,7 @@
     "consume": "Saving the activity",
     "create": "Adding the entry",
     "log-diaper": "Logging the diaper",
+    "log-medication": "Logging the medication",
     "update-entry": "Saving the change",
     "delete-entry": "Deleting the entry",
     "generic": "Saving",
