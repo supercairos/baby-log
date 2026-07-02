@@ -23,7 +23,7 @@ export type TimelineEntry =
   | (TimelineEntryBase & { activity: "sleep"; nap: boolean | null; notes: string | null })
   | (TimelineEntryBase & { activity: "tummy"; milestone: string | null })
   | (TimelineEntryBase & { activity: "diaper"; wet: boolean; solid: boolean; notes: string | null })
-  | (TimelineEntryBase & { activity: "medication"; name: string; dosage: number | null; dosageUnit: MedicationUnit | null; notes: string | null });
+  | (TimelineEntryBase & { activity: "medication"; name: string; dosage: number | null; dosageUnit: MedicationUnit | null; nextDoseInterval: string | null; notes: string | null });
 
 const parse = (v: string | null | undefined): number => (v ? Date.parse(v) : 0);
 
@@ -56,7 +56,7 @@ function mergeEntries({ feedings, sleep, tummy, changes, medication }: Lists): T
   }
   for (const md of medication) {
     if (md.id == null) continue;
-    out.push({ id: md.id, activity: "medication", path: "/api/medication/", startMs: parse(md.time), endMs: null, name: md.name, dosage: md.dosage ?? null, dosageUnit: md.dosage_unit ?? null, notes: md.notes ?? null });
+    out.push({ id: md.id, activity: "medication", path: "/api/medication/", startMs: parse(md.time), endMs: null, name: md.name, dosage: md.dosage ?? null, dosageUnit: md.dosage_unit ?? null, nextDoseInterval: md.next_dose_interval ?? null, notes: md.notes ?? null });
   }
   return out.sort((a, b) => b.startMs - a.startMs);
 }
