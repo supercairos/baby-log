@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.15.0](https://github.com/supercairos/baby-log/compare/baby-log-v1.14.0...baby-log-v1.15.0) (2026-07-03)
+
+
+### Features
+
+* rename the "up next" header to "Prediction" ([5445447](https://github.com/supercairos/baby-log/commit/5445447990bf7f8cee1974efdc517ef8b247bed6))
+
 ## [1.14.0](https://github.com/supercairos/baby-log/compare/baby-log-v1.13.0...baby-log-v1.14.0) (2026-07-03)
 
 
