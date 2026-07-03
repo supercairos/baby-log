@@ -36,7 +36,7 @@
   },
   "feedType": {
     "breast milk": "Sein",
-    "formula": "Artificiel",
+    "formula": "Lait artificiel",
     "fortified breast milk": "Enrichi",
     "solid food": "Solide"
   },
@@ -143,6 +143,7 @@
     "feedingDetails": "Détails du repas",
     "logDiaper": "Noter un change",
     "entry": "Entrée",
+    "backToPicker": "Revenir au choix d’activité",
     "timerRunning": "Minuterie en cours",
     "addDetailsHint": "ajoutez des détails si vous voulez",
     "type": "Type",

@@ -87,6 +87,13 @@ export const SunsetIcon = (p: IconProps) => (
   </Svg>
 );
 
+export const BackIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M19 12H5" />
+    <path d="m12 19-7-7 7-7" />
+  </Svg>
+);
+
 export const MenuIcon = (p: IconProps) => (
   <Svg strokeWidth={2} {...p}>
     <path d="M4 7h16M4 12h16M4 17h16" />

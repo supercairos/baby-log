@@ -14,9 +14,9 @@ import {
 } from "../api";
 import { useTranslation } from "react-i18next";
 import { useStyles, useTheme } from "../theme";
-import { activityLabel, feedMethodLabel, feedMethodOptions, feedTypeOptions, medicationMeta, medUnitLabel } from "../lib/labels";
+import { activityLabel, feedMethodLabel, feedMethodOptions, feedTypeChipMatches, feedTypeOptions, medicationMeta, medUnitLabel } from "../lib/labels";
 import { fmt, toLocalInput, fromLocalInput } from "../lib/format";
-import { ACTIVITY_ICON, TrashIcon } from "../ui/icons";
+import { ACTIVITY_ICON, BackIcon, TrashIcon } from "../ui/icons";
 import { buzz } from "./hooks";
 import { useFocusTrap } from "./useFocusTrap";
 import type { EditDraft, EditTarget, RecentMed } from "./types";
@@ -149,7 +149,7 @@ export function FeedingSheet({
       <div style={s.sheetGroup}>{t("sheet.type")}</div>
       <div style={s.chips}>
         {feedTypeOptions().map((opt) => (
-          <button key={opt.id} aria-pressed={type === opt.id} onClick={() => onType(opt.id)} style={{ ...s.chip, ...(type === opt.id ? chipOn(feed) : {}) }}>
+          <button key={opt.id} aria-pressed={feedTypeChipMatches(opt.id, type)} onClick={() => onType(opt.id)} style={{ ...s.chip, ...(feedTypeChipMatches(opt.id, type) ? chipOn(feed) : {}) }}>
             {opt.label}
           </button>
         ))}
@@ -234,6 +234,7 @@ export function EntrySheet({
   setDraft,
   recentMeds,
   onPickKind,
+  onBack,
   onSave,
   onDelete,
 }: {
@@ -242,6 +243,8 @@ export function EntrySheet({
   setDraft: (update: (d: EditDraft) => EditDraft) => void;
   recentMeds: RecentMed[];
   onPickKind: (key: ActivityKey) => void;
+  /** Adding only: return from the picked activity's form to the activity picker. */
+  onBack: () => void;
   onSave: () => void;
   onDelete: () => void;
 }) {
@@ -266,8 +269,17 @@ export function EntrySheet({
     <SheetShell open={open} label={adding ? t("sheet.addEntry") : t("sheet.editActivity", { activity: label })}>
       <div style={s.sheetHandle} />
       <div style={s.editHead}>
-        <div style={s.sheetTitle}>
-          {adding ? (target.activity ? t("sheet.addActivity", { activity: label }) : t("sheet.addEntry")) : t("sheet.editActivity", { activity: label })}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+          {/* Adding only: step back to the activity picker (a mis-tapped kind shouldn't force
+              a close-and-reopen; the draft is kept — pickKind re-derives the times). */}
+          {adding && target.activity != null && (
+            <button onClick={onBack} style={{ ...s.iconBtn, width: 38, height: 38, borderRadius: 12, marginBottom: 16 }} aria-label={t("sheet.backToPicker")}>
+              <BackIcon size={19} />
+            </button>
+          )}
+          <div style={s.sheetTitle}>
+            {adding ? (target.activity ? t("sheet.addActivity", { activity: label }) : t("sheet.addEntry")) : t("sheet.editActivity", { activity: label })}
+          </div>
         </div>
         {!adding && (
           <button onClick={onDelete} style={s.editDel}>
@@ -303,7 +315,7 @@ export function EntrySheet({
             {feedTypeOptions().map((opt) => (
               <button
                 key={opt.id}
-                aria-pressed={draft.type === opt.id}
+                aria-pressed={feedTypeChipMatches(opt.id, draft.type)}
                 onClick={() => {
                   buzz();
                   setDraft((d) => {
@@ -312,7 +324,7 @@ export function EntrySheet({
                     return { ...d, type: opt.id, method };
                   });
                 }}
-                style={{ ...s.chip, ...(draft.type === opt.id ? chipOn(feed) : {}) }}
+                style={{ ...s.chip, ...(feedTypeChipMatches(opt.id, draft.type) ? chipOn(feed) : {}) }}
               >
                 {opt.label}
               </button>

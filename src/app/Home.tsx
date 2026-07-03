@@ -600,6 +600,13 @@ export function Home({
     setDraft({ type: null, method: null, amount: null, wet: false, solid: false, medName: "", dosage: null, dosageUnit: null, nextDoseMs: null, startMs: nowMs(), endMs: null, notes: "" });
   };
 
+  /** Back from a picked kind to the activity picker (adding only — an existing entry's kind
+   *  is fixed). Keeps the draft; pickKind re-derives the time span on the next pick. */
+  const backToKindPicker = () => {
+    buzz();
+    setEditing((t) => (t && t.isNew ? { ...t, activity: null } : t));
+  };
+
   const pickKind = (key: ActivityKey) => {
     buzz();
     setEditing((t) => (t ? { ...t, activity: key } : t));
@@ -1047,7 +1054,7 @@ export function Home({
         onDone={() => void confirmFeeding()}
       />
       <DiaperSheet open={sheet?.type === "diaper"} onLog={logDiaper} />
-      <EntrySheet target={editing} draft={draft} setDraft={(u) => setDraft((d) => (d ? u(d) : d))} recentMeds={recentMeds} onPickKind={pickKind} onSave={saveEdit} onDelete={deleteEditing} />
+      <EntrySheet target={editing} draft={draft} setDraft={(u) => setDraft((d) => (d ? u(d) : d))} recentMeds={recentMeds} onPickKind={pickKind} onBack={backToKindPicker} onSave={saveEdit} onDelete={deleteEditing} />
 
       {/* Toast — the only action feedback (no confirm dialogs), so announce it. */}
       <div role="status" aria-live="polite" style={{ ...s.toast, ...(toast ? s.toastOn : {}), ...(toast ? toastTone(toast.accent) : {}) }}>
