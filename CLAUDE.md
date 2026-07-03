@@ -118,6 +118,9 @@ Parser:
 - **Feeding method is filtered by type** (`METHODS_FOR_TYPE`): formula/fortified → bottle only
   (auto-selected); breast milk → all four; solid food → no method. Selection self-corrects when
   type changes. This map is the one place to adjust if the instance rejects a combo.
+- **The type chooser folds "fortified breast milk" into the formula chip** (fr "Lait
+  artificiel") — 3 chips, not 4. Legacy fortified entries keep their type + label; the formula
+  chip lights up for them (`feedTypeChipMatches`) and only an explicit tap rewrites the type.
 - **Last feeding choice** is remembered per-child and pre-selected (derive from
   `GET /api/feedings/?child=<id>&limit=1&ordering=-start` in the real app so it's correct across
   devices; localStorage as instant-paint fallback).

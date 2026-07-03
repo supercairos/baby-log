@@ -7,7 +7,14 @@
 import type { FeedingType, FeedingMethod, MedicationUnit, ActivityKey } from "../api";
 import i18n from "../i18n";
 
-const FEED_TYPES: FeedingType[] = ["breast milk", "formula", "fortified breast milk", "solid food"];
+/**
+ * Chooser chips deliberately FOLD "fortified breast milk" into the formula chip — to a
+ * parent both are "prepared milk in a bottle", and two near-identical chips slow the pick.
+ * Legacy fortified entries (other clients, old logs) keep their type and display label;
+ * the formula chip lights up for them (see `feedTypeChipMatches`) and only an explicit
+ * tap rewrites the type to formula.
+ */
+const FEED_TYPE_CHOICES: FeedingType[] = ["breast milk", "formula", "solid food"];
 const FEED_METHODS: FeedingMethod[] = ["left breast", "right breast", "both breasts", "bottle", "parent fed", "self fed"];
 
 export const feedTypeLabel = (type: FeedingType): string => i18n.t(`feedType.${type}`);
@@ -16,7 +23,11 @@ export const activityLabel = (activity: ActivityKey): string => i18n.t(`activity
 
 /** Ordered chooser options (chips) for feeding type. */
 export const feedTypeOptions = (): { id: FeedingType; label: string }[] =>
-  FEED_TYPES.map((id) => ({ id, label: feedTypeLabel(id) }));
+  FEED_TYPE_CHOICES.map((id) => ({ id, label: feedTypeLabel(id) }));
+
+/** Whether a chooser chip represents the given (possibly legacy) feeding type. */
+export const feedTypeChipMatches = (chip: FeedingType, type: FeedingType | null | undefined): boolean =>
+  type === chip || (chip === "formula" && type === "fortified breast milk");
 
 /** Ordered chooser options for feeding method (full set; filter via METHODS_FOR_TYPE). */
 export const feedMethodOptions = (): { id: FeedingMethod; label: string }[] =>
