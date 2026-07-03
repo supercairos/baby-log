@@ -107,6 +107,7 @@ function SheetShell({ open, label, children }: { open: boolean; label: string; c
 // ── Feeding refinement ────────────────────────────────────────────────────────
 export function FeedingSheet({
   open,
+  started,
   elapsedMs,
   type,
   method,
@@ -117,6 +118,8 @@ export function FeedingSheet({
   onDone,
 }: {
   open: boolean;
+  /** false = pre-start (details first, the CTA starts the timer); true = refining a running timer. */
+  started: boolean;
   elapsedMs: number | null;
   type: FeedingType | null;
   method: FeedingMethod | null;
@@ -135,11 +138,13 @@ export function FeedingSheet({
     <SheetShell open={open} label={t("sheet.feedingDetails")}>
       <div style={s.sheetHandle} />
       <div style={s.sheetTitle}>{t("activity.feeding")}</div>
-      <div style={s.sheetRunning}>
-        <span className="breathe" style={{ width: 6, height: 6, borderRadius: "50%", background: feed }} />
-        {t("sheet.timerRunning")}
-        {elapsedMs != null ? ` · ${fmt(elapsedMs)}` : ""} — {t("sheet.addDetailsHint")}
-      </div>
+      {started && (
+        <div style={s.sheetRunning}>
+          <span className="breathe" style={{ width: 6, height: 6, borderRadius: "50%", background: feed }} />
+          {t("sheet.timerRunning")}
+          {elapsedMs != null ? ` · ${fmt(elapsedMs)}` : ""} — {t("sheet.addDetailsHint")}
+        </div>
+      )}
 
       <div style={s.sheetGroup}>{t("sheet.type")}</div>
       <div style={s.chips}>
