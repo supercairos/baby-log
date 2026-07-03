@@ -85,7 +85,9 @@ import type { ActivityKey } from "../api";
 const TILE_ORDER: ActivityKey[] = ["feeding", "sleep", "diaper", "tummy"];
 const STALE_SLEEP_MS = 14 * 3600_000;
 
-type Sheet = { type: "feeding"; localId: string } | { type: "diaper" } | null;
+// Feeding sheet: `localId: null` = pre-start (details chosen BEFORE the timer exists — the
+// CTA starts it); a real localId = refine mode over an already-running timer.
+type Sheet = { type: "feeding"; localId: string | null } | { type: "diaper" } | null;
 type FeedSel = { type: FeedingType | null; method: FeedingMethod | null; amount?: number | null };
 
 export function Home({
@@ -405,11 +407,11 @@ export function Home({
     return { type, method, amount: method === "bottle" ? (sel?.amount ?? null) : null };
   };
 
-  const start = async (activity: TimerActivityKey): Promise<string | null> => {
+  const start = async (activity: TimerActivityKey, feedingSel?: FeedSel): Promise<string | null> => {
     if (childId == null) return null;
     const startedAt = nowIso();
     const { mutation, localId } = startTimerMutation(activity, childId, startedAt);
-    const feeding = activity === "feeding" ? lastFeed[childId] : undefined;
+    const feeding = activity === "feeding" ? (feedingSel ?? lastFeed[childId]) : undefined;
     await setTimerMapping({ localId, startedAt, activity, childId, ...(feeding ? { feeding } : {}) });
     submit(mutation);
     show(t("toast.started", { activity: activityLabel(activity) }), accentOf(activity));
@@ -499,17 +501,38 @@ export function Home({
     }
     // Medication isn't a home tile and never runs as a timer — it's logged from the journal only.
     if (activity === "medication") return;
+    if (activity === "feeding") {
+      // Details BEFORE the timer: open the sheet pre-seeded with the last choice; the timer
+      // only starts when the CTA is tapped (confirmFeeding). Closing the sheet = cancel.
+      setFeedSel(childId != null ? (lastFeed[childId] ?? { type: null, method: null }) : { type: null, method: null });
+      setSheet({ type: "feeding", localId: null });
+      return;
+    }
     const guard = `start:${activity}`;
     if (pending.current.has(guard)) return; // rapid double-tap → ignore the second
     pending.current.add(guard);
     try {
-      if (activity === "feeding") {
-        setFeedSel(childId != null ? (lastFeed[childId] ?? { type: null, method: null }) : { type: null, method: null });
-        const localId = await start("feeding");
-        if (localId) setSheet({ type: "feeding", localId });
-      } else {
-        await start(activity); // sleep | tummy
-      }
+      await start(activity); // sleep | tummy
+    } finally {
+      pending.current.delete(guard);
+    }
+  };
+
+  /** Feeding sheet CTA. Pre-start mode: start the timer NOW with the chosen details.
+   *  Refine mode (running timer): the details were already merged live — just close. */
+  const confirmFeeding = async () => {
+    buzz();
+    if (sheet?.type !== "feeding") return;
+    if (sheet.localId != null) {
+      setSheet(null);
+      return;
+    }
+    const guard = "start:feeding";
+    if (pending.current.has(guard)) return; // rapid double-tap → one timer, not two
+    pending.current.add(guard);
+    try {
+      await start("feeding", feedSel);
+      setSheet(null);
     } finally {
       pending.current.delete(guard);
     }
@@ -521,7 +544,7 @@ export function Home({
     const method = feedSel.method && allowed.includes(feedSel.method) ? feedSel.method : allowed.length === 1 ? allowed[0] : null;
     const next = { type, method, amount: feedSel.amount ?? null };
     setFeedSel(next);
-    if (sheet?.type === "feeding") void mergeTimerMapping(sheet.localId, { feeding: next }).then(refreshRunning);
+    if (sheet?.type === "feeding" && sheet.localId != null) void mergeTimerMapping(sheet.localId, { feeding: next }).then(refreshRunning);
     if (childId != null) setLastFeed((p) => ({ ...p, [childId]: next }));
   };
 
@@ -529,14 +552,14 @@ export function Home({
     buzz();
     const next = { type: feedSel.type, method, amount: feedSel.amount ?? null };
     setFeedSel(next);
-    if (sheet?.type === "feeding") void mergeTimerMapping(sheet.localId, { feeding: next }).then(refreshRunning);
+    if (sheet?.type === "feeding" && sheet.localId != null) void mergeTimerMapping(sheet.localId, { feeding: next }).then(refreshRunning);
     if (childId != null) setLastFeed((p) => ({ ...p, [childId]: next }));
   };
 
   const selectAmount = (amount: number | null) => {
     const next = { type: feedSel.type, method: feedSel.method, amount };
     setFeedSel(next);
-    if (sheet?.type === "feeding") void mergeTimerMapping(sheet.localId, { feeding: next }).then(refreshRunning);
+    if (sheet?.type === "feeding" && sheet.localId != null) void mergeTimerMapping(sheet.localId, { feeding: next }).then(refreshRunning);
     if (childId != null) setLastFeed((p) => ({ ...p, [childId]: next }));
   };
 
@@ -544,7 +567,9 @@ export function Home({
     if (childId == null) return;
     buzz();
     setSheet(null);
-    submit(logDiaperMutation(childId, { wet: preset.wet, solid: preset.solid }));
+    // Stamp the time at the tap — without it the server stamps the FLUSH time, which is
+    // wrong whenever the outbox drains late (offline / flaky wifi).
+    submit(logDiaperMutation(childId, { wet: preset.wet, solid: preset.solid, time: nowIso() }));
     show(t("toast.diaperLogged", { detail: diaperMeta(preset.wet, preset.solid) }), accentOf("diaper"));
   };
 
@@ -1011,6 +1036,7 @@ export function Home({
       {sheetOpen && <button tabIndex={-1} style={{ ...s.scrim, cursor: "default" }} onClick={() => { setSheet(null); setEditing(null); setDraft(null); }} aria-label={t("home.close")} />}
       <FeedingSheet
         open={sheet?.type === "feeding"}
+        started={sheet?.type === "feeding" && sheet.localId != null}
         elapsedMs={feedingElapsed}
         type={feedSel.type}
         method={feedSel.method}
@@ -1018,7 +1044,7 @@ export function Home({
         onType={selectType}
         onMethod={selectMethod}
         onAmount={selectAmount}
-        onDone={() => { buzz(); setSheet(null); }}
+        onDone={() => void confirmFeeding()}
       />
       <DiaperSheet open={sheet?.type === "diaper"} onLog={logDiaper} />
       <EntrySheet target={editing} draft={draft} setDraft={(u) => setDraft((d) => (d ? u(d) : d))} recentMeds={recentMeds} onPickKind={pickKind} onSave={saveEdit} onDelete={deleteEditing} />

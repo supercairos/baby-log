@@ -105,10 +105,16 @@ Parser:
   at top. Big tap targets, dark-by-default (nursery at 3am). Haptics + top toast on action,
   no confirm dialogs (fix mistakes later via timeline edit).
 - **Color = identity**: each activity owns one accent in one fixed position (muscle memory).
-- **Feeding starts immediately on tile tap** — the timer is running before details are chosen.
-  The details sheet opens *over* the running timer; type/method are **optional refinements** applied
-  to the live timer. A pencil button on the running card reopens the sheet; tapping the card body
-  STOPS the timer ("tap to stop" hint). Starting blank must not overwrite remembered last choice.
+- **Details before start** (changed 2026-07 from the mockups' start-immediately design, on
+  explicit user request): tapping the Feeding tile opens the details sheet with the last choice
+  pre-selected — the timer does NOT start yet. The "Done"/"Terminé" CTA starts the timer with the
+  chosen type/method/amount attached; closing the sheet (scrim/Escape) cancels with nothing
+  logged. A pencil button on the running card reopens the sheet in **live-refine mode** (edits
+  merge into the running timer; the CTA just closes). Tapping the card body STOPS the timer
+  ("tap to stop" hint). Starting blank must not overwrite remembered last choice.
+- **Instant entries stamp their time at the tap**, not at outbox flush — a diaper logged offline
+  keeps the moment the color preset was tapped (pass `time` explicitly; the server would
+  otherwise stamp arrival time).
 - **Feeding method is filtered by type** (`METHODS_FOR_TYPE`): formula/fortified → bottle only
   (auto-selected); breast milk → all four; solid food → no method. Selection self-corrects when
   type changes. This map is the one place to adjust if the instance rejects a combo.
