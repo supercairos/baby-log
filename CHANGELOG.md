@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.14.0](https://github.com/supercairos/baby-log/compare/baby-log-v1.13.0...baby-log-v1.14.0) (2026-07-03)
+
+
+### Features
+
+* add-entry back arrow and a single "Lait artificiel" type chip ([2d25d34](https://github.com/supercairos/baby-log/commit/2d25d345b8de0b8139a191e2bd15fb0fef2b9869))
+* add-entry back arrow and a single "Lait artificiel" type chip ([a171e16](https://github.com/supercairos/baby-log/commit/a171e1658b5edf7c6dc2c95ac897e15eccc252ee))
+* choose feeding details before the timer starts ([917ce14](https://github.com/supercairos/baby-log/commit/917ce14cb83d755e1d23a94828021bc245eb6e45))
+* choose feeding details before the timer starts ([61bbc1f](https://github.com/supercairos/baby-log/commit/61bbc1f3051e046d57131408e9bf5d42dc1af6b4))
+
 ## [1.13.0](https://github.com/supercairos/baby-log/compare/baby-log-v1.12.0...baby-log-v1.13.0) (2026-07-02)
 
 
