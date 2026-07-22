@@ -69,6 +69,13 @@ export interface Palette {
   scrimBlur: string;
 
   danger: string;
+  /** Positive/fresh status (freshness dot) — a calm green, quieter than the activity accents. */
+  ok: string;
+  /** Stale/degraded status (stale freshness, offline pill) — amber; `danger` would read as an error. */
+  warn: string;
+  /** Diaper wet/solid state colors — preset dots + wet/solid chips (chip text must hold ≥3:1 on the chipOn tint). */
+  diaperWet: string;
+  diaperSolid: string;
   /** Text color placed on top of an accent-filled button. */
   onAccent: string;
   /** Hard offset shadow under the primary CTA (light only). */
@@ -98,7 +105,7 @@ export const darkPalette: Palette = {
   text: "#f0ebe4",
   textMuted: "#9a8fa6",
   textFaint: "#75707e",
-  textFainter: "#6b6276",
+  textFainter: "#756c80", // ≥3:1 on every dark surface incl. sheet/drawer tops (#6b6276 dipped to 2.65)
   groupText: "#857a91",
   surface: "rgba(255,255,255,.04)",
   surfaceBorder: "rgba(255,255,255,.06)",
@@ -128,6 +135,10 @@ export const darkPalette: Palette = {
   scrim: "rgba(12,9,16,.6)",
   scrimBlur: "blur(3px)",
   danger: "#d98282",
+  ok: "#a4c8a0", // shares the diaperWet green on purpose — one calm green in the system
+  warn: "#d9b36b",
+  diaperWet: "#a4c8a0",
+  diaperSolid: "#c9a86a",
   onAccent: "#1a1722",
   ctaShadow: "none",
   ctaOffBg: "rgba(255,255,255,.05)",
@@ -152,8 +163,9 @@ export const lightPalette: Palette = {
   body: FONT_BODY,
   text: "#2b2620",
   textMuted: "#8a7d68",
-  textFaint: "#a8997f",
-  textFainter: "#c7b79a",
+  // Faint text still carries info (hints, timestamps, axes) — keep ≥4.5:1 / ≥3:1 on card AND page bg.
+  textFaint: "#6f624d",
+  textFainter: "#857661",
   groupText: "#a8997f",
   surface: "#fffaf0",
   surfaceBorder: "#e3d7c0",
@@ -183,6 +195,10 @@ export const lightPalette: Palette = {
   scrim: "rgba(43,38,32,.4)",
   scrimBlur: "blur(2px)",
   danger: "#b03a3a",
+  ok: "#6f8c4f", // shares the diaperWet green on purpose — one calm green in the system
+  warn: "#a8731e",
+  diaperWet: "#6f8c4f",
+  diaperSolid: "#b07d2e",
   onAccent: "#fffaf0",
   ctaShadow: "0 4px 0 rgba(166,79,36,.4)",
   ctaOffBg: "#e3d7c0",

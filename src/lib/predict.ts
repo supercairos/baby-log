@@ -416,6 +416,20 @@ export function predictSleepEnd(
 }
 
 /**
+ * Minimum time a passed eta stays on screen as "late by X" before the prediction expires.
+ * The real bound scales with the prediction's own confidence window (see `predictionAlive`):
+ * a feeding on a tight 2 h rhythm stays visible while it's meaningfully late, but a guess
+ * blown past by many times its window is noise — "expected 16 h ago" under a "Prediction"
+ * header reads as an event, not a forecast.
+ */
+export const PREDICTION_GRACE_MS = 60 * 60_000;
+
+/** Whether an overdue prediction is still worth showing: alive until one window-width past
+ *  the high bound (child- and activity-specific), with the flat grace as a floor. */
+export const predictionAlive = (p: ActivityPrediction, now: number): boolean =>
+  now < Math.max(p.highMs + (p.highMs - p.lowMs), p.etaMs + PREDICTION_GRACE_MS);
+
+/**
  * Predict the next feeding, sleep onset, and diaper change for a child from their recent
  * timeline entries. Any activity without a usable (recent) anchor is simply omitted.
  */

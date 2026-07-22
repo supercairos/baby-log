@@ -173,6 +173,9 @@ export function makeStyles(p: Palette): Styles {
       WebkitBackdropFilter: p.toastBlur === "none" ? undefined : p.toastBlur,
     },
     toastOn: { opacity: 1, transform: "translate(-50%, 0)" },
+    // The one interactive piece of the toast (Undo): pointer events re-enabled on the button
+    // only — the container stays click-through so it never blocks the tiles under it.
+    toastAction: { marginLeft: 12, padding: "7px 13px", borderRadius: 999, background: "transparent", border: `1px solid ${p.toastBorder}`, color: "inherit", fontSize: 13.5, fontWeight: 800, pointerEvents: "auto", verticalAlign: "middle" },
 
     scrim: { position: "fixed", inset: 0, background: p.scrim, zIndex: 5, backdropFilter: p.scrimBlur, WebkitBackdropFilter: p.scrimBlur, animation: "fadeIn .25s ease", border: "none" },
     sheet: {
@@ -192,6 +195,13 @@ export function makeStyles(p: Palette): Styles {
       transform: "translateY(110%)",
       transition: "transform .34s cubic-bezier(.32,.72,0,1)",
       boxShadow: p.sheetShadow,
+      // Tall variants (medication) must scroll INSIDE the sheet, not overflow the viewport.
+      // 100dvh tracks the on-screen keyboard (viewport meta: interactive-widget=resizes-content),
+      // so the CTA stays reachable while typing; the rounded top clips the scrolled content.
+      maxHeight: "calc(100dvh - 48px)",
+      overflowY: "auto",
+      overscrollBehavior: "contain",
+      WebkitOverflowScrolling: "touch",
     },
     sheetOn: { transform: "translateY(0)" },
     sheetHandle: { width: 42, height: 4, borderRadius: 2, background: p.sheetHandle, margin: "0 auto 18px" },
@@ -277,7 +287,6 @@ export function makeStyles(p: Palette): Styles {
     entryTime: { fontSize: 13, color: p.textFaint, fontWeight: 600 },
     // Free-text note on its own line, single-line ellipsis to keep rows compact.
     entryNote: { fontSize: 13, color: p.textMuted, fontStyle: "italic", fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" },
-    entryDel: { display: "grid", placeItems: "center", width: 44, height: 44, borderRadius: 11, background: "transparent", border: "none", color: p.textFainter, flexShrink: 0 },
     empty: { textAlign: "center", padding: "60px 20px", display: "flex", flexDirection: "column", alignItems: "center", gap: 10 },
     emptyIco: { display: "grid", placeItems: "center", width: 60, height: 60, borderRadius: 20, background: p.chipBg, color: p.textFaint, marginBottom: 4 },
     emptyTitle: { color: p.text, fontFamily: p.serif, fontSize: 19, fontWeight: 600 },
@@ -313,10 +322,11 @@ export function makeStyles(p: Palette): Styles {
     nowLine: { position: "absolute", left: -1, right: -1, height: 2, borderRadius: 999, background: dark ? "#fff" : p.text, zIndex: 5 },
     nowCap: { position: "absolute", top: "50%", width: 9, height: 9, borderRadius: "50% 50% 50% 0", background: dark ? "#fff" : p.text },
     // left/width are set inline per block by the day column's lane layout (overlapping events
-    // share the column side by side).
+    // share the column side by side). All three carry .cal-blk (index.css): an invisible
+    // ::after strip that stretches each tap target to ≥24px — a 5-min feed is only ~2px tall.
     blkSleep: { position: "absolute", borderRadius: 4, border: "none", padding: 0, zIndex: 1 },
     blkBar: { position: "absolute", borderRadius: 3, border: "none", padding: 0, zIndex: 2 },
-    blkDiaper: { position: "absolute", height: 3, borderRadius: 2, border: "none", padding: 0, zIndex: 3 },
+    blkDiaper: { position: "absolute", height: 6, borderRadius: 2, border: "none", padding: 0, zIndex: 3 },
     gridAddBtn: { display: "flex", alignItems: "center", justifyContent: "center", width: "100%", marginTop: 18, padding: "13px", borderRadius: 16, background: `${feed}1f`, border: `1px solid ${feed}59`, color: feed, fontSize: 14.5, fontWeight: 800 },
 
     summaryGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 },
@@ -341,8 +351,18 @@ export function makeStyles(p: Palette): Styles {
     radialStatRow: { display: "flex", alignItems: "center", gap: 9 },
     radialStatValue: { fontSize: 15.5, fontWeight: 700, color: p.text, fontFamily: p.serif, letterSpacing: ".2px" },
 
+    // Offline/pending sync pill — one quiet row above the running timers (no card chrome: it
+    // informs, never competes with logging). The dot pulses feed-colored while writes are
+    // pending; Home overrides it to `warn` when actually offline.
+    syncRow: { marginTop: 16, marginBottom: -14, padding: "0 6px", display: "flex", zIndex: 1 },
     syncPill: { display: "inline-flex", alignItems: "center", gap: 7, fontSize: 12, fontWeight: 700, color: p.textFaint },
-    syncDot: { width: 7, height: 7, borderRadius: "50%", background: feed, animation: "pulse 1.4s ease-in-out infinite" },
+    syncDot: { width: 7, height: 7, borderRadius: "50%", background: feed, animation: "pulse 1.4s ease-in-out infinite", flexShrink: 0 },
+
+    // Cold-start error banner (children/timeline fetch failed): quiet muted-surface chrome —
+    // informative, not alarming; the Retry chip is the actionable part.
+    errBanner: { display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", borderRadius: 16, background: p.chipBg, border: `1px solid ${p.surfaceBorder}`, color: p.textMuted, fontSize: 13.5, fontWeight: 700, zIndex: 1, animation: "fadeIn .3s ease" },
+    errBannerText: { flex: 1, minWidth: 0 },
+    errBannerBtn: { padding: "9px 14px", borderRadius: 12, background: p.surface, border: `1px solid ${p.surfaceStrongBorder}`, color: p.text, fontSize: 13, fontWeight: 800, flexShrink: 0 },
 
     // ── Login screen ──
     loginRoot: {

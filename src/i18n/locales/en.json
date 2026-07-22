@@ -4,6 +4,8 @@
     "cancel": "← Cancel",
     "done": "Done",
     "delete": "Delete",
+    "undo": "Undo",
+    "retry": "Retry",
     "or": "or",
     "loading": "Loading…",
     "connecting": "Connecting…"
@@ -72,7 +74,7 @@
     "tapToLog": "tap to log",
     "pickAndStart": "pick & start",
     "upNext": "Prediction",
-    "dueNow": "due now",
+    "dueNowExact": "now",
     "stillGoing": "still going?",
     "editFeeding": "Edit feeding details",
     "menu": "Menu",
@@ -81,7 +83,9 @@
     "version": "Baby Log v{{version}}",
     "doseOkFrom": "ok from ~{{time}}",
     "doseLastAgo": "last dose {{ago}} ago",
-    "lastFeeding": "Last feed"
+    "lastFeeding": "Last feed",
+    "overdueBy": "{{late}} late",
+    "overdueByLabel": "late by"
   },
   "nav": {
     "home": "Home",
@@ -112,7 +116,8 @@
     "endBeforeStart": "End time can't be before start",
     "timeFuture": "Time can't be in the future",
     "pickDiaper": "Pick wet, solid, or both",
-    "medNameRequired": "Enter the medication name"
+    "medNameRequired": "Enter the medication name",
+    "syncFailed": "A write couldn't be synced"
   },
   "timeline": {
     "addEntry": "Add entry",
@@ -122,6 +127,11 @@
     "newEntries_one": "{{count}} new",
     "newEntries_other": "{{count}} new",
     "updated": "Updated {{ago}}"
+  },
+  "sync": {
+    "offline": "Offline",
+    "pending_one": "{{count}} pending",
+    "pending_other": "{{count}} pending"
   },
   "cal": {
     "day": "Day",
@@ -137,6 +147,7 @@
     "everyInterval": "every ~{{duration}}",
     "wetSolid": "{{wet}} wet · {{solid}} solid",
     "minPerDay": "{{value}} min/day",
+    "durationPerDay": "{{duration}}/day",
     "goalMin": "goal {{goal}} min",
     "vsLastWeek": "{{delta}} vs last week"
   },
@@ -146,6 +157,7 @@
     "entry": "Entry",
     "backToPicker": "Back to activity choice",
     "timerRunning": "Timer running",
+    "startTimer": "Start",
     "addDetailsHint": "add details if you like",
     "type": "Type",
     "method": "Method",
@@ -215,7 +227,8 @@
   "error": {
     "notAuthorized": "Not authorized — check your token.",
     "serverRejected": "Server rejected the request (HTTP {{status}}).",
-    "network": "Network error — you appear to be offline or the server is unreachable."
+    "network": "Network error — you appear to be offline or the server is unreachable.",
+    "cantReachServer": "Can't reach the server"
   },
   "update": {
     "available": "Update available — tap to refresh"

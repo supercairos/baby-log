@@ -1,15 +1,16 @@
 /**
  * Timeline page — merged recent entries grouped Today / Yesterday / weekday-date, newest
- * first. Each row is tappable to edit; the trash button deletes. "Add entry" opens the
- * same sheet with an activity picker for backdated logging.
+ * first. The whole row is one tap target opening the edit sheet (deleting lives there, with
+ * an undo toast). "Add entry" opens the same sheet with an activity picker for backdated
+ * logging.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TimelineEntry } from "../api";
 import { buzz, useNow } from "./hooks";
 import { useStyles, useTheme } from "../theme";
-import { ACTIVITY_ICON, ClockIcon, PlusIcon, TrashIcon } from "../ui/icons";
-import { fmt } from "../lib/format";
+import { ACTIVITY_ICON, ClockIcon, PlusIcon } from "../ui/icons";
+import { hm } from "../lib/format";
 import { clockTime, dayLabel } from "../lib/datetime";
 import { activityLabel, diaperMeta, feedingMeta, medicationMeta } from "../lib/labels";
 import i18n, { currentLocale } from "../i18n";
@@ -54,15 +55,20 @@ function relativeAgo(ms: number): string {
   return rtf.format(-Math.round(m / 60), "hour");
 }
 
+/** Past this, the dot stops reassuring: ~3 missed 30s polls means offline/backgrounded/server
+ *  trouble, and a green "updated 5 min ago" would be a lie. */
+const FRESHNESS_STALE_MS = 90_000;
+
 /** A subtle "● updated Xs ago" line confirming the timeline is auto-refreshing. Self-ticks every
  *  5s in its own component so the (potentially long) entry list never re-renders on the clock. */
 function Freshness({ updatedAt }: { updatedAt: number }) {
   const { palette } = useTheme();
   const { t } = useTranslation();
   const now = useNow(5000);
+  const stale = now - updatedAt > FRESHNESS_STALE_MS;
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "0 0 12px", color: palette.textFaint, fontSize: 11.5, fontWeight: 700, letterSpacing: 0.2 }}>
-      <span aria-hidden style={{ width: 6, height: 6, borderRadius: "50%", background: palette.accents.diaper.accent }} />
+      <span aria-hidden style={{ width: 6, height: 6, borderRadius: "50%", background: stale ? palette.warn : palette.ok }} />
       {t("timeline.updated", { ago: relativeAgo(now - updatedAt) })}
     </div>
   );
@@ -73,14 +79,17 @@ export function Timeline({
   updatedAt,
   onAdd,
   onEdit,
-  onDelete,
+  error = false,
+  onRetry,
   showAdd = true,
 }: {
   entries: TimelineEntry[] | null;
   updatedAt?: number;
   onAdd?: () => void;
   onEdit: (e: TimelineEntry) => void;
-  onDelete: (e: TimelineEntry) => void;
+  /** Cold-start fetch failed (nothing cached) — show the retry banner instead of the spinner. */
+  error?: boolean;
+  onRetry?: () => void;
   /** When false, the internal "Add entry" button is hidden (the calendar supplies its own). */
   showAdd?: boolean;
 }) {
@@ -179,9 +188,20 @@ export function Timeline({
       )}
 
       {entries == null ? (
-        <div style={s.empty}>
-          <div className="spin" style={{ width: 30, height: 30, borderRadius: "50%", border: `3px solid ${palette.surfaceStrongBorder}`, borderTopColor: palette.accents.feeding.accent }} />
-        </div>
+        error ? (
+          <div style={s.errBanner}>
+            <span style={s.errBannerText}>{t("error.cantReachServer")}</span>
+            {onRetry && (
+              <button onClick={() => { buzz(); onRetry(); }} style={s.errBannerBtn}>
+                {t("common.retry")}
+              </button>
+            )}
+          </div>
+        ) : (
+          <div style={s.empty}>
+            <div className="spin" style={{ width: 30, height: 30, borderRadius: "50%", border: `3px solid ${palette.surfaceStrongBorder}`, borderTopColor: palette.accents.feeding.accent }} />
+          </div>
+        )
       ) : entries.length === 0 ? (
         <div style={s.empty}>
           <div style={s.emptyIco}>
@@ -214,12 +234,10 @@ export function Timeline({
                       {note && <div style={s.entryNote}>“{note}”</div>}
                       <div style={s.entryTime}>
                         {clockTime(e.startMs)}
-                        {e.endMs ? ` – ${clockTime(e.endMs)} · ${fmt(e.endMs - e.startMs)}` : ""}
+                        {/* hm, not fmt: "0:45" would read as clock time in a row full of clock times */}
+                        {e.endMs ? ` – ${clockTime(e.endMs)} · ${hm(e.endMs - e.startMs)}` : ""}
                       </div>
                     </div>
-                  </button>
-                  <button onClick={() => onDelete(e)} style={s.entryDel} aria-label={t("common.delete")}>
-                    <TrashIcon size={17} />
                   </button>
                 </div>
               );

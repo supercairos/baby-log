@@ -12,7 +12,7 @@ import { ACTIVITY_ICON, PlusIcon, SunriseIcon, SunsetIcon } from "../ui/icons";
 import { clockTime } from "../lib/datetime";
 import { activityLabel } from "../lib/labels";
 import { hm } from "../lib/format";
-import { predictNext, predictSleepEnd, type ActivityPrediction } from "../lib/predict";
+import { predictNext, predictSleepEnd, predictionAlive, type ActivityPrediction } from "../lib/predict";
 import { tummyGoalForAge } from "../lib/tummy";
 import { sunTimes } from "../lib/sun";
 import { useEntriesInRange, useGeo, useNow, buzz } from "./hooks";
@@ -70,18 +70,21 @@ export function Calendar({
   birthDate,
   listEntries,
   listUpdatedAt,
+  listError,
+  onRetryList,
   onAdd,
   onEdit,
-  onDelete,
 }: {
   client: BabyBuddyClient;
   childId: number | null;
   birthDate: string | null | undefined;
   listEntries: TimelineEntry[] | null;
   listUpdatedAt?: number;
+  /** List-mode cold-start failure state + its retry, forwarded to `Timeline`. */
+  listError?: boolean;
+  onRetryList?: () => void;
   onAdd: () => void;
   onEdit: (e: TimelineEntry) => void;
-  onDelete: (e: TimelineEntry) => void;
 }) {
   const { s } = useStyles();
   const { t } = useTranslation();
@@ -142,7 +145,7 @@ export function Calendar({
       )}
 
       {mode === "list" ? (
-        <Timeline entries={listEntries} updatedAt={listUpdatedAt} showAdd={false} onEdit={onEdit} onDelete={onDelete} />
+        <Timeline entries={listEntries} updatedAt={listUpdatedAt} showAdd={false} onEdit={onEdit} error={listError} onRetry={onRetryList} />
       ) : mode === "summary" ? (
         <SummaryView entries={rangeEntries} prevEntries={prevEntries} range={range} birthDate={birthDate} />
       ) : mode === "day" ? (
@@ -234,8 +237,9 @@ function RadialDay({
   const feedCount = list.filter((e) => e.activity === "feeding" && e.startMs >= dayStart && e.startMs < dayEnd).length;
 
   // Predicted upcoming events (today only) — shown as dashed "ghost" markers on the ring.
+  // Long-expired etas are dropped, same rule as the home panel.
   const preds = isToday
-    ? (Object.values(predictNext(list, birthDate, now)) as ActivityPrediction[]).filter((p) => p.confidence >= 0.1)
+    ? (Object.values(predictNext(list, birthDate, now)) as ActivityPrediction[]).filter((p) => p.confidence >= 0.1 && predictionAlive(p, now))
     : [];
   const soonest = [...preds].sort((a, b) => a.etaMs - b.etaMs)[0];
   const predMarks = preds.filter((p) => p.etaMs > now && p.etaMs < dayEnd);
@@ -255,16 +259,38 @@ function RadialDay({
 
   // Icon badge sitting on the ring at `deg` — a filled disc with the activity glyph, so every
   // marker is identifiable at a glance. `dashed` renders the predicted ("ghost") variant.
+  // Clickable badges act as buttons (keyboard + AT) and carry an invisible r=16 hit circle:
+  // the visible 21px disc alone is well under a finger's width.
   const badge = (
     key: string,
     deg: number,
     accent: string,
     Icon: (p: { size?: number }) => ReactNode,
-    opts: { dashed?: boolean; onClick?: () => void } = {},
+    opts: { dashed?: boolean; onClick?: () => void; label?: string } = {},
   ) => {
     const c = polar(deg, R_RING);
+    const clickable = !!opts.onClick;
     return (
-      <g key={key} style={{ color: accent, cursor: opts.onClick ? "pointer" : undefined }} onClick={opts.onClick}>
+      <g
+        key={key}
+        style={{ color: accent, cursor: clickable ? "pointer" : undefined }}
+        onClick={opts.onClick}
+        role={clickable ? "button" : undefined}
+        tabIndex={clickable ? 0 : undefined}
+        aria-label={clickable ? opts.label : undefined}
+        onKeyDown={
+          clickable
+            ? (e) => {
+                if (e.key !== "Enter" && e.key !== " ") return;
+                e.preventDefault(); // Space must not scroll the page
+                opts.onClick?.();
+              }
+            : undefined
+        }
+      >
+        {/* only on clickable badges — on a ghost/sun marker it would swallow taps meant
+            for the arc underneath */}
+        {clickable && <circle cx={c.x} cy={c.y} r={16} fill="transparent" pointerEvents="all" />}
         {/* tileBase, not bg: `bg` is a CSS gradient string, which SVG would paint as black */}
         <circle cx={c.x} cy={c.y} r={10.5} fill={palette.tileBase} stroke={accent} strokeWidth={1.6} strokeDasharray={opts.dashed ? "2.5 2.5" : undefined} />
         <g transform={`translate(${(c.x - 6.5).toFixed(2)}, ${(c.y - 6.5).toFixed(2)})`}>
@@ -322,12 +348,15 @@ function RadialDay({
     Icon: (p: { size?: number }) => ReactNode;
     dashed?: boolean;
     onClick?: () => void;
+    /** Accessible name for a clickable badge (activity + start time). */
+    label?: string;
     labelMs?: number;
   }
+  const entryLabel = (e: TimelineEntry) => `${activityLabel(e.activity)} ${clockTime(e.startMs)}`;
   const marks: Mark[] = [
-    ...[...sleeps, ...bars].map((e): Mark => ({ key: `b-${e.path}${e.id}`, deg: midDeg(e), accent: palette.accents[e.activity].accent, Icon: ACTIVITY_ICON[e.activity], onClick: () => onEdit(e) })),
-    ...diapers.map((e): Mark => ({ key: `b-${e.path}${e.id}`, deg: angleOf(e.startMs), accent: palette.accents.diaper.accent, Icon: ACTIVITY_ICON.diaper, onClick: () => onEdit(e) })),
-    ...meds.map((e): Mark => ({ key: `b-${e.path}${e.id}`, deg: angleOf(e.startMs), accent: palette.accents.medication.accent, Icon: ACTIVITY_ICON.medication, onClick: () => onEdit(e) })),
+    ...[...sleeps, ...bars].map((e): Mark => ({ key: `b-${e.path}${e.id}`, deg: midDeg(e), accent: palette.accents[e.activity].accent, Icon: ACTIVITY_ICON[e.activity], onClick: () => onEdit(e), label: entryLabel(e) })),
+    ...diapers.map((e): Mark => ({ key: `b-${e.path}${e.id}`, deg: angleOf(e.startMs), accent: palette.accents.diaper.accent, Icon: ACTIVITY_ICON.diaper, onClick: () => onEdit(e), label: entryLabel(e) })),
+    ...meds.map((e): Mark => ({ key: `b-${e.path}${e.id}`, deg: angleOf(e.startMs), accent: palette.accents.medication.accent, Icon: ACTIVITY_ICON.medication, onClick: () => onEdit(e), label: entryLabel(e) })),
     ...predMarks.map((p): Mark => ({ key: `pb-${p.activity}`, deg: angleOf(p.etaMs), accent: palette.accents[p.activity].accent, Icon: ACTIVITY_ICON[p.activity], dashed: true, labelMs: p.etaMs })),
     ...sunMarks.map((m): Mark => ({ key: `sb-${m.key}`, deg: angleOf(m.ms), accent: m.color, Icon: m.key === "sunrise" ? SunriseIcon : SunsetIcon, labelMs: m.ms })),
   ].sort((a, b) => a.deg - b.deg);
@@ -365,7 +394,7 @@ function RadialDay({
           })}
         {marks.map((m) => (
           <g key={m.key}>
-            {badge(m.key, m.deg, m.accent, m.Icon, { dashed: m.dashed, onClick: m.onClick })}
+            {badge(m.key, m.deg, m.accent, m.Icon, { dashed: m.dashed, onClick: m.onClick, label: m.label })}
             {m.labelMs != null && timeLabel(`${m.key}-t`, m.deg, m.accent, m.labelMs)}
           </g>
         ))}
@@ -413,11 +442,28 @@ function RadialDay({
 
       <div style={s.radialCenter}>
         {soonest ? (
-          <>
-            <span style={s.radialSmall}>{t("home.upNext")}</span>
-            <span style={s.radialBig}>{soonest.etaMs <= now + 60_000 ? t("home.dueNow") : t("cal.inDuration", { duration: hm(soonest.etaMs - now) })}</span>
-            <span style={{ ...s.radialActivity, color: palette.accents[soonest.activity].accent }}>{activityLabel(soonest.activity)}</span>
-          </>
+          (() => {
+            // Same honesty as the home panel (±10 min = "now", older reads late — a forecast,
+            // never past tense; expired etas are filtered out of `preds` above). A late eta
+            // splits over two lines ("en retard de" caption + big "4h 21m") so the serif value
+            // keeps its full size inside the ring; long future etas still step the font down.
+            const overdueMs = now - soonest.etaMs;
+            const overdue = overdueMs > 10 * 60_000;
+            const centerText =
+              soonest.etaMs > now + 10 * 60_000
+                ? t("cal.inDuration", { duration: hm(soonest.etaMs - now) })
+                : overdue
+                  ? hm(overdueMs)
+                  : t("home.dueNowExact");
+            return (
+              <>
+                <span style={s.radialSmall}>{t("home.upNext")}</span>
+                {overdue && <span style={s.radialSmall}>{t("home.overdueByLabel")}</span>}
+                <span style={{ ...s.radialBig, ...(centerText.length > 12 ? { fontSize: 23 } : {}) }}>{centerText}</span>
+                <span style={{ ...s.radialActivity, color: palette.accents[soonest.activity].accent }}>{activityLabel(soonest.activity)}</span>
+              </>
+            );
+          })()
         ) : (
           /* Past day (or nothing left to predict): the day's totals, icon per activity. */
           <div style={s.radialStats}>
@@ -563,7 +609,7 @@ function TimeGrid({
                   <span style={{ ...s.nowCap, left: "100%", transform: "translate(-50%, -50%) rotate(45deg)" }} />
                 </div>
               )}
-              {layoutDay(blocks, dayStart).map((le) => renderBlock(le, hourPx, palette, onEdit, s))}
+              {layoutDay(blocks, dayStart, hourPx).map((le) => renderBlock(le, hourPx, palette, onEdit, s))}
             </div>
           );
         })}
@@ -583,11 +629,15 @@ interface LaidOut {
 
 /**
  * Lane layout for one day column — concurrent events split the column side by side instead of
- * stacking invisibly. Classic interval-cluster algorithm: greedily assign each event the first
- * free lane; when nothing overlaps anymore, the finished cluster's events all share its lane
- * count as their width divisor. Instants (diapers) and very short events reserve a ~20-min slot
- * for layout purposes so simultaneous ones still get distinct lanes.
+ * stacking invisibly. Two passes: cluster transitively-overlapping events, then hand out lanes
+ * inside each cluster in a FIXED activity order (sleep, tummy, feeding, medication, diaper) so
+ * concurrent blocks always read left→right the same way; start time only breaks ties within a
+ * type. Non-overlapping events still share lanes, keeping the column as wide as possible.
+ * The layout footprint of an event is exactly its DRAWN footprint — renderBlock clamps every
+ * block to ≥6px tall, so short/instant events reserve 6px worth of time at the current zoom.
+ * Anything more (the old flat 20 min) split lanes for blocks that visibly don't touch.
  */
+const LANE_ORDER: Record<TimelineEntry["activity"], number> = { sleep: 0, tummy: 1, feeding: 2, medication: 3, diaper: 4 };
 /** Vertical position of an instant in a wall-clock-labelled grid: local h:mm × px/hour. This
  *  keeps blocks aligned with the hour lines even on 23/25-hour DST days. */
 function wallClockY(ms: number, hourPx: number): number {
@@ -595,9 +645,12 @@ function wallClockY(ms: number, hourPx: number): number {
   return (d.getHours() + d.getMinutes() / 60 + d.getSeconds() / 3600) * hourPx;
 }
 
-function layoutDay(entries: TimelineEntry[], dayStart: number): LaidOut[] {
+function layoutDay(entries: TimelineEntry[], dayStart: number, hourPx: number): LaidOut[] {
   const dayEnd = addDays(dayStart, 1); // DST-safe
-  const LAYOUT_MIN = 20 * 60_000;
+  const LAYOUT_MIN = (6 / hourPx) * 3_600_000; // the 6px minimum renderBlock draws, as time
+  // Overlaps thinner than a pixel aren't visible — a sleep ending 16 s into a diaper change
+  // must not split the column. Anything under 1px of drawn overlap counts as disjoint.
+  const EPS = (1 / hourPx) * 3_600_000;
   const evs = entries
     .filter((e) => Math.max(e.endMs ?? e.startMs, e.startMs) >= dayStart && e.startMs < dayEnd)
     .map((e) => {
@@ -607,25 +660,31 @@ function layoutDay(entries: TimelineEntry[], dayStart: number): LaidOut[] {
     })
     .sort((a, b) => a.clipStart - b.clipStart || b.layoutEnd - a.layoutEnd);
 
-  const laneEnds: number[] = [];
-  let cluster: typeof evs = [];
-  const flush = () => {
-    for (const ev of cluster) ev.lanes = laneEnds.length;
-    laneEnds.length = 0;
-    cluster = [];
-  };
+  // Pass 1: split into clusters of transitively-overlapping events (evs is start-sorted).
+  const clusters: (typeof evs)[] = [];
+  let clusterEnd = -Infinity;
   for (const ev of evs) {
-    if (laneEnds.length > 0 && laneEnds.every((end) => end <= ev.clipStart)) flush();
-    let lane = laneEnds.findIndex((end) => end <= ev.clipStart);
-    if (lane === -1) {
-      lane = laneEnds.length;
-      laneEnds.push(0);
-    }
-    laneEnds[lane] = ev.layoutEnd;
-    ev.lane = lane;
-    cluster.push(ev);
+    if (ev.clipStart >= clusterEnd - EPS) clusters.push([]);
+    clusters[clusters.length - 1].push(ev);
+    clusterEnd = Math.max(clusterEnd, ev.layoutEnd);
   }
-  flush();
+
+  // Pass 2: within a cluster, assign lanes in activity order. Each lane keeps its interval
+  // list (assignment runs out of time order, so a single "last end" isn't enough).
+  for (const cluster of clusters) {
+    const lanes: { s: number; e: number }[][] = [];
+    const ordered = [...cluster].sort((a, b) => LANE_ORDER[a.e.activity] - LANE_ORDER[b.e.activity] || a.clipStart - b.clipStart);
+    for (const ev of ordered) {
+      let lane = lanes.findIndex((ivs) => ivs.every((iv) => Math.min(iv.e, ev.layoutEnd) - Math.max(iv.s, ev.clipStart) <= EPS));
+      if (lane === -1) {
+        lane = lanes.length;
+        lanes.push([]);
+      }
+      lanes[lane].push({ s: ev.clipStart, e: ev.layoutEnd });
+      ev.lane = lane;
+    }
+    for (const ev of cluster) ev.lanes = lanes.length;
+  }
   return evs;
 }
 
@@ -642,13 +701,13 @@ function renderBlock(
   const left = `calc(${((lane / lanes) * 100).toFixed(3)}% + 1px)`;
   const width = `calc(${(100 / lanes).toFixed(3)}% - 2px)`;
   const key = `${e.path}${e.id}`;
-  const common = { onClick: () => onEdit(e), "aria-label": `${e.activity} ${clockTime(e.startMs)}` };
+  const common = { onClick: () => onEdit(e), className: "cal-blk", "aria-label": `${e.activity} ${clockTime(e.startMs)}` };
 
   // Instant entries (diaper, medication) render as a small dot marker rather than a bar.
   if (e.activity === "diaper" || e.activity === "medication") {
     return <button key={key} {...common} style={{ ...s.blkDiaper, top, left, width, background: accent }} />;
   }
-  const h = Math.max(3, ((clipEnd - clipStart) / 3_600_000) * hourPx);
+  const h = Math.max(6, ((clipEnd - clipStart) / 3_600_000) * hourPx);
   if (e.activity === "sleep") {
     return <button key={key} {...common} style={{ ...s.blkSleep, top, left, width, height: h, background: `${accent}3d`, borderLeft: `2px solid ${accent}` }} />;
   }
@@ -683,23 +742,32 @@ function SummaryView({
   const days = Math.max(1, range.days.filter((d) => d <= now).length);
   const goal = tummyGoalForAge(birthDate, range.from);
 
-  // Week-over-week deltas, per day (the previous week always divides by its full 7 days).
+  // Week-over-week deltas, per day. The previous period divides by the days the child actually
+  // existed in it — for a baby born mid-week, dividing by 7 would deflate every "last week"
+  // average and fake a surge in the deltas. Under 3 lived days the comparison is noise: hide it.
   const prev = useMemo(
     () => summarize(prevEntries ?? [], addDays(range.from, -7), range.from),
     [prevEntries, range],
   );
-  const hasPrev = (prevEntries?.length ?? 0) > 0;
+  const prevFrom = addDays(range.from, -7);
+  const birthMs = birthDate ? Date.parse(birthDate) : NaN;
+  const prevLifeDays = Number.isNaN(birthMs)
+    ? 7
+    : Array.from({ length: 7 }, (_, i) => addDays(prevFrom, i)).filter((d) => d >= startOfDay(birthMs)).length;
+  const prevDays = clamp(prevLifeDays, 1, 7);
+  const hasPrev = (prevEntries?.length ?? 0) > 0 && prevLifeDays >= 3;
   const delta = {
-    sleep: signedHm(stats.sleepMs / days - prev.sleepMs / 7),
-    feeding: signedCount(Math.round(stats.feedCount / days - prev.feedCount / 7)),
-    diaper: signedCount(Math.round(stats.diaperCount / days - prev.diaperCount / 7)),
-    tummy: signedHm(stats.tummyMs / days - prev.tummyMs / 7),
+    sleep: signedHm(stats.sleepMs / days - prev.sleepMs / prevDays),
+    feeding: signedCount(Math.round(stats.feedCount / days - prev.feedCount / prevDays)),
+    diaper: signedCount(Math.round(stats.diaperCount / days - prev.diaperCount / prevDays)),
+    tummy: signedHm(stats.tummyMs / days - prev.tummyMs / prevDays),
   } as const;
 
   if (entries == null) return <div style={s.empty}><div className="spin" style={{ width: 28, height: 28, borderRadius: "50%", border: `3px solid ${palette.surfaceStrongBorder}`, borderTopColor: palette.accents.feeding.accent }} /></div>;
 
   const cards = [
-    { key: "sleep", big: hm(stats.sleepMs / days), sub: t("cal.longest", { duration: hm(stats.longestSleep) }) },
+    // "/day" on the value, like the other cards — a bare "9h 30m" reads as the week's total.
+    { key: "sleep", big: t("cal.durationPerDay", { duration: hm(stats.sleepMs / days) }), sub: t("cal.longest", { duration: hm(stats.longestSleep) }) },
     { key: "feeding", big: t("cal.perDay", { count: Math.round(stats.feedCount / days) }), sub: stats.avgGap != null ? t("cal.everyInterval", { duration: hm(stats.avgGap) }) : "—" },
     { key: "diaper", big: t("cal.perDay", { count: Math.round(stats.diaperCount / days) }), sub: t("cal.wetSolid", { wet: stats.wet, solid: stats.solid }) },
     { key: "tummy", big: t("cal.minPerDay", { value: Math.round(stats.tummyMs / days / 60_000) }), sub: t("cal.goalMin", { goal }) },

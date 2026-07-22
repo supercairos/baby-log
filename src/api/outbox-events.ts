@@ -36,6 +36,29 @@ export function onOutboxError(listener: OutboxErrorListener): () => void {
   };
 }
 
-export function emitOutboxError(failure: OutboxFailure): void {
+/** Returns true when at least one listener received it — i.e. a page was open to toast it.
+ *  When false (SW-realm drain, or no UI mounted) the caller must persist the failure instead. */
+export function emitOutboxError(failure: OutboxFailure): boolean {
   for (const fn of listeners) fn(failure);
+  return listeners.size > 0;
+}
+
+type OutboxChangeListener = () => void;
+const changeListeners = new Set<OutboxChangeListener>();
+
+/**
+ * Subscribe to queue-size changes (a mutation enqueued, or a record drained/dropped) so the UI
+ * can re-read `pendingCount()` instead of polling IndexedDB. Carries no payload — the count is
+ * re-derived from the store. Same single-realm caveat as above: an SW-side drain emits into the
+ * worker only; the page catches up on its own flush (interval/online/focus).
+ */
+export function onOutboxChange(listener: OutboxChangeListener): () => void {
+  changeListeners.add(listener);
+  return () => {
+    changeListeners.delete(listener);
+  };
+}
+
+export function emitOutboxChange(): void {
+  for (const fn of changeListeners) fn();
 }

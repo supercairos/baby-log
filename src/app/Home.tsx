@@ -31,10 +31,13 @@ import {
   logDiaperMutation,
   logMedicationMutation,
   mergeTimerMapping,
+  onOutboxChange,
   onOutboxError,
+  pendingCount,
   setTimerMapping,
   startOutboxAutoFlush,
   startTimerMutation,
+  takeDeadLetters,
   updateEntryMutation,
 } from "../api";
 import { useStyles, useTheme } from "../theme";
@@ -61,7 +64,7 @@ import {
 } from "./notifications";
 import { fmt, hm, iso, nowIso, nowMs, parseDurationMs, toDurationField } from "../lib/format";
 import { clockTime, formatAge, greeting } from "../lib/datetime";
-import { predictNext, predictSleepEnd, type ActivityPrediction } from "../lib/predict";
+import { predictNext, predictSleepEnd, predictionAlive, type ActivityPrediction } from "../lib/predict";
 import { lastNight } from "../lib/night";
 import { tummyProgress } from "../lib/tummy";
 import { activityLabel, diaperMeta, feedingMeta } from "../lib/labels";
@@ -83,7 +86,20 @@ import type { EditDraft, EditTarget, RecentMed } from "./types";
 import type { ActivityKey } from "../api";
 
 const TILE_ORDER: ActivityKey[] = ["feeding", "sleep", "diaper", "tummy"];
-const STALE_SLEEP_MS = 14 * 3600_000;
+// A probably-forgotten timer, per activity: a feed rarely runs 2h and tummy time 1h; sleep
+// can legitimately run all night, so its threshold stays much higher.
+const STALE_AFTER_MS: Record<TimerActivityKey, number> = {
+  feeding: 2 * 3600_000,
+  sleep: 14 * 3600_000,
+  tummy: 1 * 3600_000,
+};
+// How long a deleted entry's mutation is held back so the toast's Undo can cancel it.
+const UNDO_DELETE_MS = 5000;
+
+// Failed-write toasts: map a mutation kind onto the action.* locale keys.
+const KNOWN_ACTION_KEYS = new Set(["start-timer", "log-diaper", "log-medication", "update-entry", "delete-entry"]);
+const actionKeyFor = (kind: string): string =>
+  kind.startsWith("consume") ? "consume" : kind.startsWith("create") ? "create" : KNOWN_ACTION_KEYS.has(kind) ? kind : "generic";
 
 // Feeding sheet: `localId: null` = pre-start (details chosen BEFORE the timer exists — the
 // CTA starts it); a real localId = refine mode over an already-running timer. `lastMethod`
@@ -112,10 +128,10 @@ export function Home({
   const qc = useQueryClient();
   const now = useNow();
 
-  const { children, childId, selectChild } = useChildren(client);
+  const { children, childId, selectChild, error: childrenError, refresh: refreshChildren } = useChildren(client);
   const { running, refresh: refreshRunning } = useRunningTimers(client, childId);
-  const { entries, refresh: refreshTimeline, removeLocal, updatedAt: timelineUpdatedAt } = useTimeline(client, childId);
-  const { toast, show } = useToast();
+  const { entries, refresh: refreshTimeline, removeLocal, restoreLocal, updatedAt: timelineUpdatedAt, error: timelineError } = useTimeline(client, childId);
+  const { toast, show, dismiss } = useToast();
   const { canInstall, promptInstall } = usePwaInstall();
 
   const navigate = useNavigate();
@@ -128,12 +144,19 @@ export function Home({
   const [lastFeed, setLastFeed] = useState<Record<number, FeedSel>>({});
   const [notify, setNotify] = useState(() => localStorage.getItem("baby-log:notify") === "on");
   const [napAlert, setNapAlert] = useState(() => localStorage.getItem("baby-log:napalert") === "on");
+  // Offline/pending pill inputs: `navigator.onLine` flips instantly via the window events; the
+  // pending count re-reads the outbox on its change events (enqueue/drain), not by polling.
+  const [online, setOnline] = useState(() => navigator.onLine);
+  const [pendingWrites, setPendingWrites] = useState(0);
   // The predicted-nap window we already notified for (bucketed), so the per-minute prediction
   // refresh can't re-fire the same alert.
   const napFired = useRef<number>(0);
   // Synchronous in-flight guard so a rapid double-tap can't start/stop the same thing twice
   // (the `running` state updates async, too late to dedupe taps).
   const pending = useRef<Set<string>>(new Set());
+  // Deletes held back for the undo window, keyed per row (path#id) so rapid multiple deletes
+  // each keep their own timer. `run` enqueues the mutation; kept so pagehide can flush early.
+  const pendingDeletes = useRef<Map<string, { timeout: number; run: () => void }>>(new Map());
 
   const accentOf = (a: ActivityKey) => palette.accents[a].accent;
   const child = children?.find((c) => c.id === childId) ?? null;
@@ -162,13 +185,14 @@ export function Home({
     [entries, child, nowMinute],
   );
   // Confident-enough estimates, soonest first. An activity with a running timer is omitted
-  // (it's already in progress); the rest stay visible alongside the running card(s).
+  // (it's already in progress), and a long-expired eta is dropped — a prediction blown far
+  // past its own confidence window is noise, not a forecast.
   const upNext = useMemo(() => {
     const busy = new Set<string>(running.map((r) => r.activity));
     return (Object.values(predictions) as ActivityPrediction[])
-      .filter((p) => p.confidence >= 0.1 && !busy.has(p.activity))
+      .filter((p) => p.confidence >= 0.1 && !busy.has(p.activity) && predictionAlive(p, nowMinute * 60_000))
       .sort((a, b) => a.etaMs - b.etaMs);
-  }, [predictions, running]);
+  }, [predictions, running, nowMinute]);
   // Show the tummy stat unless a tummy timer is already running, and don't let a lone "0/x min"
   // row pre-empt the cold-start nudge (only surface it once there's tummy time logged or other
   // estimates to sit beside).
@@ -243,19 +267,28 @@ export function Home({
   // Background outbox flushing (online/focus/interval) — covers retries beyond submit().
   useEffect(() => startOutboxAutoFlush(client), [client]);
 
+  useEffect(() => {
+    const up = () => setOnline(true);
+    const down = () => setOnline(false);
+    window.addEventListener("online", up);
+    window.addEventListener("offline", down);
+    return () => {
+      window.removeEventListener("online", up);
+      window.removeEventListener("offline", down);
+    };
+  }, []);
+
+  useEffect(() => {
+    const refresh = () => void pendingCount().then(setPendingWrites).catch(() => {});
+    refresh(); // writes may be left over from a previous session
+    return onOutboxChange(refresh);
+  }, []);
+
   // Surface permanently-failed writes (rejected field, bad token, …) as a toast — they don't
   // retry, so the user would otherwise see a logged action silently vanish.
   useEffect(
     () =>
       onOutboxError((f) => {
-        const known = new Set(["start-timer", "log-diaper", "log-medication", "update-entry", "delete-entry"]);
-        const key = f.actionKind.startsWith("consume")
-          ? "consume"
-          : f.actionKind.startsWith("create")
-            ? "create"
-            : known.has(f.actionKind)
-              ? f.actionKind
-              : "generic";
         const reason =
           f.detail ??
           (f.status === 401 || f.status === 403
@@ -263,10 +296,48 @@ export function Home({
             : f.status === 0
               ? t("error.network")
               : t("error.serverRejected", { status: f.status }));
-        show(t("action.failed", { action: t(`action.${key}`), reason }), palette.danger, 4500);
+        show(t("action.failed", { action: t(`action.${actionKeyFor(f.actionKind)}`), reason }), palette.danger, 4500);
       }),
     [t, show, palette.danger],
   );
+
+  // Writes that dead-lettered while nothing was listening (an SW Background Sync drain, or a
+  // drain with the app closed) — surface one danger toast on mount/focus, then clear them.
+  useEffect(() => {
+    const check = () =>
+      void takeDeadLetters()
+        .then((dead) => {
+          if (dead.length > 0) show(t("toast.syncFailed"), palette.danger, 5000);
+        })
+        .catch(() => {});
+    check();
+    const onVisible = () => {
+      if (document.visibilityState === "visible") check();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [t, show, palette.danger]);
+
+  // Undo window safety net: a delete still held back when the app closes/backgrounds is
+  // enqueued immediately — the intent must never be lost to a killed tab.
+  useEffect(() => {
+    const flushAll = () => {
+      for (const [key, p] of [...pendingDeletes.current]) {
+        window.clearTimeout(p.timeout);
+        pendingDeletes.current.delete(key);
+        p.run();
+      }
+    };
+    const onHidden = () => {
+      if (document.visibilityState === "hidden") flushAll();
+    };
+    window.addEventListener("pagehide", flushAll);
+    document.addEventListener("visibilitychange", onHidden);
+    return () => {
+      window.removeEventListener("pagehide", flushAll);
+      document.removeEventListener("visibilitychange", onHidden);
+    };
+  }, []);
 
   // Mirror running timers into OS notifications (with a Stop action) when enabled.
   useEffect(() => {
@@ -296,6 +367,9 @@ export function Home({
       if (document.visibilityState !== "visible") return;
       refreshRunning();
       refreshTimeline();
+      // Cold-start recovery: the children fetch has no polling of its own, so a failed first
+      // load would otherwise stay broken until a manual retry.
+      if (childrenError) void refreshChildren();
     };
     document.addEventListener("visibilitychange", refresh);
     window.addEventListener("pageshow", refresh); // iOS bfcache resume — focus often doesn't fire
@@ -305,7 +379,7 @@ export function Home({
       window.removeEventListener("pageshow", refresh);
       window.removeEventListener("online", refresh);
     };
-  }, [refreshRunning, refreshTimeline]);
+  }, [refreshRunning, refreshTimeline, childrenError, refreshChildren]);
 
   const toggleNotify = async () => {
     buzz();
@@ -400,14 +474,24 @@ export function Home({
   // ── write pipeline ──
   const submit = (m: Mutation) => {
     refreshRunning();
-    void enqueueMutation(m)
-      .then(() => flushOutbox(client))
-      .then(() => {
-        refreshRunning();
-        refreshTimeline();
-        void qc.invalidateQueries({ queryKey: ["calendar"] }); // refresh the calendar grids/summary
-      })
-      .catch(() => {});
+    void enqueueMutation(m).then(
+      () =>
+        // Enqueued durably — flush failures from here stay silent: the retry loop
+        // (auto-flush / Background Sync) owns them, and dead letters surface separately.
+        flushOutbox(client)
+          .then(() => {
+            refreshRunning();
+            refreshTimeline();
+            void qc.invalidateQueries({ queryKey: ["calendar"] }); // refresh the calendar grids/summary
+          })
+          .catch(() => {}),
+      (err: unknown) => {
+        // The enqueue itself failed (IndexedDB unavailable / quota): the write never became
+        // durable and will NOT retry — the optimistic feedback lied, so say so.
+        const reason = err instanceof Error && err.message ? err.message : String(err);
+        show(t("action.failed", { action: t(`action.${actionKeyFor(m.kind)}`), reason }), palette.danger, 4500);
+      },
+    );
   };
 
   const feedingFieldsFor = (
@@ -457,14 +541,24 @@ export function Home({
         submit(consumeTimerMutation("tummy", localId, childId));
       }
       if (sheet?.type === "feeding") setSheet(null);
-      show(t("toast.saved", { activity: activityLabel(rt.activity), duration: fmt(durationMs) }), accentOf(rt.activity));
+      show(t("toast.saved", { activity: activityLabel(rt.activity), duration: hm(durationMs) }), accentOf(rt.activity));
     } finally {
       pending.current.delete(guard);
     }
   };
 
+  /** Undo a discard: start a NEW timer backdated to the original start (fresh localId — the
+   *  old one is consumed by the queued discard), so the elapsed time survives the round-trip
+   *  and the whole exchange replays cleanly through the outbox in FIFO order. */
+  const restoreTimer = async (snap: { activity: TimerActivityKey; childId: number; startedAt: string; feeding?: RunningTimer["feeding"] }) => {
+    const { mutation, localId } = startTimerMutation(snap.activity, snap.childId, snap.startedAt);
+    await setTimerMapping({ localId, startedAt: snap.startedAt, activity: snap.activity, childId: snap.childId, ...(snap.feeding ? { feeding: snap.feeding } : {}) });
+    submit(mutation);
+    show(t("toast.started", { activity: activityLabel(snap.activity) }), accentOf(snap.activity));
+  };
+
   /** Discard a mistaken timer WITHOUT logging an entry (`DELETE /api/timers/<id>/` via the
-   *  outbox) — per the spec, the escape hatch for an accidental start. */
+   *  outbox) — per the spec, the escape hatch for an accidental start. Undoable via the toast. */
   const discard = async (rt: RunningTimer) => {
     if (childId == null) return;
     const guard = `discard:${rt.key}`;
@@ -480,7 +574,12 @@ export function Home({
       }
       submit(discardTimerMutation(localId));
       if (sheet?.type === "feeding" && rt.activity === "feeding") setSheet(null);
-      show(t("toast.timerDiscarded"), palette.danger);
+      // Snapshot everything the undo needs NOW — `rt` and `childId` may be gone by tap time.
+      const snap = { activity: rt.activity, childId, startedAt: iso(rt.startedMs), feeding: rt.feeding };
+      show(t("toast.timerDiscarded"), palette.danger, undefined, {
+        label: t("common.undo"),
+        onAction: () => void restoreTimer(snap),
+      });
     } finally {
       pending.current.delete(guard);
     }
@@ -627,11 +726,16 @@ export function Home({
     setEditing((t) => (t ? { ...t, activity: key } : t));
     setDraft((d) => {
       if (!d) return d;
+      // A backdated feed starts from the same remembered choice as the live flow — a blank
+      // sheet costs three extra taps. Only when the draft is still untouched, so returning
+      // from the picker keeps any edits; saving stays out of lastFeed (only stop() writes it).
+      const last = key === "feeding" && d.type == null && d.method == null && childId != null ? lastFeed[childId] : undefined;
+      const seeded = last ? { ...d, type: last.type, method: last.method, amount: last.amount ?? null } : d;
       // Instant activities (diaper, medication) log a single moment — no span.
-      if (!ACTIVITIES[key].timed) return { ...d, endMs: null };
+      if (!ACTIVITIES[key].timed) return { ...seeded, endMs: null };
       // Default to a 15-min span ENDING now — Baby Buddy rejects future times.
       const end = nowMs();
-      return { ...d, startMs: end - 15 * 60_000, endMs: end };
+      return { ...seeded, startMs: end - 15 * 60_000, endMs: end };
     });
   };
 
@@ -704,13 +808,33 @@ export function Home({
     setDraft(null);
   };
 
+  /** Delete an entry: the row disappears immediately (optimistic tombstone), but the actual
+   *  mutation is HELD for the undo window — Undo cancels it and the server never knows. */
   const removeEntry = (e: TimelineEntry) => {
     buzz();
-    submit(deleteEntryMutation(e.id, e.path));
     removeLocal(e.path, e.id);
     setEditing(null);
     setDraft(null);
-    show(t("toast.entryDeleted"), palette.danger);
+    const key = `${e.path}#${e.id}`;
+    // Re-deleting the same row (delete → undo → delete) restarts its clock.
+    const prev = pendingDeletes.current.get(key);
+    if (prev) window.clearTimeout(prev.timeout);
+    const run = () => {
+      pendingDeletes.current.delete(key);
+      submit(deleteEntryMutation(e.id, e.path));
+    };
+    pendingDeletes.current.set(key, { timeout: window.setTimeout(run, UNDO_DELETE_MS), run });
+    show(t("toast.entryDeleted"), palette.danger, undefined, {
+      label: t("common.undo"),
+      onAction: () => {
+        const held = pendingDeletes.current.get(key);
+        if (!held) return; // already flushed (pagehide) — too late to take back
+        window.clearTimeout(held.timeout);
+        pendingDeletes.current.delete(key);
+        restoreLocal(e.path, e.id);
+        refreshTimeline(); // refetch brings the row straight back
+      },
+    });
   };
 
   const deleteEditing = () => {
@@ -757,6 +881,16 @@ export function Home({
           </div>
         </div>
       </div>
+      {/* Cold-start failure (no children, nothing cached): the header would say "Loading…"
+          forever and the tiles would silently no-op — say why, and offer a retry. */}
+      {children == null && childrenError && (
+        <div style={s.errBanner}>
+          <span style={s.errBannerText}>{t("error.cantReachServer")}</span>
+          <button onClick={() => { buzz(); void refreshChildren(); }} style={s.errBannerBtn}>
+            {t("common.retry")}
+          </button>
+        </div>
+      )}
       {children && children.length > 1 && (
         <div style={s.children}>
           {children.map((c) => {
@@ -796,6 +930,22 @@ export function Home({
             <>
           {renderHeader(greeting())}
 
+          {/* Offline/pending pill — the only hint that a tap was buffered, not lost. Hidden in
+              the normal case (online, empty outbox); warn-amber dot only while actually offline
+              (pending-while-online is just the flush catching up — not alarming). */}
+          {(!online || pendingWrites > 0) && (
+            <div style={s.syncRow}>
+              <span style={s.syncPill}>
+                <span aria-hidden style={{ ...s.syncDot, ...(online ? {} : { background: palette.warn }) }} />
+                {!online
+                  ? pendingWrites > 0
+                    ? `${t("sync.offline")} · ${t("sync.pending", { count: pendingWrites })}`
+                    : t("sync.offline")
+                  : t("sync.pending", { count: pendingWrites })}
+              </span>
+            </div>
+          )}
+
           {/* Running timers, then the discreet "up next" estimates. The estimates stay visible
               while a timer runs (the running activity is filtered out of `upNext`); the idle
               line shows only when nothing's running and there's nothing to estimate. */}
@@ -809,7 +959,7 @@ export function Home({
               if (rt.activity === "sleep" && rt === runningSleep && runningSleepEnd && runningSleepEnd.confidence >= 0.3 && runningSleepEnd.endMs > now) {
                 meta = t("home.wakeAround", { time: clockTime(runningSleepEnd.endMs) });
               }
-              const stale = rt.activity === "sleep" && elapsed > STALE_SLEEP_MS;
+              const stale = elapsed > STALE_AFTER_MS[rt.activity];
               return (
                 <div key={rt.key} className="run-in" style={{ ...s.runCard, ...runCardAccent(v), ...(stale ? s.runCardStale : {}) }}>
                   <button onClick={() => void stop(rt)} style={s.runBody} aria-label={`${activityLabel(rt.activity)} — ${t("home.tapToStop")}`}>
@@ -879,40 +1029,23 @@ export function Home({
                     </span>
                   </div>
                 )}
-                {/* Last feeding at a glance: when (clock + how long ago) and how (type · side · ml). */}
+                {/* Last feeding at a glance: when (start – end) and how (type · side · ml).
+                    The time cell may wrap to a second line for long combos (formula bottle in
+                    de/fr) — full info beats one-line here, per explicit user preference. */}
                 {lastFeeding && (
                   <div style={s.estimateRow}>
                     <span style={{ ...s.estimateIcon, background: `${palette.accents.feeding.accent}14`, color: palette.accents.feeding.accent }}>
                       <ACTIVITY_ICON.feeding size={16} />
                     </span>
                     <span style={s.estimateLabel}>{t("home.lastFeeding")}</span>
-                    <span style={s.estimateTime}>
-                      {clockTime(lastFeeding.startMs)} · {feedingMeta(lastFeeding.type, lastFeeding.method, lastFeeding.amount)}
+                    <span style={{ ...s.estimateTime, textAlign: "right" }}>
+                      {clockTime(lastFeeding.startMs)}
+                      {lastFeeding.endMs != null ? ` – ${clockTime(lastFeeding.endMs)}` : ""}
+                      {" · "}
+                      {feedingMeta(lastFeeding.type, lastFeeding.method, lastFeeding.amount)}
                     </span>
                   </div>
                 )}
-                <div style={s.estimatesHead}>{t("home.upNext")}</div>
-                {upNext.map((p) => {
-                  const v = palette.accents[p.activity];
-                  const Icon = ACTIVITY_ICON[p.activity];
-                  // The next sleep also says how long it should last ("~15:19 · ~45m").
-                  const durHint =
-                    p.activity === "sleep" && nextSleepEnd && nextSleepEnd.confidence >= 0.3
-                      ? ` · ~${hm(nextSleepEnd.endMs - p.etaMs)}`
-                      : "";
-                  return (
-                    <div key={p.activity} style={s.estimateRow}>
-                      <span style={{ ...s.estimateIcon, background: `${v.accent}14`, color: v.accent }}>
-                        <Icon size={16} />
-                      </span>
-                      <span style={s.estimateLabel}>{activityLabel(p.activity)}</span>
-                      <span style={s.estimateTime}>
-                        {p.etaMs <= now + 60_000 ? t("home.dueNow") : `~${clockTime(p.etaMs)}`}
-                        {durHint}
-                      </span>
-                    </div>
-                  );
-                })}
                 {showTummy && tummy && (
                   <div style={s.estimateRow}>
                     <span style={{ ...s.estimateIcon, background: `${palette.accents.tummy.accent}14`, color: palette.accents.tummy.accent }}>
@@ -933,6 +1066,36 @@ export function Home({
                     <span style={s.estimateTime}>{t("home.mlToday", { ml: mlToday })}</span>
                   </div>
                 )}
+                {/* Facts (above) never sit under the "Prediction" header — it labels guesses only. */}
+                {upNext.length > 0 && <div style={s.estimatesHead}>{t("home.upNext")}</div>}
+                {upNext.map((p) => {
+                  const v = palette.accents[p.activity];
+                  const Icon = ACTIVITY_ICON[p.activity];
+                  // The next sleep also says how long it should last ("~15:19 · ~45m").
+                  const durHint =
+                    p.activity === "sleep" && nextSleepEnd && nextSleepEnd.confidence >= 0.3
+                      ? ` · ~${hm(nextSleepEnd.endMs - p.etaMs)}`
+                      : "";
+                  return (
+                    <div key={p.activity} style={s.estimateRow}>
+                      <span style={{ ...s.estimateIcon, background: `${v.accent}14`, color: v.accent }}>
+                        <Icon size={16} />
+                      </span>
+                      <span style={s.estimateLabel}>{activityLabel(p.activity)}</span>
+                      {/* Be honest about a passed eta but keep it a forecast: ±10 min reads
+                          "now", older reads "late by X" (never past tense — this sits under a
+                          "Prediction" header); past the grace window the row is gone entirely. */}
+                      <span style={s.estimateTime}>
+                        {p.etaMs > now + 10 * 60_000
+                          ? `~${clockTime(p.etaMs)}`
+                          : p.etaMs >= now - 10 * 60_000
+                            ? t("home.dueNowExact")
+                            : t("home.overdueBy", { late: hm(now - p.etaMs) })}
+                        {durHint}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             ) : running.length === 0 ? (
               <div style={s.idle}>
@@ -989,9 +1152,10 @@ export function Home({
                 birthDate={child?.birth_date ?? null}
                 listEntries={entries}
                 listUpdatedAt={timelineUpdatedAt}
+                listError={timelineError}
+                onRetryList={refreshTimeline}
                 onAdd={openAdd}
                 onEdit={openEdit}
-                onDelete={removeEntry}
               />
             </>
           }
@@ -1084,9 +1248,23 @@ export function Home({
       <DiaperSheet open={sheet?.type === "diaper"} onLog={logDiaper} />
       <EntrySheet target={editing} draft={draft} setDraft={(u) => setDraft((d) => (d ? u(d) : d))} recentMeds={recentMeds} onPickKind={pickKind} onBack={backToKindPicker} onSave={saveEdit} onDelete={deleteEditing} />
 
-      {/* Toast — the only action feedback (no confirm dialogs), so announce it. */}
+      {/* Toast — the only action feedback (no confirm dialogs), so announce it. The container
+          is click-through (pointerEvents none); only the Undo button re-enables them. */}
       <div role="status" aria-live="polite" style={{ ...s.toast, ...(toast ? s.toastOn : {}), ...(toast ? toastTone(toast.accent) : {}) }}>
         {toast?.msg}
+        {toast?.action && (
+          <button
+            onClick={() => {
+              buzz();
+              const action = toast?.action;
+              dismiss(); // consume the toast first — a double-tap must not undo twice
+              action?.onAction();
+            }}
+            style={s.toastAction}
+          >
+            {toast.action.label}
+          </button>
+        )}
       </div>
     </div>
   );

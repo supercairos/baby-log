@@ -4,6 +4,8 @@
     "cancel": "← Abbrechen",
     "done": "Fertig",
     "delete": "Löschen",
+    "undo": "Rückgängig",
+    "retry": "Erneut versuchen",
     "or": "oder",
     "loading": "Wird geladen…",
     "connecting": "Verbinden…"
@@ -72,7 +74,7 @@
     "tapToLog": "tippen zum Erfassen",
     "pickAndStart": "wählen & starten",
     "upNext": "Vorhersage",
-    "dueNow": "jetzt",
+    "dueNowExact": "jetzt",
     "stillGoing": "läuft noch?",
     "editFeeding": "Mahlzeit-Details bearbeiten",
     "menu": "Menü",
@@ -81,7 +83,9 @@
     "version": "Baby Log v{{version}}",
     "doseOkFrom": "ok ab ~{{time}}",
     "doseLastAgo": "letzte Dosis vor {{ago}}",
-    "lastFeeding": "Letzte Mahlzeit"
+    "lastFeeding": "Letzte Mahlzeit",
+    "overdueBy": "{{late}} überfällig",
+    "overdueByLabel": "überfällig seit"
   },
   "nav": {
     "home": "Start",
@@ -112,7 +116,8 @@
     "endBeforeStart": "Das Ende darf nicht vor dem Start liegen",
     "timeFuture": "Die Zeit darf nicht in der Zukunft liegen",
     "pickDiaper": "Wähle nass, Stuhl oder beides",
-    "medNameRequired": "Namen des Medikaments eingeben"
+    "medNameRequired": "Namen des Medikaments eingeben",
+    "syncFailed": "Ein Eintrag konnte nicht synchronisiert werden"
   },
   "timeline": {
     "addEntry": "Eintrag hinzufügen",
@@ -122,6 +127,11 @@
     "newEntries_one": "{{count}} neu",
     "newEntries_other": "{{count}} neue",
     "updated": "Aktualisiert {{ago}}"
+  },
+  "sync": {
+    "offline": "Offline",
+    "pending_one": "{{count}} ausstehend",
+    "pending_other": "{{count}} ausstehend"
   },
   "cal": {
     "day": "Tag",
@@ -137,6 +147,7 @@
     "everyInterval": "alle ~{{duration}}",
     "wetSolid": "{{wet}} nass · {{solid}} fest",
     "minPerDay": "{{value}} Min./Tag",
+    "durationPerDay": "{{duration}}/Tag",
     "goalMin": "Ziel {{goal}} Min.",
     "vsLastWeek": "{{delta}} ggü. Vorwoche"
   },
@@ -146,6 +157,7 @@
     "entry": "Eintrag",
     "backToPicker": "Zurück zur Aktivitätsauswahl",
     "timerRunning": "Timer läuft",
+    "startTimer": "Starten",
     "addDetailsHint": "füge bei Bedarf Details hinzu",
     "type": "Art",
     "method": "Methode",
@@ -215,7 +227,8 @@
   "error": {
     "notAuthorized": "Nicht autorisiert — prüfe dein Token.",
     "serverRejected": "Server hat die Anfrage abgelehnt (HTTP {{status}}).",
-    "network": "Netzwerkfehler — du bist offline oder der Server ist nicht erreichbar."
+    "network": "Netzwerkfehler — du bist offline oder der Server ist nicht erreichbar.",
+    "cantReachServer": "Server nicht erreichbar"
   },
   "update": {
     "available": "Update verfügbar — zum Aktualisieren tippen"

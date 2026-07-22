@@ -4,6 +4,8 @@
     "cancel": "← Cancelar",
     "done": "Listo",
     "delete": "Eliminar",
+    "undo": "Deshacer",
+    "retry": "Reintentar",
     "or": "o",
     "loading": "Cargando…",
     "connecting": "Conectando…"
@@ -72,7 +74,7 @@
     "tapToLog": "toca para registrar",
     "pickAndStart": "elige y empieza",
     "upNext": "Predicción",
-    "dueNow": "ahora",
+    "dueNowExact": "ahora",
     "stillGoing": "¿sigue en curso?",
     "editFeeding": "Editar detalles de la toma",
     "menu": "Menú",
@@ -81,7 +83,9 @@
     "version": "Baby Log v{{version}}",
     "doseOkFrom": "ok desde ~{{time}}",
     "doseLastAgo": "última dosis hace {{ago}}",
-    "lastFeeding": "Última toma"
+    "lastFeeding": "Última toma",
+    "overdueBy": "{{late}} de retraso",
+    "overdueByLabel": "con retraso de"
   },
   "nav": {
     "home": "Inicio",
@@ -112,7 +116,8 @@
     "endBeforeStart": "El fin no puede ser anterior al inicio",
     "timeFuture": "La hora no puede estar en el futuro",
     "pickDiaper": "Elige pis, caca o ambos",
-    "medNameRequired": "Introduce el nombre del medicamento"
+    "medNameRequired": "Introduce el nombre del medicamento",
+    "syncFailed": "No se pudo sincronizar un registro"
   },
   "timeline": {
     "addEntry": "Añadir entrada",
@@ -122,6 +127,11 @@
     "newEntries_one": "{{count}} nueva",
     "newEntries_other": "{{count}} nuevas",
     "updated": "Actualizado {{ago}}"
+  },
+  "sync": {
+    "offline": "Sin conexión",
+    "pending_one": "{{count}} pendiente",
+    "pending_other": "{{count}} pendientes"
   },
   "cal": {
     "day": "Día",
@@ -137,6 +147,7 @@
     "everyInterval": "cada ~{{duration}}",
     "wetSolid": "{{wet}} pis · {{solid}} caca",
     "minPerDay": "{{value}} min/día",
+    "durationPerDay": "{{duration}}/día",
     "goalMin": "meta {{goal}} min",
     "vsLastWeek": "{{delta}} vs sem. pasada"
   },
@@ -146,6 +157,7 @@
     "entry": "Entrada",
     "backToPicker": "Volver a la elección de actividad",
     "timerRunning": "Temporizador en curso",
+    "startTimer": "Empezar",
     "addDetailsHint": "añade detalles si quieres",
     "type": "Tipo",
     "method": "Método",
@@ -215,7 +227,8 @@
   "error": {
     "notAuthorized": "No autorizado — comprueba tu token.",
     "serverRejected": "El servidor rechazó la petición (HTTP {{status}}).",
-    "network": "Error de red — parece que estás sin conexión o el servidor no responde."
+    "network": "Error de red — parece que estás sin conexión o el servidor no responde.",
+    "cantReachServer": "No se puede conectar con el servidor"
   },
   "update": {
     "available": "Actualización disponible — toca para recargar"

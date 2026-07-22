@@ -36,6 +36,7 @@ import {
   acquireFlushLock,
   releaseFlushLock,
   pendingCount,
+  appendDeadLetter,
   type OutboxRecord,
 } from "./outbox";
 import type { Mutation, LocalId } from "./mutations";
@@ -181,8 +182,11 @@ async function drain(client: BabyBuddyClient): Promise<FlushSummary> {
       if (permanent) {
         // Give up and DROP the record: it will never land (a rejected 4xx, or out of retries),
         // and a kept "dead" entry serves nothing here — it only accumulates and can mis-suppress
-        // a timer. Surface it once so the action isn't lost silently.
-        emitOutboxError({ actionKind: m.kind, ...apiErrorDetail(err) });
+        // a timer. Surface it once so the action isn't lost silently: toast if a page is
+        // listening, else persist a dead letter for the next Home mount/focus (an SW-realm
+        // drain has no listeners).
+        const heard = emitOutboxError({ actionKind: m.kind, ...apiErrorDetail(err) });
+        if (!heard) await appendDeadLetter({ actionKind: m.kind, ...apiErrorDetail(err), at: Date.now() }).catch(() => {});
         if (record.seq !== undefined) await removeRecord(record.seq);
         // If this was a LONE start (no queued stop), drop its mapping too so it doesn't leave a
         // phantom running card for a timer the server never created. If a stop is also queued

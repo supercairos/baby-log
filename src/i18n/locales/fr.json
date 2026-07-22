@@ -4,6 +4,8 @@
     "cancel": "← Annuler",
     "done": "Terminé",
     "delete": "Supprimer",
+    "undo": "Annuler",
+    "retry": "Réessayer",
     "or": "ou",
     "loading": "Chargement…",
     "connecting": "Connexion…"
@@ -72,7 +74,7 @@
     "tapToLog": "appuyer pour noter",
     "pickAndStart": "choisir & démarrer",
     "upNext": "Prédiction",
-    "dueNow": "bientôt",
+    "dueNowExact": "maintenant",
     "stillGoing": "toujours en cours ?",
     "editFeeding": "Modifier les détails du repas",
     "menu": "Menu",
@@ -81,7 +83,9 @@
     "version": "Baby Log v{{version}}",
     "doseOkFrom": "ok à partir de ~{{time}}",
     "doseLastAgo": "dernière dose il y a {{ago}}",
-    "lastFeeding": "Dernier repas"
+    "lastFeeding": "Dernier repas",
+    "overdueBy": "en retard de {{late}}",
+    "overdueByLabel": "en retard de"
   },
   "nav": {
     "home": "Accueil",
@@ -112,7 +116,8 @@
     "endBeforeStart": "La fin ne peut pas précéder le début",
     "timeFuture": "L'heure ne peut pas être dans le futur",
     "pickDiaper": "Choisissez pipi, selles, ou les deux",
-    "medNameRequired": "Saisissez le nom du médicament"
+    "medNameRequired": "Saisissez le nom du médicament",
+    "syncFailed": "Une écriture n'a pas pu être synchronisée"
   },
   "timeline": {
     "addEntry": "Ajouter une entrée",
@@ -122,6 +127,11 @@
     "newEntries_one": "{{count}} nouvelle",
     "newEntries_other": "{{count}} nouvelles",
     "updated": "Mis à jour {{ago}}"
+  },
+  "sync": {
+    "offline": "Hors ligne",
+    "pending_one": "{{count}} en attente",
+    "pending_other": "{{count}} en attente"
   },
   "cal": {
     "day": "Jour",
@@ -137,6 +147,7 @@
     "everyInterval": "toutes les ~{{duration}}",
     "wetSolid": "{{wet}} pipi · {{solid}} selles",
     "minPerDay": "{{value}} min/jour",
+    "durationPerDay": "{{duration}}/jour",
     "goalMin": "objectif {{goal}} min",
     "vsLastWeek": "{{delta}} vs sem. dern."
   },
@@ -146,6 +157,7 @@
     "entry": "Entrée",
     "backToPicker": "Revenir au choix d’activité",
     "timerRunning": "Minuterie en cours",
+    "startTimer": "Démarrer",
     "addDetailsHint": "ajoutez des détails si vous voulez",
     "type": "Type",
     "method": "Méthode",
@@ -215,7 +227,8 @@
   "error": {
     "notAuthorized": "Non autorisé — vérifiez votre jeton.",
     "serverRejected": "Le serveur a rejeté la requête (HTTP {{status}}).",
-    "network": "Erreur réseau — vous semblez hors ligne ou le serveur est injoignable."
+    "network": "Erreur réseau — vous semblez hors ligne ou le serveur est injoignable.",
+    "cantReachServer": "Connexion au serveur impossible"
   },
   "update": {
     "available": "Mise à jour disponible — appuyez pour actualiser"

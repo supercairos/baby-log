@@ -74,6 +74,19 @@ textarea {
   to { transform: rotate(360deg); }
 }
 
+/* Week-grid event blocks can be minutes tall — an invisible ::after strip stretches each
+   tap target to at least 24px without changing the visuals. The blocks are absolutely
+   positioned (lane layout), so they already contain the pseudo-element. */
+.cal-blk::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: max(100%, 24px);
+  transform: translateY(-50%);
+}
+
 .spin { animation: spin 0.9s linear infinite; }
 .tile-in { opacity: 0; animation: tileIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
 .run-in { animation: runIn 0.4s cubic-bezier(0.22, 1, 0.36, 1); }

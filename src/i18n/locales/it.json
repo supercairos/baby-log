@@ -4,6 +4,8 @@
     "cancel": "← Annulla",
     "done": "Fatto",
     "delete": "Elimina",
+    "undo": "Annulla",
+    "retry": "Riprova",
     "or": "o",
     "loading": "Caricamento…",
     "connecting": "Connessione…"
@@ -72,7 +74,7 @@
     "tapToLog": "tocca per registrare",
     "pickAndStart": "scegli e avvia",
     "upNext": "Previsione",
-    "dueNow": "ora",
+    "dueNowExact": "adesso",
     "stillGoing": "ancora in corso?",
     "editFeeding": "Modifica i dettagli della poppata",
     "menu": "Menu",
@@ -81,7 +83,9 @@
     "version": "Baby Log v{{version}}",
     "doseOkFrom": "ok dalle ~{{time}}",
     "doseLastAgo": "ultima dose {{ago}} fa",
-    "lastFeeding": "Ultimo pasto"
+    "lastFeeding": "Ultimo pasto",
+    "overdueBy": "in ritardo di {{late}}",
+    "overdueByLabel": "in ritardo di"
   },
   "nav": {
     "home": "Home",
@@ -112,7 +116,8 @@
     "endBeforeStart": "La fine non può precedere l'inizio",
     "timeFuture": "L'orario non può essere nel futuro",
     "pickDiaper": "Scegli pipì, feci o entrambi",
-    "medNameRequired": "Inserisci il nome del farmaco"
+    "medNameRequired": "Inserisci il nome del farmaco",
+    "syncFailed": "Non è stato possibile sincronizzare una voce"
   },
   "timeline": {
     "addEntry": "Aggiungi voce",
@@ -122,6 +127,11 @@
     "newEntries_one": "{{count}} nuova",
     "newEntries_other": "{{count}} nuove",
     "updated": "Aggiornato {{ago}}"
+  },
+  "sync": {
+    "offline": "Offline",
+    "pending_one": "{{count}} in attesa",
+    "pending_other": "{{count}} in attesa"
   },
   "cal": {
     "day": "Giorno",
@@ -137,6 +147,7 @@
     "everyInterval": "ogni ~{{duration}}",
     "wetSolid": "{{wet}} pipì · {{solid}} cacca",
     "minPerDay": "{{value}} min/giorno",
+    "durationPerDay": "{{duration}}/giorno",
     "goalMin": "obiettivo {{goal}} min",
     "vsLastWeek": "{{delta}} vs sett. scorsa"
   },
@@ -146,6 +157,7 @@
     "entry": "Voce",
     "backToPicker": "Torna alla scelta dell’attività",
     "timerRunning": "Timer in corso",
+    "startTimer": "Avvia",
     "addDetailsHint": "aggiungi dettagli se vuoi",
     "type": "Tipo",
     "method": "Metodo",
@@ -215,7 +227,8 @@
   "error": {
     "notAuthorized": "Non autorizzato — controlla il tuo token.",
     "serverRejected": "Il server ha rifiutato la richiesta (HTTP {{status}}).",
-    "network": "Errore di rete — sembri offline o il server non è raggiungibile."
+    "network": "Errore di rete — sembri offline o il server non è raggiungibile.",
+    "cantReachServer": "Impossibile raggiungere il server"
   },
   "update": {
     "available": "Aggiornamento disponibile — tocca per ricaricare"
