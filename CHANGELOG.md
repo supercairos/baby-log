@@ -1,5 +1,29 @@
 # Changelog
 
+## [1.17.0](https://github.com/supercairos/baby-log/compare/baby-log-v1.16.0...baby-log-v1.17.0) (2026-07-22)
+
+
+### Features
+
+* clearer CTAs, durations and prediction wording ([ddec249](https://github.com/supercairos/baby-log/commit/ddec249cb4c79cd19156d611d43098acadd25da1))
+* give overlapping week-grid events a fixed left-to-right lane order ([54da589](https://github.com/supercairos/baby-log/commit/54da5896fe65a6ad2930912b7913027f87f81208))
+* offline/pending pill and honest freshness dot ([c09d891](https://github.com/supercairos/baby-log/commit/c09d891e99d4a4e7a7e2093b82e57927bf8737da))
+* scrollable keyboard-safe sheets, add-entry pre-fill, bigger calendar hit areas ([00bcfa0](https://github.com/supercairos/baby-log/commit/00bcfa0dfb2734727cfa520d948f4a7c181e3bfa))
+* show the last feeding's time range on the home glance row ([1ac2065](https://github.com/supercairos/baby-log/commit/1ac20652d1395d931430522afc89436d6d937ebb))
+* split the dial's overdue text onto two lines ([e1ed55c](https://github.com/supercairos/baby-log/commit/e1ed55c6e7bee8e081d28e9137d07f1f276c7f71))
+* stale-timer nudges per activity, undo for destructive taps, resilient writes ([9b2de1f](https://github.com/supercairos/baby-log/commit/9b2de1fd6533403758e967ee44ea35b71640a581))
+* UX polish — data safety, honest predictions, clearer copy, reachability, legibility ([cddb242](https://github.com/supercairos/baby-log/commit/cddb2422c170b9eef5a720135d2b26479849be09))
+
+
+### Bug Fixes
+
+* compact overdue text in the day-dial centre so it fits the ring ([e1a9128](https://github.com/supercairos/baby-log/commit/e1a91288af89c65aa22099165a79d9dff76b564b))
+* expire overdue predictions by their own confidence window, not a flat hour ([8bad5a1](https://github.com/supercairos/baby-log/commit/8bad5a1a2f13abad48fb7c2e4a0f8af11c7b6bc8))
+* keep overdue predictions in the future tense and expire stale ones ([2589e10](https://github.com/supercairos/baby-log/commit/2589e10c3a502b0d09c43041cf35c3eb94ebf4b1))
+* keep the feeding type in the last-feeding glance row ([e6445c5](https://github.com/supercairos/baby-log/commit/e6445c5006fad44265b48def76434cd75e5908fb))
+* legible faint text and themed diaper colors ([a28235e](https://github.com/supercairos/baby-log/commit/a28235e6941ea1fb85794de6f40ff8ad17bc1b56))
+* only split week-grid lanes for overlaps you can actually see ([361b9dd](https://github.com/supercairos/baby-log/commit/361b9dd96f053fe7cce31ec4732a59f9abd809c3))
+
 ## [1.16.0](https://github.com/supercairos/baby-log/compare/baby-log-v1.15.0...baby-log-v1.16.0) (2026-07-22)
 
 
