@@ -1029,20 +1029,20 @@ export function Home({
                     </span>
                   </div>
                 )}
-                {/* Last feeding at a glance: when (start – end) and how (side/bottle · ml). The
-                    type is redundant once a method shows (Biberon vs Gauche says it) — keeping
-                    it would wrap the row; only method-less solids keep their type label. */}
+                {/* Last feeding at a glance: when (start – end) and how (type · side · ml).
+                    The time cell may wrap to a second line for long combos (formula bottle in
+                    de/fr) — full info beats one-line here, per explicit user preference. */}
                 {lastFeeding && (
                   <div style={s.estimateRow}>
                     <span style={{ ...s.estimateIcon, background: `${palette.accents.feeding.accent}14`, color: palette.accents.feeding.accent }}>
                       <ACTIVITY_ICON.feeding size={16} />
                     </span>
                     <span style={s.estimateLabel}>{t("home.lastFeeding")}</span>
-                    <span style={s.estimateTime}>
+                    <span style={{ ...s.estimateTime, textAlign: "right" }}>
                       {clockTime(lastFeeding.startMs)}
                       {lastFeeding.endMs != null ? ` – ${clockTime(lastFeeding.endMs)}` : ""}
                       {" · "}
-                      {feedingMeta(lastFeeding.method ? null : lastFeeding.type, lastFeeding.method, lastFeeding.amount)}
+                      {feedingMeta(lastFeeding.type, lastFeeding.method, lastFeeding.amount)}
                     </span>
                   </div>
                 )}
