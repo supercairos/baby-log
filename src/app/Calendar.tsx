@@ -70,18 +70,21 @@ export function Calendar({
   birthDate,
   listEntries,
   listUpdatedAt,
+  listError,
+  onRetryList,
   onAdd,
   onEdit,
-  onDelete,
 }: {
   client: BabyBuddyClient;
   childId: number | null;
   birthDate: string | null | undefined;
   listEntries: TimelineEntry[] | null;
   listUpdatedAt?: number;
+  /** List-mode cold-start failure state + its retry, forwarded to `Timeline`. */
+  listError?: boolean;
+  onRetryList?: () => void;
   onAdd: () => void;
   onEdit: (e: TimelineEntry) => void;
-  onDelete: (e: TimelineEntry) => void;
 }) {
   const { s } = useStyles();
   const { t } = useTranslation();
@@ -142,7 +145,7 @@ export function Calendar({
       )}
 
       {mode === "list" ? (
-        <Timeline entries={listEntries} updatedAt={listUpdatedAt} showAdd={false} onEdit={onEdit} onDelete={onDelete} />
+        <Timeline entries={listEntries} updatedAt={listUpdatedAt} showAdd={false} onEdit={onEdit} error={listError} onRetry={onRetryList} />
       ) : mode === "summary" ? (
         <SummaryView entries={rangeEntries} prevEntries={prevEntries} range={range} birthDate={birthDate} />
       ) : mode === "day" ? (

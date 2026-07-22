@@ -36,8 +36,11 @@ export function onOutboxError(listener: OutboxErrorListener): () => void {
   };
 }
 
-export function emitOutboxError(failure: OutboxFailure): void {
+/** Returns true when at least one listener received it — i.e. a page was open to toast it.
+ *  When false (SW-realm drain, or no UI mounted) the caller must persist the failure instead. */
+export function emitOutboxError(failure: OutboxFailure): boolean {
   for (const fn of listeners) fn(failure);
+  return listeners.size > 0;
 }
 
 type OutboxChangeListener = () => void;

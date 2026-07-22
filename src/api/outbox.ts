@@ -24,6 +24,7 @@ const STORE_CONNECTION = "connection";
 const STORE_META = "meta";
 const CONNECTION_KEY = "current";
 const FLUSH_LOCK_KEY = "flushLock";
+const DEAD_LETTER_KEY = "deadLetters";
 
 /** A queued mutation plus its retry bookkeeping. */
 export interface OutboxRecord {
@@ -186,6 +187,59 @@ export async function loadConnection(): Promise<Connection | undefined> {
 
 export async function clearConnection(): Promise<void> {
   await tx<undefined>(STORE_CONNECTION, "readwrite", (s) => s.delete(CONNECTION_KEY) as IDBRequest<undefined>);
+}
+
+// ── Dead letters ─────────────────────────────────────────────────────────────
+// A permanently-failed write that no UI was listening for (the drain ran in the service
+// worker, or without Home mounted). Persisted so Home can surface ONE toast on the next
+// mount/focus instead of the write vanishing silently. Structural fields only — this module
+// is reachable from the SW bundle, which has no translator.
+
+export interface DeadLetter {
+  /** The mutation kind that failed (e.g. "start-timer", "consume-feeding"). */
+  actionKind: string;
+  /** HTTP status (0 = network / unknown). */
+  status: number;
+  /** Raw server message if any; else null. */
+  detail: string | null;
+  /** Epoch ms of the failure. */
+  at: number;
+}
+
+/** Append to the persisted dead-letter list — read-modify-write in ONE transaction (the page
+ *  and the SW can both drain). Capped: the signal is "a write was lost", not a full log. */
+export async function appendDeadLetter(entry: DeadLetter): Promise<void> {
+  const db = await getDb();
+  return new Promise<void>((resolve, reject) => {
+    const transaction = db.transaction(STORE_META, "readwrite");
+    const store = transaction.objectStore(STORE_META);
+    const getReq = store.get(DEAD_LETTER_KEY);
+    getReq.onsuccess = () => {
+      const list = (getReq.result as DeadLetter[] | undefined) ?? [];
+      store.put([...list, entry].slice(-20), DEAD_LETTER_KEY);
+    };
+    transaction.oncomplete = () => resolve();
+    transaction.onabort = () => reject(transaction.error);
+    transaction.onerror = () => reject(transaction.error);
+  });
+}
+
+/** Read AND clear the dead letters atomically, so one surfaced toast consumes them. */
+export async function takeDeadLetters(): Promise<DeadLetter[]> {
+  const db = await getDb();
+  return new Promise<DeadLetter[]>((resolve, reject) => {
+    const transaction = db.transaction(STORE_META, "readwrite");
+    const store = transaction.objectStore(STORE_META);
+    let letters: DeadLetter[] = [];
+    const getReq = store.get(DEAD_LETTER_KEY);
+    getReq.onsuccess = () => {
+      letters = (getReq.result as DeadLetter[] | undefined) ?? [];
+      if (letters.length > 0) store.delete(DEAD_LETTER_KEY);
+    };
+    transaction.oncomplete = () => resolve(letters);
+    transaction.onabort = () => reject(transaction.error);
+    transaction.onerror = () => reject(transaction.error);
+  });
 }
 
 // ── Cross-realm flush lock ───────────────────────────────────────────────────

@@ -4,6 +4,8 @@
     "cancel": "← Cancel",
     "done": "Done",
     "delete": "Delete",
+    "undo": "Undo",
+    "retry": "Retry",
     "or": "or",
     "loading": "Loading…",
     "connecting": "Connecting…"
@@ -113,7 +115,8 @@
     "endBeforeStart": "End time can't be before start",
     "timeFuture": "Time can't be in the future",
     "pickDiaper": "Pick wet, solid, or both",
-    "medNameRequired": "Enter the medication name"
+    "medNameRequired": "Enter the medication name",
+    "syncFailed": "A write couldn't be synced"
   },
   "timeline": {
     "addEntry": "Add entry",
@@ -223,7 +226,8 @@
   "error": {
     "notAuthorized": "Not authorized — check your token.",
     "serverRejected": "Server rejected the request (HTTP {{status}}).",
-    "network": "Network error — you appear to be offline or the server is unreachable."
+    "network": "Network error — you appear to be offline or the server is unreachable.",
+    "cantReachServer": "Can't reach the server"
   },
   "update": {
     "available": "Update available — tap to refresh"

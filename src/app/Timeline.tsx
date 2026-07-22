@@ -1,14 +1,15 @@
 /**
  * Timeline page — merged recent entries grouped Today / Yesterday / weekday-date, newest
- * first. Each row is tappable to edit; the trash button deletes. "Add entry" opens the
- * same sheet with an activity picker for backdated logging.
+ * first. The whole row is one tap target opening the edit sheet (deleting lives there, with
+ * an undo toast). "Add entry" opens the same sheet with an activity picker for backdated
+ * logging.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TimelineEntry } from "../api";
 import { buzz, useNow } from "./hooks";
 import { useStyles, useTheme } from "../theme";
-import { ACTIVITY_ICON, ClockIcon, PlusIcon, TrashIcon } from "../ui/icons";
+import { ACTIVITY_ICON, ClockIcon, PlusIcon } from "../ui/icons";
 import { hm } from "../lib/format";
 import { clockTime, dayLabel } from "../lib/datetime";
 import { activityLabel, diaperMeta, feedingMeta, medicationMeta } from "../lib/labels";
@@ -78,14 +79,17 @@ export function Timeline({
   updatedAt,
   onAdd,
   onEdit,
-  onDelete,
+  error = false,
+  onRetry,
   showAdd = true,
 }: {
   entries: TimelineEntry[] | null;
   updatedAt?: number;
   onAdd?: () => void;
   onEdit: (e: TimelineEntry) => void;
-  onDelete: (e: TimelineEntry) => void;
+  /** Cold-start fetch failed (nothing cached) — show the retry banner instead of the spinner. */
+  error?: boolean;
+  onRetry?: () => void;
   /** When false, the internal "Add entry" button is hidden (the calendar supplies its own). */
   showAdd?: boolean;
 }) {
@@ -184,9 +188,20 @@ export function Timeline({
       )}
 
       {entries == null ? (
-        <div style={s.empty}>
-          <div className="spin" style={{ width: 30, height: 30, borderRadius: "50%", border: `3px solid ${palette.surfaceStrongBorder}`, borderTopColor: palette.accents.feeding.accent }} />
-        </div>
+        error ? (
+          <div style={s.errBanner}>
+            <span style={s.errBannerText}>{t("error.cantReachServer")}</span>
+            {onRetry && (
+              <button onClick={() => { buzz(); onRetry(); }} style={s.errBannerBtn}>
+                {t("common.retry")}
+              </button>
+            )}
+          </div>
+        ) : (
+          <div style={s.empty}>
+            <div className="spin" style={{ width: 30, height: 30, borderRadius: "50%", border: `3px solid ${palette.surfaceStrongBorder}`, borderTopColor: palette.accents.feeding.accent }} />
+          </div>
+        )
       ) : entries.length === 0 ? (
         <div style={s.empty}>
           <div style={s.emptyIco}>
@@ -223,9 +238,6 @@ export function Timeline({
                         {e.endMs ? ` – ${clockTime(e.endMs)} · ${hm(e.endMs - e.startMs)}` : ""}
                       </div>
                     </div>
-                  </button>
-                  <button onClick={() => onDelete(e)} style={s.entryDel} aria-label={t("common.delete")}>
-                    <TrashIcon size={17} />
                   </button>
                 </div>
               );

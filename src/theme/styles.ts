@@ -173,6 +173,9 @@ export function makeStyles(p: Palette): Styles {
       WebkitBackdropFilter: p.toastBlur === "none" ? undefined : p.toastBlur,
     },
     toastOn: { opacity: 1, transform: "translate(-50%, 0)" },
+    // The one interactive piece of the toast (Undo): pointer events re-enabled on the button
+    // only — the container stays click-through so it never blocks the tiles under it.
+    toastAction: { marginLeft: 12, padding: "7px 13px", borderRadius: 999, background: "transparent", border: `1px solid ${p.toastBorder}`, color: "inherit", fontSize: 13.5, fontWeight: 800, pointerEvents: "auto", verticalAlign: "middle" },
 
     scrim: { position: "fixed", inset: 0, background: p.scrim, zIndex: 5, backdropFilter: p.scrimBlur, WebkitBackdropFilter: p.scrimBlur, animation: "fadeIn .25s ease", border: "none" },
     sheet: {
@@ -284,7 +287,6 @@ export function makeStyles(p: Palette): Styles {
     entryTime: { fontSize: 13, color: p.textFaint, fontWeight: 600 },
     // Free-text note on its own line, single-line ellipsis to keep rows compact.
     entryNote: { fontSize: 13, color: p.textMuted, fontStyle: "italic", fontWeight: 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" },
-    entryDel: { display: "grid", placeItems: "center", width: 44, height: 44, borderRadius: 11, background: "transparent", border: "none", color: p.textFainter, flexShrink: 0 },
     empty: { textAlign: "center", padding: "60px 20px", display: "flex", flexDirection: "column", alignItems: "center", gap: 10 },
     emptyIco: { display: "grid", placeItems: "center", width: 60, height: 60, borderRadius: 20, background: p.chipBg, color: p.textFaint, marginBottom: 4 },
     emptyTitle: { color: p.text, fontFamily: p.serif, fontSize: 19, fontWeight: 600 },
@@ -355,6 +357,12 @@ export function makeStyles(p: Palette): Styles {
     syncRow: { marginTop: 16, marginBottom: -14, padding: "0 6px", display: "flex", zIndex: 1 },
     syncPill: { display: "inline-flex", alignItems: "center", gap: 7, fontSize: 12, fontWeight: 700, color: p.textFaint },
     syncDot: { width: 7, height: 7, borderRadius: "50%", background: feed, animation: "pulse 1.4s ease-in-out infinite", flexShrink: 0 },
+
+    // Cold-start error banner (children/timeline fetch failed): quiet muted-surface chrome —
+    // informative, not alarming; the Retry chip is the actionable part.
+    errBanner: { display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", borderRadius: 16, background: p.chipBg, border: `1px solid ${p.surfaceBorder}`, color: p.textMuted, fontSize: 13.5, fontWeight: 700, zIndex: 1, animation: "fadeIn .3s ease" },
+    errBannerText: { flex: 1, minWidth: 0 },
+    errBannerBtn: { padding: "9px 14px", borderRadius: 12, background: p.surface, border: `1px solid ${p.surfaceStrongBorder}`, color: p.text, fontSize: 13, fontWeight: 800, flexShrink: 0 },
 
     // ── Login screen ──
     loginRoot: {

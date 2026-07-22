@@ -4,6 +4,8 @@
     "cancel": "← Annulla",
     "done": "Fatto",
     "delete": "Elimina",
+    "undo": "Annulla",
+    "retry": "Riprova",
     "or": "o",
     "loading": "Caricamento…",
     "connecting": "Connessione…"
@@ -113,7 +115,8 @@
     "endBeforeStart": "La fine non può precedere l'inizio",
     "timeFuture": "L'orario non può essere nel futuro",
     "pickDiaper": "Scegli pipì, feci o entrambi",
-    "medNameRequired": "Inserisci il nome del farmaco"
+    "medNameRequired": "Inserisci il nome del farmaco",
+    "syncFailed": "Non è stato possibile sincronizzare una voce"
   },
   "timeline": {
     "addEntry": "Aggiungi voce",
@@ -223,7 +226,8 @@
   "error": {
     "notAuthorized": "Non autorizzato — controlla il tuo token.",
     "serverRejected": "Il server ha rifiutato la richiesta (HTTP {{status}}).",
-    "network": "Errore di rete — sembri offline o il server non è raggiungibile."
+    "network": "Errore di rete — sembri offline o il server non è raggiungibile.",
+    "cantReachServer": "Impossibile raggiungere il server"
   },
   "update": {
     "available": "Aggiornamento disponibile — tocca per ricaricare"

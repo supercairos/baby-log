@@ -4,6 +4,8 @@
     "cancel": "← Annuler",
     "done": "Terminé",
     "delete": "Supprimer",
+    "undo": "Annuler",
+    "retry": "Réessayer",
     "or": "ou",
     "loading": "Chargement…",
     "connecting": "Connexion…"
@@ -113,7 +115,8 @@
     "endBeforeStart": "La fin ne peut pas précéder le début",
     "timeFuture": "L'heure ne peut pas être dans le futur",
     "pickDiaper": "Choisissez pipi, selles, ou les deux",
-    "medNameRequired": "Saisissez le nom du médicament"
+    "medNameRequired": "Saisissez le nom du médicament",
+    "syncFailed": "Une écriture n'a pas pu être synchronisée"
   },
   "timeline": {
     "addEntry": "Ajouter une entrée",
@@ -223,7 +226,8 @@
   "error": {
     "notAuthorized": "Non autorisé — vérifiez votre jeton.",
     "serverRejected": "Le serveur a rejeté la requête (HTTP {{status}}).",
-    "network": "Erreur réseau — vous semblez hors ligne ou le serveur est injoignable."
+    "network": "Erreur réseau — vous semblez hors ligne ou le serveur est injoignable.",
+    "cantReachServer": "Connexion au serveur impossible"
   },
   "update": {
     "available": "Mise à jour disponible — appuyez pour actualiser"

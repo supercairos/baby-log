@@ -41,20 +41,32 @@ export function useNow(intervalMs = 1000): number {
 }
 
 // ── toast ───────────────────────────────────────────────────────────────────
+/** Optional tappable action rendered inside the toast (e.g. Undo after a destructive tap). */
+export interface ToastAction {
+  label: string;
+  onAction: () => void;
+}
 export interface Toast {
   msg: string;
   accent?: string;
+  action?: ToastAction;
 }
 export function useToast() {
   const [toast, setToast] = useState<Toast | null>(null);
   const timer = useRef<number | undefined>(undefined);
-  const show = useCallback((msg: string, accent?: string, ms = 2000) => {
-    setToast({ msg, accent });
+  // A toast carrying an action lingers longer by default — the undo needs time to be tapped.
+  const show = useCallback((msg: string, accent?: string, ms?: number, action?: ToastAction) => {
+    setToast({ msg, accent, action });
     if (timer.current) window.clearTimeout(timer.current);
-    timer.current = window.setTimeout(() => setToast(null), ms);
+    timer.current = window.setTimeout(() => setToast(null), ms ?? (action ? 6000 : 2000));
+  }, []);
+  /** Hide immediately (the action was taken — it must not stay tappable). */
+  const dismiss = useCallback(() => {
+    if (timer.current) window.clearTimeout(timer.current);
+    setToast(null);
   }, []);
   useEffect(() => () => window.clearTimeout(timer.current), []);
-  return { toast, show };
+  return { toast, show, dismiss };
 }
 
 // ── connection ────────────────────────────────────────────────────────────────
@@ -240,7 +252,7 @@ export function useTimeline(client: BabyBuddyClient, childId: number | null) {
   const qc = useQueryClient();
   const tombstones = useRef<Set<string>>(new Set());
 
-  const { data, dataUpdatedAt } = useQuery({
+  const { data, dataUpdatedAt, isError } = useQuery({
     queryKey: ["timeline", childId],
     enabled: childId != null,
     refetchInterval: 30_000,
@@ -271,8 +283,15 @@ export function useTimeline(client: BabyBuddyClient, childId: number | null) {
     [qc, childId],
   );
 
+  /** Inverse of `removeLocal` (the delete was undone before it was enqueued): drop the
+   *  tombstone so the next refetch shows the row again — the server never saw a delete. */
+  const restoreLocal = useCallback((path: EntryPath, id: number) => {
+    tombstones.current.delete(tkey(path, id));
+  }, []);
+
   // `updatedAt` is the last successful fetch time — drives the timeline's "updated Xs ago" line.
-  return { entries: childId == null ? [] : (data ?? null), refresh, removeLocal, updatedAt: dataUpdatedAt };
+  // `error` is true once retries are exhausted with nothing cached — the cold-start failure case.
+  return { entries: childId == null ? [] : (data ?? null), refresh, removeLocal, restoreLocal, updatedAt: dataUpdatedAt, error: isError };
 }
 
 /**
