@@ -210,6 +210,7 @@ export function makeStyles(p: Palette): Styles {
       fontWeight: 700,
     },
     sheetGroup: { fontSize: 11.5, letterSpacing: 1.7, textTransform: "uppercase", color: p.groupText, margin: "16px 0 11px", fontWeight: 800 },
+    sheetHint: { fontSize: 12.5, color: p.textFaint, fontWeight: 600, marginTop: 10 },
     chips: { display: "flex", flexWrap: "wrap", gap: 9 },
     chip: { display: "inline-flex", alignItems: "center", justifyContent: "center", minHeight: 44, padding: "11px 19px", borderRadius: 15, background: p.chipBg, border: `1px solid ${p.chipBorder}`, color: p.chipText, fontSize: 15, fontWeight: 700, transition: "all .18s ease" },
     cta: { width: "100%", marginTop: 26, padding: "17px", borderRadius: 18, border: "none", fontSize: 16, fontWeight: 800, transition: "all .2s ease", background: feed, color: p.onAccent, boxShadow: p.ctaShadow },
