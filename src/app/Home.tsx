@@ -1029,7 +1029,9 @@ export function Home({
                     </span>
                   </div>
                 )}
-                {/* Last feeding at a glance: when (clock + how long ago) and how (type · side · ml). */}
+                {/* Last feeding at a glance: when (start – end) and how (side/bottle · ml). The
+                    type is redundant once a method shows (Biberon vs Gauche says it) — keeping
+                    it would wrap the row; only method-less solids keep their type label. */}
                 {lastFeeding && (
                   <div style={s.estimateRow}>
                     <span style={{ ...s.estimateIcon, background: `${palette.accents.feeding.accent}14`, color: palette.accents.feeding.accent }}>
@@ -1037,7 +1039,10 @@ export function Home({
                     </span>
                     <span style={s.estimateLabel}>{t("home.lastFeeding")}</span>
                     <span style={s.estimateTime}>
-                      {clockTime(lastFeeding.startMs)} · {feedingMeta(lastFeeding.type, lastFeeding.method, lastFeeding.amount)}
+                      {clockTime(lastFeeding.startMs)}
+                      {lastFeeding.endMs != null ? ` – ${clockTime(lastFeeding.endMs)}` : ""}
+                      {" · "}
+                      {feedingMeta(lastFeeding.method ? null : lastFeeding.type, lastFeeding.method, lastFeeding.amount)}
                     </span>
                   </div>
                 )}
