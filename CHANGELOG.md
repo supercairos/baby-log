@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.16.0](https://github.com/supercairos/baby-log/compare/baby-log-v1.15.0...baby-log-v1.16.0) (2026-07-22)
+
+
+### Features
+
+* float the journal's add-entry button at the bottom of the screen ([1a10522](https://github.com/supercairos/baby-log/commit/1a1052267ebd43278532a2952f5d9a3573199257))
+* journal & feeding UX polish + calendar diaper-filter fix ([8e42263](https://github.com/supercairos/baby-log/commit/8e422632082dc5e5ca7d530129ec61146eff2f20))
+* make the list the journal's default and first tab ([4daad9b](https://github.com/supercairos/baby-log/commit/4daad9b06d12c42ff777e35bfb737b425e3942d0))
+* propose the other breast and show the last feeding at a glance ([7edd4e4](https://github.com/supercairos/baby-log/commit/7edd4e4222e017cb82d37a41127b832eb85e9fc1))
+* tint the running-card trash button with the activity accent ([0b99d7e](https://github.com/supercairos/baby-log/commit/0b99d7e34de0f3e8db86a4123002de5e598cbf15))
+
+
+### Bug Fixes
+
+* pass real datetimes to the calendar range fetch so instants appear ([f4f8142](https://github.com/supercairos/baby-log/commit/f4f8142a2d5186a6bbe3d9af6f1db44ef026c201))
+
 ## [1.15.0](https://github.com/supercairos/baby-log/compare/baby-log-v1.14.0...baby-log-v1.15.0) (2026-07-03)
 
 
