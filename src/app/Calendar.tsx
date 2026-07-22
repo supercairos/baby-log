@@ -255,16 +255,38 @@ function RadialDay({
 
   // Icon badge sitting on the ring at `deg` — a filled disc with the activity glyph, so every
   // marker is identifiable at a glance. `dashed` renders the predicted ("ghost") variant.
+  // Clickable badges act as buttons (keyboard + AT) and carry an invisible r=16 hit circle:
+  // the visible 21px disc alone is well under a finger's width.
   const badge = (
     key: string,
     deg: number,
     accent: string,
     Icon: (p: { size?: number }) => ReactNode,
-    opts: { dashed?: boolean; onClick?: () => void } = {},
+    opts: { dashed?: boolean; onClick?: () => void; label?: string } = {},
   ) => {
     const c = polar(deg, R_RING);
+    const clickable = !!opts.onClick;
     return (
-      <g key={key} style={{ color: accent, cursor: opts.onClick ? "pointer" : undefined }} onClick={opts.onClick}>
+      <g
+        key={key}
+        style={{ color: accent, cursor: clickable ? "pointer" : undefined }}
+        onClick={opts.onClick}
+        role={clickable ? "button" : undefined}
+        tabIndex={clickable ? 0 : undefined}
+        aria-label={clickable ? opts.label : undefined}
+        onKeyDown={
+          clickable
+            ? (e) => {
+                if (e.key !== "Enter" && e.key !== " ") return;
+                e.preventDefault(); // Space must not scroll the page
+                opts.onClick?.();
+              }
+            : undefined
+        }
+      >
+        {/* only on clickable badges — on a ghost/sun marker it would swallow taps meant
+            for the arc underneath */}
+        {clickable && <circle cx={c.x} cy={c.y} r={16} fill="transparent" pointerEvents="all" />}
         {/* tileBase, not bg: `bg` is a CSS gradient string, which SVG would paint as black */}
         <circle cx={c.x} cy={c.y} r={10.5} fill={palette.tileBase} stroke={accent} strokeWidth={1.6} strokeDasharray={opts.dashed ? "2.5 2.5" : undefined} />
         <g transform={`translate(${(c.x - 6.5).toFixed(2)}, ${(c.y - 6.5).toFixed(2)})`}>
@@ -322,12 +344,15 @@ function RadialDay({
     Icon: (p: { size?: number }) => ReactNode;
     dashed?: boolean;
     onClick?: () => void;
+    /** Accessible name for a clickable badge (activity + start time). */
+    label?: string;
     labelMs?: number;
   }
+  const entryLabel = (e: TimelineEntry) => `${activityLabel(e.activity)} ${clockTime(e.startMs)}`;
   const marks: Mark[] = [
-    ...[...sleeps, ...bars].map((e): Mark => ({ key: `b-${e.path}${e.id}`, deg: midDeg(e), accent: palette.accents[e.activity].accent, Icon: ACTIVITY_ICON[e.activity], onClick: () => onEdit(e) })),
-    ...diapers.map((e): Mark => ({ key: `b-${e.path}${e.id}`, deg: angleOf(e.startMs), accent: palette.accents.diaper.accent, Icon: ACTIVITY_ICON.diaper, onClick: () => onEdit(e) })),
-    ...meds.map((e): Mark => ({ key: `b-${e.path}${e.id}`, deg: angleOf(e.startMs), accent: palette.accents.medication.accent, Icon: ACTIVITY_ICON.medication, onClick: () => onEdit(e) })),
+    ...[...sleeps, ...bars].map((e): Mark => ({ key: `b-${e.path}${e.id}`, deg: midDeg(e), accent: palette.accents[e.activity].accent, Icon: ACTIVITY_ICON[e.activity], onClick: () => onEdit(e), label: entryLabel(e) })),
+    ...diapers.map((e): Mark => ({ key: `b-${e.path}${e.id}`, deg: angleOf(e.startMs), accent: palette.accents.diaper.accent, Icon: ACTIVITY_ICON.diaper, onClick: () => onEdit(e), label: entryLabel(e) })),
+    ...meds.map((e): Mark => ({ key: `b-${e.path}${e.id}`, deg: angleOf(e.startMs), accent: palette.accents.medication.accent, Icon: ACTIVITY_ICON.medication, onClick: () => onEdit(e), label: entryLabel(e) })),
     ...predMarks.map((p): Mark => ({ key: `pb-${p.activity}`, deg: angleOf(p.etaMs), accent: palette.accents[p.activity].accent, Icon: ACTIVITY_ICON[p.activity], dashed: true, labelMs: p.etaMs })),
     ...sunMarks.map((m): Mark => ({ key: `sb-${m.key}`, deg: angleOf(m.ms), accent: m.color, Icon: m.key === "sunrise" ? SunriseIcon : SunsetIcon, labelMs: m.ms })),
   ].sort((a, b) => a.deg - b.deg);
@@ -365,7 +390,7 @@ function RadialDay({
           })}
         {marks.map((m) => (
           <g key={m.key}>
-            {badge(m.key, m.deg, m.accent, m.Icon, { dashed: m.dashed, onClick: m.onClick })}
+            {badge(m.key, m.deg, m.accent, m.Icon, { dashed: m.dashed, onClick: m.onClick, label: m.label })}
             {m.labelMs != null && timeLabel(`${m.key}-t`, m.deg, m.accent, m.labelMs)}
           </g>
         ))}
@@ -649,13 +674,13 @@ function renderBlock(
   const left = `calc(${((lane / lanes) * 100).toFixed(3)}% + 1px)`;
   const width = `calc(${(100 / lanes).toFixed(3)}% - 2px)`;
   const key = `${e.path}${e.id}`;
-  const common = { onClick: () => onEdit(e), "aria-label": `${e.activity} ${clockTime(e.startMs)}` };
+  const common = { onClick: () => onEdit(e), className: "cal-blk", "aria-label": `${e.activity} ${clockTime(e.startMs)}` };
 
   // Instant entries (diaper, medication) render as a small dot marker rather than a bar.
   if (e.activity === "diaper" || e.activity === "medication") {
     return <button key={key} {...common} style={{ ...s.blkDiaper, top, left, width, background: accent }} />;
   }
-  const h = Math.max(3, ((clipEnd - clipStart) / 3_600_000) * hourPx);
+  const h = Math.max(6, ((clipEnd - clipStart) / 3_600_000) * hourPx);
   if (e.activity === "sleep") {
     return <button key={key} {...common} style={{ ...s.blkSleep, top, left, width, height: h, background: `${accent}3d`, borderLeft: `2px solid ${accent}` }} />;
   }

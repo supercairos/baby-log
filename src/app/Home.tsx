@@ -627,11 +627,16 @@ export function Home({
     setEditing((t) => (t ? { ...t, activity: key } : t));
     setDraft((d) => {
       if (!d) return d;
+      // A backdated feed starts from the same remembered choice as the live flow — a blank
+      // sheet costs three extra taps. Only when the draft is still untouched, so returning
+      // from the picker keeps any edits; saving stays out of lastFeed (only stop() writes it).
+      const last = key === "feeding" && d.type == null && d.method == null && childId != null ? lastFeed[childId] : undefined;
+      const seeded = last ? { ...d, type: last.type, method: last.method, amount: last.amount ?? null } : d;
       // Instant activities (diaper, medication) log a single moment — no span.
-      if (!ACTIVITIES[key].timed) return { ...d, endMs: null };
+      if (!ACTIVITIES[key].timed) return { ...seeded, endMs: null };
       // Default to a 15-min span ENDING now — Baby Buddy rejects future times.
       const end = nowMs();
-      return { ...d, startMs: end - 15 * 60_000, endMs: end };
+      return { ...seeded, startMs: end - 15 * 60_000, endMs: end };
     });
   };
 

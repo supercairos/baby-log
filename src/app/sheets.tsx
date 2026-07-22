@@ -25,6 +25,13 @@ import type { EditDraft, EditTarget, RecentMed } from "./types";
 const MED_INTERVAL_HOURS = [4, 6, 8, 12, 24] as const;
 const HOUR_MS = 3_600_000;
 
+/** iOS animates the keyboard in ~300 ms AFTER focus, so an immediate scroll lands wrong —
+ *  re-centre the field once the resized viewport (interactive-widget) has settled. */
+const scrollFieldIntoView = (e: React.FocusEvent<HTMLElement>) => {
+  const el = e.currentTarget;
+  window.setTimeout(() => el.scrollIntoView({ block: "center", behavior: "smooth" }), 300);
+};
+
 /**
  * Bottle-amount slider ladder — intelligent steps: 5 ml where precision matters (small bottles),
  * 10 ml through the common range, 25 ml at the top. The slider moves over indexes of this list;
@@ -446,6 +453,7 @@ export function EntrySheet({
               step="any"
               value={draft.dosage ?? ""}
               onChange={(e) => setDraft((d) => ({ ...d, dosage: e.target.value === "" ? null : Number(e.target.value) }))}
+              onFocus={scrollFieldIntoView}
               placeholder="—"
               aria-label={t("sheet.dose")}
               style={{ ...s.timeInput, flex: "0 0 96px", width: 96 }}
@@ -491,6 +499,7 @@ export function EntrySheet({
                   type="datetime-local"
                   value={toLocalInput(draft.startMs)}
                   onChange={(e) => setDraft((d) => ({ ...d, startMs: fromLocalInput(e.target.value) }))}
+                  onFocus={scrollFieldIntoView}
                   style={{ ...s.timeInput, ...s.timeInputCompact }}
                 />
               </div>
@@ -502,6 +511,7 @@ export function EntrySheet({
                   min={toLocalInput(draft.startMs)}
                   aria-invalid={endBeforeStart}
                   onChange={(e) => setDraft((d) => ({ ...d, endMs: fromLocalInput(e.target.value) }))}
+                  onFocus={scrollFieldIntoView}
                   style={{ ...s.timeInput, ...s.timeInputCompact }}
                 />
               </div>
@@ -513,6 +523,7 @@ export function EntrySheet({
                 type="datetime-local"
                 value={toLocalInput(draft.startMs)}
                 onChange={(e) => setDraft((d) => ({ ...d, startMs: fromLocalInput(e.target.value) }))}
+                onFocus={scrollFieldIntoView}
                 style={s.timeInput}
               />
             </>
@@ -527,6 +538,7 @@ export function EntrySheet({
           <textarea
             value={draft.notes}
             onChange={(e) => setDraft((d) => ({ ...d, notes: e.target.value }))}
+            onFocus={scrollFieldIntoView}
             placeholder={t("sheet.notesPlaceholder")}
             rows={2}
             style={s.notesInput}

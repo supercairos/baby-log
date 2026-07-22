@@ -192,6 +192,13 @@ export function makeStyles(p: Palette): Styles {
       transform: "translateY(110%)",
       transition: "transform .34s cubic-bezier(.32,.72,0,1)",
       boxShadow: p.sheetShadow,
+      // Tall variants (medication) must scroll INSIDE the sheet, not overflow the viewport.
+      // 100dvh tracks the on-screen keyboard (viewport meta: interactive-widget=resizes-content),
+      // so the CTA stays reachable while typing; the rounded top clips the scrolled content.
+      maxHeight: "calc(100dvh - 48px)",
+      overflowY: "auto",
+      overscrollBehavior: "contain",
+      WebkitOverflowScrolling: "touch",
     },
     sheetOn: { transform: "translateY(0)" },
     sheetHandle: { width: 42, height: 4, borderRadius: 2, background: p.sheetHandle, margin: "0 auto 18px" },
@@ -313,10 +320,11 @@ export function makeStyles(p: Palette): Styles {
     nowLine: { position: "absolute", left: -1, right: -1, height: 2, borderRadius: 999, background: dark ? "#fff" : p.text, zIndex: 5 },
     nowCap: { position: "absolute", top: "50%", width: 9, height: 9, borderRadius: "50% 50% 50% 0", background: dark ? "#fff" : p.text },
     // left/width are set inline per block by the day column's lane layout (overlapping events
-    // share the column side by side).
+    // share the column side by side). All three carry .cal-blk (index.css): an invisible
+    // ::after strip that stretches each tap target to ≥24px — a 5-min feed is only ~2px tall.
     blkSleep: { position: "absolute", borderRadius: 4, border: "none", padding: 0, zIndex: 1 },
     blkBar: { position: "absolute", borderRadius: 3, border: "none", padding: 0, zIndex: 2 },
-    blkDiaper: { position: "absolute", height: 3, borderRadius: 2, border: "none", padding: 0, zIndex: 3 },
+    blkDiaper: { position: "absolute", height: 6, borderRadius: 2, border: "none", padding: 0, zIndex: 3 },
     gridAddBtn: { display: "flex", alignItems: "center", justifyContent: "center", width: "100%", marginTop: 18, padding: "13px", borderRadius: 16, background: `${feed}1f`, border: `1px solid ${feed}59`, color: feed, fontSize: 14.5, fontWeight: 800 },
 
     summaryGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 },
