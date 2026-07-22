@@ -75,7 +75,6 @@
     "pickAndStart": "pick & start",
     "upNext": "Prediction",
     "dueNowExact": "now",
-    "overdueAgo": "expected {{ago}} ago",
     "stillGoing": "still going?",
     "editFeeding": "Edit feeding details",
     "menu": "Menu",
@@ -85,7 +84,7 @@
     "doseOkFrom": "ok from ~{{time}}",
     "doseLastAgo": "last dose {{ago}} ago",
     "lastFeeding": "Last feed",
-    "overdueAgoShort": "{{ago}} ago"
+    "overdueBy": "{{late}} late"
   },
   "nav": {
     "home": "Home",

@@ -75,7 +75,6 @@
     "pickAndStart": "choisir & démarrer",
     "upNext": "Prédiction",
     "dueNowExact": "maintenant",
-    "overdueAgo": "prévu il y a {{ago}}",
     "stillGoing": "toujours en cours ?",
     "editFeeding": "Modifier les détails du repas",
     "menu": "Menu",
@@ -85,7 +84,7 @@
     "doseOkFrom": "ok à partir de ~{{time}}",
     "doseLastAgo": "dernière dose il y a {{ago}}",
     "lastFeeding": "Dernier repas",
-    "overdueAgoShort": "il y a {{ago}}"
+    "overdueBy": "en retard de {{late}}"
   },
   "nav": {
     "home": "Accueil",

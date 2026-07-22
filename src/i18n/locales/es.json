@@ -75,7 +75,6 @@
     "pickAndStart": "elige y empieza",
     "upNext": "Predicción",
     "dueNowExact": "ahora",
-    "overdueAgo": "previsto hace {{ago}}",
     "stillGoing": "¿sigue en curso?",
     "editFeeding": "Editar detalles de la toma",
     "menu": "Menú",
@@ -85,7 +84,7 @@
     "doseOkFrom": "ok desde ~{{time}}",
     "doseLastAgo": "última dosis hace {{ago}}",
     "lastFeeding": "Última toma",
-    "overdueAgoShort": "hace {{ago}}"
+    "overdueBy": "{{late}} de retraso"
   },
   "nav": {
     "home": "Inicio",

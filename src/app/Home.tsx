@@ -64,7 +64,7 @@ import {
 } from "./notifications";
 import { fmt, hm, iso, nowIso, nowMs, parseDurationMs, toDurationField } from "../lib/format";
 import { clockTime, formatAge, greeting } from "../lib/datetime";
-import { predictNext, predictSleepEnd, type ActivityPrediction } from "../lib/predict";
+import { predictNext, predictSleepEnd, PREDICTION_GRACE_MS, type ActivityPrediction } from "../lib/predict";
 import { lastNight } from "../lib/night";
 import { tummyProgress } from "../lib/tummy";
 import { activityLabel, diaperMeta, feedingMeta } from "../lib/labels";
@@ -185,13 +185,14 @@ export function Home({
     [entries, child, nowMinute],
   );
   // Confident-enough estimates, soonest first. An activity with a running timer is omitted
-  // (it's already in progress); the rest stay visible alongside the running card(s).
+  // (it's already in progress), and an eta past its grace window is expired — a prediction
+  // hours late is noise, not a forecast.
   const upNext = useMemo(() => {
     const busy = new Set<string>(running.map((r) => r.activity));
     return (Object.values(predictions) as ActivityPrediction[])
-      .filter((p) => p.confidence >= 0.1 && !busy.has(p.activity))
+      .filter((p) => p.confidence >= 0.1 && !busy.has(p.activity) && p.etaMs > nowMinute * 60_000 - PREDICTION_GRACE_MS)
       .sort((a, b) => a.etaMs - b.etaMs);
-  }, [predictions, running]);
+  }, [predictions, running, nowMinute]);
   // Show the tummy stat unless a tummy timer is already running, and don't let a lone "0/x min"
   // row pre-empt the cold-start nudge (only surface it once there's tummy time logged or other
   // estimates to sit beside).
@@ -1076,14 +1077,15 @@ export function Home({
                         <Icon size={16} />
                       </span>
                       <span style={s.estimateLabel}>{activityLabel(p.activity)}</span>
-                      {/* Be honest about a passed eta: ±10 min reads "now", older says how late
-                          it is — a frozen "due now" an hour later erodes trust in the panel. */}
+                      {/* Be honest about a passed eta but keep it a forecast: ±10 min reads
+                          "now", older reads "late by X" (never past tense — this sits under a
+                          "Prediction" header); past the grace window the row is gone entirely. */}
                       <span style={s.estimateTime}>
                         {p.etaMs > now + 10 * 60_000
                           ? `~${clockTime(p.etaMs)}`
                           : p.etaMs >= now - 10 * 60_000
                             ? t("home.dueNowExact")
-                            : t("home.overdueAgo", { ago: hm(now - p.etaMs) })}
+                            : t("home.overdueBy", { late: hm(now - p.etaMs) })}
                         {durHint}
                       </span>
                     </div>

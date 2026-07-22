@@ -416,6 +416,13 @@ export function predictSleepEnd(
 }
 
 /**
+ * How long a passed eta stays on screen as "late by X" before the prediction is treated as
+ * expired and hidden. Past this, the guess said nothing useful — showing "expected 16h ago"
+ * under a "Prediction" header reads as an event, not a forecast.
+ */
+export const PREDICTION_GRACE_MS = 60 * 60_000;
+
+/**
  * Predict the next feeding, sleep onset, and diaper change for a child from their recent
  * timeline entries. Any activity without a usable (recent) anchor is simply omitted.
  */

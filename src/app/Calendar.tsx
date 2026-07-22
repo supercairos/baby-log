@@ -12,7 +12,7 @@ import { ACTIVITY_ICON, PlusIcon, SunriseIcon, SunsetIcon } from "../ui/icons";
 import { clockTime } from "../lib/datetime";
 import { activityLabel } from "../lib/labels";
 import { hm } from "../lib/format";
-import { predictNext, predictSleepEnd, type ActivityPrediction } from "../lib/predict";
+import { predictNext, predictSleepEnd, PREDICTION_GRACE_MS, type ActivityPrediction } from "../lib/predict";
 import { tummyGoalForAge } from "../lib/tummy";
 import { sunTimes } from "../lib/sun";
 import { useEntriesInRange, useGeo, useNow, buzz } from "./hooks";
@@ -237,8 +237,9 @@ function RadialDay({
   const feedCount = list.filter((e) => e.activity === "feeding" && e.startMs >= dayStart && e.startMs < dayEnd).length;
 
   // Predicted upcoming events (today only) — shown as dashed "ghost" markers on the ring.
+  // Etas past the grace window are expired, same as the home panel.
   const preds = isToday
-    ? (Object.values(predictNext(list, birthDate, now)) as ActivityPrediction[]).filter((p) => p.confidence >= 0.1)
+    ? (Object.values(predictNext(list, birthDate, now)) as ActivityPrediction[]).filter((p) => p.confidence >= 0.1 && p.etaMs > now - PREDICTION_GRACE_MS)
     : [];
   const soonest = [...preds].sort((a, b) => a.etaMs - b.etaMs)[0];
   const predMarks = preds.filter((p) => p.etaMs > now && p.etaMs < dayEnd);
@@ -442,16 +443,16 @@ function RadialDay({
       <div style={s.radialCenter}>
         {soonest ? (
           (() => {
-            // Same honesty as the home panel (±10 min = "now", older says how late), but in a
-            // compact form: the circle fits ~12 glyphs of the serif, so a long-overdue eta
-            // rounds to whole hours ("il y a ~15h") and long strings step the font down.
+            // Same honesty as the home panel (±10 min = "now", older reads "late by X" — a
+            // forecast, never past tense; expired etas are filtered out of `preds` above).
+            // The circle fits ~12 glyphs of the serif; longer strings step the font down.
             const overdueMs = now - soonest.etaMs;
             const centerText =
               soonest.etaMs > now + 10 * 60_000
                 ? t("cal.inDuration", { duration: hm(soonest.etaMs - now) })
                 : overdueMs <= 10 * 60_000
                   ? t("home.dueNowExact")
-                  : t("home.overdueAgoShort", { ago: overdueMs >= 3_600_000 ? `~${Math.round(overdueMs / 3_600_000)}h` : hm(overdueMs) });
+                  : t("home.overdueBy", { late: hm(overdueMs) });
             return (
               <>
                 <span style={s.radialSmall}>{t("home.upNext")}</span>

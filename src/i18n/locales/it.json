@@ -75,7 +75,6 @@
     "pickAndStart": "scegli e avvia",
     "upNext": "Previsione",
     "dueNowExact": "adesso",
-    "overdueAgo": "previsto {{ago}} fa",
     "stillGoing": "ancora in corso?",
     "editFeeding": "Modifica i dettagli della poppata",
     "menu": "Menu",
@@ -85,7 +84,7 @@
     "doseOkFrom": "ok dalle ~{{time}}",
     "doseLastAgo": "ultima dose {{ago}} fa",
     "lastFeeding": "Ultimo pasto",
-    "overdueAgoShort": "{{ago}} fa"
+    "overdueBy": "in ritardo di {{late}}"
   },
   "nav": {
     "home": "Home",
