@@ -19,8 +19,7 @@ import { useEntriesInRange, useGeo, useNow, buzz } from "./hooks";
 import { Timeline } from "./Timeline";
 
 type CalMode = "day" | "week" | "list" | "summary";
-const MODES: CalMode[] = ["day", "week", "list", "summary"];
-const MODE_KEY = "baby-log:calmode";
+const MODES: CalMode[] = ["list", "day", "week", "summary"];
 
 const DEFAULT_HOUR_PX = 24; // pixels per hour at default zoom (24 h ≈ 576 px)
 const MIN_HOUR_PX = 14;
@@ -87,10 +86,8 @@ export function Calendar({
   const { s } = useStyles();
   const { t } = useTranslation();
 
-  const [mode, setMode] = useState<CalMode>(() => {
-    const v = localStorage.getItem(MODE_KEY) as CalMode | null;
-    return v && MODES.includes(v) ? v : "week";
-  });
+  // Always open on the list — it's the workhorse view; the fancier modes are a tap away.
+  const [mode, setMode] = useState<CalMode>("list");
   const [anchor, setAnchor] = useState(() => startOfDay(Date.now()));
   const now = useNow(60_000); // 1-min tick (drives "today" highlight + the now-line)
   const [hourPx, setHourPx] = useState(() => {
@@ -101,7 +98,6 @@ export function Calendar({
   const pickMode = (m: CalMode) => {
     buzz();
     setMode(m);
-    localStorage.setItem(MODE_KEY, m);
   };
   // Pinch-to-zoom sets the vertical scale (px/hour); persist only when the gesture settles.
   const applyZoom = useCallback((px: number, persist: boolean) => {
