@@ -84,7 +84,8 @@
     "doseOkFrom": "ok à partir de ~{{time}}",
     "doseLastAgo": "dernière dose il y a {{ago}}",
     "lastFeeding": "Dernier repas",
-    "overdueBy": "en retard de {{late}}"
+    "overdueBy": "en retard de {{late}}",
+    "overdueByLabel": "en retard de"
   },
   "nav": {
     "home": "Accueil",

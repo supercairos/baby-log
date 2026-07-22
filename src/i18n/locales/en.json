@@ -84,7 +84,8 @@
     "doseOkFrom": "ok from ~{{time}}",
     "doseLastAgo": "last dose {{ago}} ago",
     "lastFeeding": "Last feed",
-    "overdueBy": "{{late}} late"
+    "overdueBy": "{{late}} late",
+    "overdueByLabel": "late by"
   },
   "nav": {
     "home": "Home",

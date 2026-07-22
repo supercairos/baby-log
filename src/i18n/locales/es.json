@@ -84,7 +84,8 @@
     "doseOkFrom": "ok desde ~{{time}}",
     "doseLastAgo": "última dosis hace {{ago}}",
     "lastFeeding": "Última toma",
-    "overdueBy": "{{late}} de retraso"
+    "overdueBy": "{{late}} de retraso",
+    "overdueByLabel": "con retraso de"
   },
   "nav": {
     "home": "Inicio",
