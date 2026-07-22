@@ -109,6 +109,7 @@ export function FeedingSheet({
   open,
   started,
   elapsedMs,
+  lastMethod,
   type,
   method,
   amount,
@@ -121,6 +122,9 @@ export function FeedingSheet({
   /** false = pre-start (details first, the CTA starts the timer); true = refining a running timer. */
   started: boolean;
   elapsedMs: number | null;
+  /** Previous feed's method (pre-start only) — shown as a "last time: left" hint, since the
+   *  chips pre-select the OTHER breast. */
+  lastMethod?: FeedingMethod | null;
   type: FeedingType | null;
   method: FeedingMethod | null;
   amount: number | null;
@@ -161,6 +165,9 @@ export function FeedingSheet({
         <>
           <div style={s.sheetGroup}>{t("sheet.method")}</div>
           <BreastMethodChips method={method} accent={feed} onMethod={onMethod} />
+          {lastMethod && ["left breast", "right breast", "both breasts"].includes(lastMethod) && (
+            <div style={s.sheetHint}>{t("sheet.lastBreast", { side: feedMethodLabel(lastMethod) })}</div>
+          )}
         </>
       ) : allowedMethods.length > 1 ? (
         <>

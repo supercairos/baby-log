@@ -80,7 +80,8 @@
     "close": "Cerrar",
     "version": "Baby Log v{{version}}",
     "doseOkFrom": "ok desde ~{{time}}",
-    "doseLastAgo": "última dosis hace {{ago}}"
+    "doseLastAgo": "última dosis hace {{ago}}",
+    "lastFeeding": "Última toma"
   },
   "nav": {
     "home": "Inicio",
@@ -167,7 +168,8 @@
     "saveChanges": "Guardar",
     "recentDoses": "Recientes",
     "nextDoseAfter": "Próxima dosis tras",
-    "hoursShort": "{{h}} h"
+    "hoursShort": "{{h}} h",
+    "lastBreast": "Última vez: {{side}}"
   },
   "login": {
     "connectManually": "Conexión manual",

@@ -86,9 +86,16 @@ const TILE_ORDER: ActivityKey[] = ["feeding", "sleep", "diaper", "tummy"];
 const STALE_SLEEP_MS = 14 * 3600_000;
 
 // Feeding sheet: `localId: null` = pre-start (details chosen BEFORE the timer exists — the
-// CTA starts it); a real localId = refine mode over an already-running timer.
-type Sheet = { type: "feeding"; localId: string | null } | { type: "diaper" } | null;
+// CTA starts it); a real localId = refine mode over an already-running timer. `lastMethod`
+// (pre-start only) is the previous feed's method, snapshotted at open so the "last time:
+// left" hint doesn't chase the user's taps.
+type Sheet = { type: "feeding"; localId: string | null; lastMethod?: FeedingMethod | null } | { type: "diaper" } | null;
 type FeedSel = { type: FeedingType | null; method: FeedingMethod | null; amount?: number | null };
+
+/** Breastfeeding alternates sides: propose the breast NOT used last time. "Both breasts"
+ *  stays both; bottle/solid/none pass through unchanged. */
+const otherBreast = (m: FeedingMethod | null | undefined): FeedingMethod | null =>
+  m === "left breast" ? "right breast" : m === "right breast" ? "left breast" : (m ?? null);
 
 export function Home({
   client,
@@ -183,6 +190,12 @@ export function Home({
   );
   // Last-night recap ("19:45 – 07:02 · 2 réveils") + today's bottle total (ml).
   const night = useMemo(() => lastNight(entries ?? [], nowMinute * 60_000), [entries, nowMinute]);
+  // Most recent completed feeding, for the "what/when/how was the last feed" glance row
+  // (entries are newest-first).
+  const lastFeeding = useMemo(
+    () => (entries ?? []).find((e): e is Extract<TimelineEntry, { activity: "feeding" }> => e.activity === "feeding") ?? null,
+    [entries],
+  );
   const mlToday = useMemo(() => {
     const dayStart = new Date(nowMinute * 60_000);
     dayStart.setHours(0, 0, 0, 0);
@@ -502,10 +515,12 @@ export function Home({
     // Medication isn't a home tile and never runs as a timer — it's logged from the journal only.
     if (activity === "medication") return;
     if (activity === "feeding") {
-      // Details BEFORE the timer: open the sheet pre-seeded with the last choice; the timer
-      // only starts when the CTA is tapped (confirmFeeding). Closing the sheet = cancel.
-      setFeedSel(childId != null ? (lastFeed[childId] ?? { type: null, method: null }) : { type: null, method: null });
-      setSheet({ type: "feeding", localId: null });
+      // Details BEFORE the timer: open the sheet pre-seeded with the last choice — proposing
+      // the OTHER breast when the last feed was one-sided; the timer only starts when the CTA
+      // is tapped (confirmFeeding). Closing the sheet = cancel.
+      const last = childId != null ? lastFeed[childId] : undefined;
+      setFeedSel(last ? { ...last, method: otherBreast(last.method) } : { type: null, method: null });
+      setSheet({ type: "feeding", localId: null, lastMethod: last?.method ?? null });
       return;
     }
     const guard = `start:${activity}`;
@@ -828,7 +843,7 @@ export function Home({
                   {/* discard: end a mistaken timer WITHOUT logging it (more prominent when stale) */}
                   <button
                     onClick={() => void discard(rt)}
-                    style={{ ...s.runEdit, color: stale ? palette.danger : palette.textFaint, borderColor: stale ? `${palette.danger}66` : palette.surfaceStrongBorder }}
+                    style={{ ...s.runEdit, color: stale ? palette.danger : v.accent, borderColor: stale ? `${palette.danger}66` : `${v.accent}55` }}
                     aria-label={t("home.discardTimer")}
                   >
                     <TrashIcon size={16} />
@@ -837,7 +852,7 @@ export function Home({
               );
             })}
 
-            {upNext.length > 0 || showTummy || night || mlToday > 0 || medGuard ? (
+            {upNext.length > 0 || showTummy || night || mlToday > 0 || medGuard || lastFeeding ? (
               <div style={s.estimates}>
                 {medGuard && (() => {
                   const locked = medGuard.dueMs > now;
@@ -861,6 +876,18 @@ export function Home({
                     <span style={s.estimateLabel}>{t("home.night")}</span>
                     <span style={s.estimateTime}>
                       {clockTime(night.startMs)} – {clockTime(night.endMs)} · {night.wakings === 0 ? t("home.noWakings") : t("home.wakings", { count: night.wakings })}
+                    </span>
+                  </div>
+                )}
+                {/* Last feeding at a glance: when (clock + how long ago) and how (type · side · ml). */}
+                {lastFeeding && (
+                  <div style={s.estimateRow}>
+                    <span style={{ ...s.estimateIcon, background: `${palette.accents.feeding.accent}14`, color: palette.accents.feeding.accent }}>
+                      <ACTIVITY_ICON.feeding size={16} />
+                    </span>
+                    <span style={s.estimateLabel}>{t("home.lastFeeding")}</span>
+                    <span style={s.estimateTime}>
+                      {clockTime(lastFeeding.startMs)} · {feedingMeta(lastFeeding.type, lastFeeding.method, lastFeeding.amount)}
                     </span>
                   </div>
                 )}
@@ -1045,6 +1072,7 @@ export function Home({
         open={sheet?.type === "feeding"}
         started={sheet?.type === "feeding" && sheet.localId != null}
         elapsedMs={feedingElapsed}
+        lastMethod={sheet?.type === "feeding" ? (sheet.lastMethod ?? null) : null}
         type={feedSel.type}
         method={feedSel.method}
         amount={feedSel.amount ?? null}

@@ -143,7 +143,8 @@ export function Timeline({
             position: "fixed",
             left: "50%",
             transform: "translateX(-50%)",
-            bottom: "calc(env(safe-area-inset-bottom, 0px) + 16px)",
+            // Clears the calendar's fixed "Add entry" bar, which floats at the very bottom.
+            bottom: "calc(env(safe-area-inset-bottom, 0px) + 92px)",
             zIndex: 999,
             display: "inline-flex",
             alignItems: "center",
