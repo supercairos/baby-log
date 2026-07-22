@@ -31,7 +31,9 @@ import {
   logDiaperMutation,
   logMedicationMutation,
   mergeTimerMapping,
+  onOutboxChange,
   onOutboxError,
+  pendingCount,
   setTimerMapping,
   startOutboxAutoFlush,
   startTimerMutation,
@@ -128,6 +130,10 @@ export function Home({
   const [lastFeed, setLastFeed] = useState<Record<number, FeedSel>>({});
   const [notify, setNotify] = useState(() => localStorage.getItem("baby-log:notify") === "on");
   const [napAlert, setNapAlert] = useState(() => localStorage.getItem("baby-log:napalert") === "on");
+  // Offline/pending pill inputs: `navigator.onLine` flips instantly via the window events; the
+  // pending count re-reads the outbox on its change events (enqueue/drain), not by polling.
+  const [online, setOnline] = useState(() => navigator.onLine);
+  const [pendingWrites, setPendingWrites] = useState(0);
   // The predicted-nap window we already notified for (bucketed), so the per-minute prediction
   // refresh can't re-fire the same alert.
   const napFired = useRef<number>(0);
@@ -242,6 +248,23 @@ export function Home({
 
   // Background outbox flushing (online/focus/interval) — covers retries beyond submit().
   useEffect(() => startOutboxAutoFlush(client), [client]);
+
+  useEffect(() => {
+    const up = () => setOnline(true);
+    const down = () => setOnline(false);
+    window.addEventListener("online", up);
+    window.addEventListener("offline", down);
+    return () => {
+      window.removeEventListener("online", up);
+      window.removeEventListener("offline", down);
+    };
+  }, []);
+
+  useEffect(() => {
+    const refresh = () => void pendingCount().then(setPendingWrites).catch(() => {});
+    refresh(); // writes may be left over from a previous session
+    return onOutboxChange(refresh);
+  }, []);
 
   // Surface permanently-failed writes (rejected field, bad token, …) as a toast — they don't
   // retry, so the user would otherwise see a logged action silently vanish.
@@ -800,6 +823,22 @@ export function Home({
           element={
             <>
           {renderHeader(greeting())}
+
+          {/* Offline/pending pill — the only hint that a tap was buffered, not lost. Hidden in
+              the normal case (online, empty outbox); warn-amber dot only while actually offline
+              (pending-while-online is just the flush catching up — not alarming). */}
+          {(!online || pendingWrites > 0) && (
+            <div style={s.syncRow}>
+              <span style={s.syncPill}>
+                <span aria-hidden style={{ ...s.syncDot, ...(online ? {} : { background: palette.warn }) }} />
+                {!online
+                  ? pendingWrites > 0
+                    ? `${t("sync.offline")} · ${t("sync.pending", { count: pendingWrites })}`
+                    : t("sync.offline")
+                  : t("sync.pending", { count: pendingWrites })}
+              </span>
+            </div>
+          )}
 
           {/* Running timers, then the discreet "up next" estimates. The estimates stay visible
               while a timer runs (the running activity is filtered out of `upNext`); the idle

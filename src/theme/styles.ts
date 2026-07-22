@@ -349,8 +349,12 @@ export function makeStyles(p: Palette): Styles {
     radialStatRow: { display: "flex", alignItems: "center", gap: 9 },
     radialStatValue: { fontSize: 15.5, fontWeight: 700, color: p.text, fontFamily: p.serif, letterSpacing: ".2px" },
 
+    // Offline/pending sync pill — one quiet row above the running timers (no card chrome: it
+    // informs, never competes with logging). The dot pulses feed-colored while writes are
+    // pending; Home overrides it to `warn` when actually offline.
+    syncRow: { marginTop: 16, marginBottom: -14, padding: "0 6px", display: "flex", zIndex: 1 },
     syncPill: { display: "inline-flex", alignItems: "center", gap: 7, fontSize: 12, fontWeight: 700, color: p.textFaint },
-    syncDot: { width: 7, height: 7, borderRadius: "50%", background: feed, animation: "pulse 1.4s ease-in-out infinite" },
+    syncDot: { width: 7, height: 7, borderRadius: "50%", background: feed, animation: "pulse 1.4s ease-in-out infinite", flexShrink: 0 },
 
     // ── Login screen ──
     loginRoot: {

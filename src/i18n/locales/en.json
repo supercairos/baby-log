@@ -124,6 +124,11 @@
     "newEntries_other": "{{count}} new",
     "updated": "Updated {{ago}}"
   },
+  "sync": {
+    "offline": "Offline",
+    "pending_one": "{{count}} pending",
+    "pending_other": "{{count}} pending"
+  },
   "cal": {
     "day": "Day",
     "week": "Week",

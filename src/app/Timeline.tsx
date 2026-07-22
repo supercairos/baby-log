@@ -54,15 +54,20 @@ function relativeAgo(ms: number): string {
   return rtf.format(-Math.round(m / 60), "hour");
 }
 
+/** Past this, the dot stops reassuring: ~3 missed 30s polls means offline/backgrounded/server
+ *  trouble, and a green "updated 5 min ago" would be a lie. */
+const FRESHNESS_STALE_MS = 90_000;
+
 /** A subtle "● updated Xs ago" line confirming the timeline is auto-refreshing. Self-ticks every
  *  5s in its own component so the (potentially long) entry list never re-renders on the clock. */
 function Freshness({ updatedAt }: { updatedAt: number }) {
   const { palette } = useTheme();
   const { t } = useTranslation();
   const now = useNow(5000);
+  const stale = now - updatedAt > FRESHNESS_STALE_MS;
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "0 0 12px", color: palette.textFaint, fontSize: 11.5, fontWeight: 700, letterSpacing: 0.2 }}>
-      <span aria-hidden style={{ width: 6, height: 6, borderRadius: "50%", background: palette.accents.diaper.accent }} />
+      <span aria-hidden style={{ width: 6, height: 6, borderRadius: "50%", background: stale ? palette.warn : palette.ok }} />
       {t("timeline.updated", { ago: relativeAgo(now - updatedAt) })}
     </div>
   );

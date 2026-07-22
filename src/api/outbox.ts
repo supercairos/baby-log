@@ -14,6 +14,7 @@
 import type { Mutation, LocalId } from "./mutations";
 import type { TimerActivityKey, FeedingType, FeedingMethod } from "./activities";
 import type { Connection } from "./connection";
+import { emitOutboxChange } from "./outbox-events";
 
 const DB_NAME = "baby-log";
 const DB_VERSION = 2;
@@ -122,7 +123,9 @@ export async function enqueue(mutation: Mutation): Promise<number> {
     nextAttemptAt: 0,
     createdAt: Date.now(),
   };
-  return tx<number>(STORE_MUTATIONS, "readwrite", (s) => s.add(record) as IDBRequest<number>);
+  const seq = await tx<number>(STORE_MUTATIONS, "readwrite", (s) => s.add(record) as IDBRequest<number>);
+  emitOutboxChange();
+  return seq;
 }
 
 /** All queued records in FIFO (seq) order. */
@@ -137,6 +140,7 @@ export async function pendingCount(): Promise<number> {
 
 export async function removeRecord(seq: number): Promise<void> {
   await tx<undefined>(STORE_MUTATIONS, "readwrite", (s) => s.delete(seq) as IDBRequest<undefined>);
+  emitOutboxChange(); // enqueue + remove are the only two places the pending count moves
 }
 
 export async function updateRecord(record: OutboxRecord): Promise<void> {

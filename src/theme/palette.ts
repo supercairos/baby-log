@@ -69,6 +69,10 @@ export interface Palette {
   scrimBlur: string;
 
   danger: string;
+  /** Positive/fresh status (freshness dot) — a calm green, quieter than the activity accents. */
+  ok: string;
+  /** Stale/degraded status (stale freshness, offline pill) — amber; `danger` would read as an error. */
+  warn: string;
   /** Diaper wet/solid state colors — preset dots + wet/solid chips (chip text must hold ≥3:1 on the chipOn tint). */
   diaperWet: string;
   diaperSolid: string;
@@ -131,6 +135,8 @@ export const darkPalette: Palette = {
   scrim: "rgba(12,9,16,.6)",
   scrimBlur: "blur(3px)",
   danger: "#d98282",
+  ok: "#a4c8a0", // shares the diaperWet green on purpose — one calm green in the system
+  warn: "#d9b36b",
   diaperWet: "#a4c8a0",
   diaperSolid: "#c9a86a",
   onAccent: "#1a1722",
@@ -189,6 +195,8 @@ export const lightPalette: Palette = {
   scrim: "rgba(43,38,32,.4)",
   scrimBlur: "blur(2px)",
   danger: "#b03a3a",
+  ok: "#6f8c4f", // shares the diaperWet green on purpose — one calm green in the system
+  warn: "#a8731e",
   diaperWet: "#6f8c4f",
   diaperSolid: "#b07d2e",
   onAccent: "#fffaf0",
