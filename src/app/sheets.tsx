@@ -213,6 +213,7 @@ export function FeedingSheet({
 export function DiaperSheet({ open, onLog }: { open: boolean; onLog: (preset: { wet: boolean; solid: boolean; label: string }) => void }) {
   const { s } = useStyles();
   const { t } = useTranslation();
+  const { palette } = useTheme();
   return (
     <SheetShell open={open} label={t("sheet.logDiaper")}>
       <div style={s.sheetHandle} />
@@ -223,7 +224,7 @@ export function DiaperSheet({ open, onLog }: { open: boolean; onLog: (preset: { 
             <span
               style={{
                 ...s.diaperDot,
-                background: o.solid && o.wet ? "linear-gradient(135deg,#a4c8a0,#c9a86a)" : o.solid ? "#c9a86a" : "#a4c8a0",
+                background: o.solid && o.wet ? `linear-gradient(135deg,${palette.diaperWet},${palette.diaperSolid})` : o.solid ? palette.diaperSolid : palette.diaperWet,
               }}
             />
             {t(`diaper.${o.id}`)}
@@ -387,10 +388,10 @@ export function EntrySheet({
         <>
           <div style={s.sheetGroup}>{t("sheet.contents")}</div>
           <div style={s.chips}>
-            <button aria-pressed={draft.wet} onClick={() => { buzz(); setDraft((d) => ({ ...d, wet: !d.wet })); }} style={{ ...s.chip, ...(draft.wet ? chipOn("#a4c8a0") : {}) }}>
+            <button aria-pressed={draft.wet} onClick={() => { buzz(); setDraft((d) => ({ ...d, wet: !d.wet })); }} style={{ ...s.chip, ...(draft.wet ? chipOn(palette.diaperWet) : {}) }}>
               {draft.wet ? "✓ " : ""}{t("diaper.wet")}
             </button>
-            <button aria-pressed={draft.solid} onClick={() => { buzz(); setDraft((d) => ({ ...d, solid: !d.solid })); }} style={{ ...s.chip, ...(draft.solid ? chipOn("#c9a86a") : {}) }}>
+            <button aria-pressed={draft.solid} onClick={() => { buzz(); setDraft((d) => ({ ...d, solid: !d.solid })); }} style={{ ...s.chip, ...(draft.solid ? chipOn(palette.diaperSolid) : {}) }}>
               {draft.solid ? "✓ " : ""}{t("diaper.solid")}
             </button>
           </div>
