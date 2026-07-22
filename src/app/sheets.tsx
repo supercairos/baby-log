@@ -15,7 +15,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { useStyles, useTheme } from "../theme";
 import { activityLabel, feedMethodLabel, feedMethodOptions, feedTypeChipMatches, feedTypeOptions, medicationMeta, medUnitLabel } from "../lib/labels";
-import { fmt, toLocalInput, fromLocalInput } from "../lib/format";
+import { fmt, hm, toLocalInput, fromLocalInput } from "../lib/format";
 import { ACTIVITY_ICON, BackIcon, TrashIcon } from "../ui/icons";
 import { buzz } from "./hooks";
 import { useFocusTrap } from "./useFocusTrap";
@@ -202,8 +202,9 @@ export function FeedingSheet({
         </>
       )}
 
+      {/* Pre-start the CTA STARTS the timer — say so; "Done" would read as "already logged". */}
       <button onClick={onDone} style={s.cta}>
-        {t("common.done")}
+        {t(started ? "common.done" : "sheet.startTimer")}
       </button>
     </SheetShell>
   );
@@ -518,7 +519,7 @@ export function EntrySheet({
           )}
           {isTimed && draft.endMs != null && (
             <div role="status" aria-live="polite" style={{ ...s.durReadout, ...(endBeforeStart ? s.durBad : {}) }}>
-              {endBeforeStart ? t("sheet.endIsBeforeStart") : t("sheet.duration", { duration: fmt(draft.endMs - draft.startMs) })}
+              {endBeforeStart ? t("sheet.endIsBeforeStart") : t("sheet.duration", { duration: hm(draft.endMs - draft.startMs) })}
             </div>
           )}
 

@@ -9,7 +9,7 @@ import type { TimelineEntry } from "../api";
 import { buzz, useNow } from "./hooks";
 import { useStyles, useTheme } from "../theme";
 import { ACTIVITY_ICON, ClockIcon, PlusIcon, TrashIcon } from "../ui/icons";
-import { fmt } from "../lib/format";
+import { hm } from "../lib/format";
 import { clockTime, dayLabel } from "../lib/datetime";
 import { activityLabel, diaperMeta, feedingMeta, medicationMeta } from "../lib/labels";
 import i18n, { currentLocale } from "../i18n";
@@ -214,7 +214,8 @@ export function Timeline({
                       {note && <div style={s.entryNote}>“{note}”</div>}
                       <div style={s.entryTime}>
                         {clockTime(e.startMs)}
-                        {e.endMs ? ` – ${clockTime(e.endMs)} · ${fmt(e.endMs - e.startMs)}` : ""}
+                        {/* hm, not fmt: "0:45" would read as clock time in a row full of clock times */}
+                        {e.endMs ? ` – ${clockTime(e.endMs)} · ${hm(e.endMs - e.startMs)}` : ""}
                       </div>
                     </div>
                   </button>

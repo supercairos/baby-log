@@ -415,7 +415,14 @@ function RadialDay({
         {soonest ? (
           <>
             <span style={s.radialSmall}>{t("home.upNext")}</span>
-            <span style={s.radialBig}>{soonest.etaMs <= now + 60_000 ? t("home.dueNow") : t("cal.inDuration", { duration: hm(soonest.etaMs - now) })}</span>
+            {/* Same honesty as the home panel: ±10 min = "now", older says how late it is. */}
+            <span style={s.radialBig}>
+              {soonest.etaMs > now + 10 * 60_000
+                ? t("cal.inDuration", { duration: hm(soonest.etaMs - now) })
+                : soonest.etaMs >= now - 10 * 60_000
+                  ? t("home.dueNowExact")
+                  : t("home.overdueAgo", { ago: hm(now - soonest.etaMs) })}
+            </span>
             <span style={{ ...s.radialActivity, color: palette.accents[soonest.activity].accent }}>{activityLabel(soonest.activity)}</span>
           </>
         ) : (
@@ -683,23 +690,32 @@ function SummaryView({
   const days = Math.max(1, range.days.filter((d) => d <= now).length);
   const goal = tummyGoalForAge(birthDate, range.from);
 
-  // Week-over-week deltas, per day (the previous week always divides by its full 7 days).
+  // Week-over-week deltas, per day. The previous period divides by the days the child actually
+  // existed in it — for a baby born mid-week, dividing by 7 would deflate every "last week"
+  // average and fake a surge in the deltas. Under 3 lived days the comparison is noise: hide it.
   const prev = useMemo(
     () => summarize(prevEntries ?? [], addDays(range.from, -7), range.from),
     [prevEntries, range],
   );
-  const hasPrev = (prevEntries?.length ?? 0) > 0;
+  const prevFrom = addDays(range.from, -7);
+  const birthMs = birthDate ? Date.parse(birthDate) : NaN;
+  const prevLifeDays = Number.isNaN(birthMs)
+    ? 7
+    : Array.from({ length: 7 }, (_, i) => addDays(prevFrom, i)).filter((d) => d >= startOfDay(birthMs)).length;
+  const prevDays = clamp(prevLifeDays, 1, 7);
+  const hasPrev = (prevEntries?.length ?? 0) > 0 && prevLifeDays >= 3;
   const delta = {
-    sleep: signedHm(stats.sleepMs / days - prev.sleepMs / 7),
-    feeding: signedCount(Math.round(stats.feedCount / days - prev.feedCount / 7)),
-    diaper: signedCount(Math.round(stats.diaperCount / days - prev.diaperCount / 7)),
-    tummy: signedHm(stats.tummyMs / days - prev.tummyMs / 7),
+    sleep: signedHm(stats.sleepMs / days - prev.sleepMs / prevDays),
+    feeding: signedCount(Math.round(stats.feedCount / days - prev.feedCount / prevDays)),
+    diaper: signedCount(Math.round(stats.diaperCount / days - prev.diaperCount / prevDays)),
+    tummy: signedHm(stats.tummyMs / days - prev.tummyMs / prevDays),
   } as const;
 
   if (entries == null) return <div style={s.empty}><div className="spin" style={{ width: 28, height: 28, borderRadius: "50%", border: `3px solid ${palette.surfaceStrongBorder}`, borderTopColor: palette.accents.feeding.accent }} /></div>;
 
   const cards = [
-    { key: "sleep", big: hm(stats.sleepMs / days), sub: t("cal.longest", { duration: hm(stats.longestSleep) }) },
+    // "/day" on the value, like the other cards — a bare "9h 30m" reads as the week's total.
+    { key: "sleep", big: t("cal.durationPerDay", { duration: hm(stats.sleepMs / days) }), sub: t("cal.longest", { duration: hm(stats.longestSleep) }) },
     { key: "feeding", big: t("cal.perDay", { count: Math.round(stats.feedCount / days) }), sub: stats.avgGap != null ? t("cal.everyInterval", { duration: hm(stats.avgGap) }) : "—" },
     { key: "diaper", big: t("cal.perDay", { count: Math.round(stats.diaperCount / days) }), sub: t("cal.wetSolid", { wet: stats.wet, solid: stats.solid }) },
     { key: "tummy", big: t("cal.minPerDay", { value: Math.round(stats.tummyMs / days / 60_000) }), sub: t("cal.goalMin", { goal }) },

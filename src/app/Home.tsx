@@ -457,7 +457,7 @@ export function Home({
         submit(consumeTimerMutation("tummy", localId, childId));
       }
       if (sheet?.type === "feeding") setSheet(null);
-      show(t("toast.saved", { activity: activityLabel(rt.activity), duration: fmt(durationMs) }), accentOf(rt.activity));
+      show(t("toast.saved", { activity: activityLabel(rt.activity), duration: hm(durationMs) }), accentOf(rt.activity));
     } finally {
       pending.current.delete(guard);
     }
@@ -891,28 +891,6 @@ export function Home({
                     </span>
                   </div>
                 )}
-                <div style={s.estimatesHead}>{t("home.upNext")}</div>
-                {upNext.map((p) => {
-                  const v = palette.accents[p.activity];
-                  const Icon = ACTIVITY_ICON[p.activity];
-                  // The next sleep also says how long it should last ("~15:19 · ~45m").
-                  const durHint =
-                    p.activity === "sleep" && nextSleepEnd && nextSleepEnd.confidence >= 0.3
-                      ? ` · ~${hm(nextSleepEnd.endMs - p.etaMs)}`
-                      : "";
-                  return (
-                    <div key={p.activity} style={s.estimateRow}>
-                      <span style={{ ...s.estimateIcon, background: `${v.accent}14`, color: v.accent }}>
-                        <Icon size={16} />
-                      </span>
-                      <span style={s.estimateLabel}>{activityLabel(p.activity)}</span>
-                      <span style={s.estimateTime}>
-                        {p.etaMs <= now + 60_000 ? t("home.dueNow") : `~${clockTime(p.etaMs)}`}
-                        {durHint}
-                      </span>
-                    </div>
-                  );
-                })}
                 {showTummy && tummy && (
                   <div style={s.estimateRow}>
                     <span style={{ ...s.estimateIcon, background: `${palette.accents.tummy.accent}14`, color: palette.accents.tummy.accent }}>
@@ -933,6 +911,35 @@ export function Home({
                     <span style={s.estimateTime}>{t("home.mlToday", { ml: mlToday })}</span>
                   </div>
                 )}
+                {/* Facts (above) never sit under the "Prediction" header — it labels guesses only. */}
+                {upNext.length > 0 && <div style={s.estimatesHead}>{t("home.upNext")}</div>}
+                {upNext.map((p) => {
+                  const v = palette.accents[p.activity];
+                  const Icon = ACTIVITY_ICON[p.activity];
+                  // The next sleep also says how long it should last ("~15:19 · ~45m").
+                  const durHint =
+                    p.activity === "sleep" && nextSleepEnd && nextSleepEnd.confidence >= 0.3
+                      ? ` · ~${hm(nextSleepEnd.endMs - p.etaMs)}`
+                      : "";
+                  return (
+                    <div key={p.activity} style={s.estimateRow}>
+                      <span style={{ ...s.estimateIcon, background: `${v.accent}14`, color: v.accent }}>
+                        <Icon size={16} />
+                      </span>
+                      <span style={s.estimateLabel}>{activityLabel(p.activity)}</span>
+                      {/* Be honest about a passed eta: ±10 min reads "now", older says how late
+                          it is — a frozen "due now" an hour later erodes trust in the panel. */}
+                      <span style={s.estimateTime}>
+                        {p.etaMs > now + 10 * 60_000
+                          ? `~${clockTime(p.etaMs)}`
+                          : p.etaMs >= now - 10 * 60_000
+                            ? t("home.dueNowExact")
+                            : t("home.overdueAgo", { ago: hm(now - p.etaMs) })}
+                        {durHint}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             ) : running.length === 0 ? (
               <div style={s.idle}>

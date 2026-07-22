@@ -15,9 +15,11 @@ export function fmt(milliseconds: number): string {
   return h > 0 ? `${h}:${pad(m)}:${pad(sec)}` : `${m}:${pad(sec)}`;
 }
 
-/** Compact duration, e.g. "1h 5m" / "45m". */
+/** Compact duration, e.g. "1h 5m" / "45m". A real sub-minute span reads "<1m", never "0m" —
+ *  a 20-second feed did happen and must not display as nothing. */
 export function hm(milliseconds: number): string {
   const total = Math.max(0, Math.round(milliseconds / 60_000));
+  if (total === 0) return milliseconds > 0 ? "<1m" : "0m";
   const h = Math.floor(total / 60);
   const m = total % 60;
   return h ? `${h}h ${m}m` : `${m}m`;
