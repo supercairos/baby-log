@@ -261,7 +261,9 @@ export function makeStyles(p: Palette): Styles {
     navFoot: { fontSize: 12.5, color: p.textFaint, padding: "0 14px", marginTop: "auto", fontWeight: 600 },
 
     timeline: { marginTop: 18, zIndex: 1, paddingBottom: 20, animation: "fadeIn .4s ease" },
-    addBtn: { display: "flex", alignItems: "center", justifyContent: "center", gap: 9, width: "100%", padding: "15px", marginBottom: 22, borderRadius: 18, background: `${feed}1f`, border: `1px solid ${feed}59`, color: feed, fontSize: 15.5, fontWeight: 800 },
+    // Accent tint layered over the solid tile base so the button stays opaque — it floats over
+    // list rows in the calendar and a bare `${feed}1f` would let them show through.
+    addBtn: { display: "flex", alignItems: "center", justifyContent: "center", gap: 9, width: "100%", padding: "15px", marginBottom: 22, borderRadius: 18, background: `linear-gradient(0deg, ${feed}1f, ${feed}1f), ${p.tileBase}`, border: `1px solid ${feed}59`, color: feed, fontSize: 15.5, fontWeight: 800, boxShadow: "0 10px 30px rgba(0,0,0,.18)" },
     addPlus: { display: "grid", placeItems: "center", width: 26, height: 26, borderRadius: 9, background: `${feed}30`, color: feed },
     daygroup: { marginBottom: 22 },
     dayhead: { fontSize: 12, letterSpacing: 1.4, textTransform: "uppercase", color: p.textFaint, fontWeight: 800, margin: "0 0 12px 4px" },
@@ -281,7 +283,9 @@ export function makeStyles(p: Palette): Styles {
     emptySub: { fontSize: 14, color: p.textMuted, fontWeight: 600, maxWidth: 240 },
 
     // ── Calendar (timeline page: Day / Week / List / Summary) ──
-    cal: { marginTop: 14, zIndex: 1, paddingBottom: 20, animation: "fadeIn .4s ease" },
+    // Bottom padding clears the fixed add bar (~76px + safe-area) so the last rows can scroll
+    // above it — it stacks with the root's 32px (+ safe-area) bottom padding, so keep it lean.
+    cal: { marginTop: 14, zIndex: 1, paddingBottom: 48, animation: "fadeIn .4s ease" },
     segWrap: { display: "flex", gap: 4, padding: 4, background: p.chipBg, borderRadius: 14, border: `1px solid ${p.surfaceBorder}`, marginBottom: 16 },
     segBtn: { flex: 1, padding: "9px 6px", borderRadius: 10, background: "transparent", border: "none", color: p.textMuted, fontSize: 13.5, fontWeight: 700, transition: "all .18s ease" },
     segBtnOn: { background: p.surface, color: p.text, boxShadow: dark ? "0 1px 6px rgba(0,0,0,.3)" : "0 2px 0 #d8cbb2" },
@@ -321,7 +325,10 @@ export function makeStyles(p: Palette): Styles {
     statBig: { fontSize: 22, fontWeight: 600, fontFamily: p.serif, color: p.text, lineHeight: 1.1 },
     statSub: { fontSize: 12.5, fontWeight: 600, color: p.textFaint },
     statDelta: { fontSize: 11.5, fontWeight: 700, color: p.textFainter, marginTop: 2 },
-    addBar: { position: "sticky", bottom: 0, zIndex: 4, marginTop: 14, paddingTop: 12, paddingBottom: "calc(6px + env(safe-area-inset-bottom))", background: `linear-gradient(to top, ${p.bg} 72%, transparent)` },
+    // Fixed, not sticky: the app root's `overflow: hidden` would make a sticky bar stop at its
+    // in-flow spot (the end of the list) instead of floating. Width mirrors the root column
+    // (max 440px incl. 18px side padding). No backdrop — the opaque button carries the look.
+    addBar: { position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "min(calc(100% - 36px), 404px)", zIndex: 4, paddingTop: 12, paddingBottom: "calc(14px + env(safe-area-inset-bottom))" },
 
     radialWrap: { position: "relative", display: "flex", justifyContent: "center", padding: "10px 0 6px" },
     radialSvg: { width: "100%", maxWidth: 340, height: "auto", display: "block", overflow: "visible" },

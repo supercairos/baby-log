@@ -155,7 +155,7 @@ export function Calendar({
         <TimeGrid entries={rangeEntries} range={range} hourPx={hourPx} onZoom={applyZoom} onEdit={onEdit} />
       )}
 
-      {/* Persistent, thumb-reachable add button pinned to the bottom of the view. */}
+      {/* Persistent, thumb-reachable add button floating at the bottom of the screen. */}
       <div style={s.addBar}>
         <button onClick={onAdd} style={{ ...s.addBtn, marginBottom: 0 }}>
           <span style={s.addPlus}><PlusIcon size={18} /></span>
