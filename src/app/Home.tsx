@@ -64,7 +64,7 @@ import {
 } from "./notifications";
 import { fmt, hm, iso, nowIso, nowMs, parseDurationMs, toDurationField } from "../lib/format";
 import { clockTime, formatAge, greeting } from "../lib/datetime";
-import { predictNext, predictSleepEnd, PREDICTION_GRACE_MS, type ActivityPrediction } from "../lib/predict";
+import { predictNext, predictSleepEnd, predictionAlive, type ActivityPrediction } from "../lib/predict";
 import { lastNight } from "../lib/night";
 import { tummyProgress } from "../lib/tummy";
 import { activityLabel, diaperMeta, feedingMeta } from "../lib/labels";
@@ -185,12 +185,12 @@ export function Home({
     [entries, child, nowMinute],
   );
   // Confident-enough estimates, soonest first. An activity with a running timer is omitted
-  // (it's already in progress), and an eta past its grace window is expired — a prediction
-  // hours late is noise, not a forecast.
+  // (it's already in progress), and a long-expired eta is dropped — a prediction blown far
+  // past its own confidence window is noise, not a forecast.
   const upNext = useMemo(() => {
     const busy = new Set<string>(running.map((r) => r.activity));
     return (Object.values(predictions) as ActivityPrediction[])
-      .filter((p) => p.confidence >= 0.1 && !busy.has(p.activity) && p.etaMs > nowMinute * 60_000 - PREDICTION_GRACE_MS)
+      .filter((p) => p.confidence >= 0.1 && !busy.has(p.activity) && predictionAlive(p, nowMinute * 60_000))
       .sort((a, b) => a.etaMs - b.etaMs);
   }, [predictions, running, nowMinute]);
   // Show the tummy stat unless a tummy timer is already running, and don't let a lone "0/x min"

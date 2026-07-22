@@ -12,7 +12,7 @@ import { ACTIVITY_ICON, PlusIcon, SunriseIcon, SunsetIcon } from "../ui/icons";
 import { clockTime } from "../lib/datetime";
 import { activityLabel } from "../lib/labels";
 import { hm } from "../lib/format";
-import { predictNext, predictSleepEnd, PREDICTION_GRACE_MS, type ActivityPrediction } from "../lib/predict";
+import { predictNext, predictSleepEnd, predictionAlive, type ActivityPrediction } from "../lib/predict";
 import { tummyGoalForAge } from "../lib/tummy";
 import { sunTimes } from "../lib/sun";
 import { useEntriesInRange, useGeo, useNow, buzz } from "./hooks";
@@ -237,9 +237,9 @@ function RadialDay({
   const feedCount = list.filter((e) => e.activity === "feeding" && e.startMs >= dayStart && e.startMs < dayEnd).length;
 
   // Predicted upcoming events (today only) — shown as dashed "ghost" markers on the ring.
-  // Etas past the grace window are expired, same as the home panel.
+  // Long-expired etas are dropped, same rule as the home panel.
   const preds = isToday
-    ? (Object.values(predictNext(list, birthDate, now)) as ActivityPrediction[]).filter((p) => p.confidence >= 0.1 && p.etaMs > now - PREDICTION_GRACE_MS)
+    ? (Object.values(predictNext(list, birthDate, now)) as ActivityPrediction[]).filter((p) => p.confidence >= 0.1 && predictionAlive(p, now))
     : [];
   const soonest = [...preds].sort((a, b) => a.etaMs - b.etaMs)[0];
   const predMarks = preds.filter((p) => p.etaMs > now && p.etaMs < dayEnd);
