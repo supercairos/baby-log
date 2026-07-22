@@ -441,18 +441,25 @@ function RadialDay({
 
       <div style={s.radialCenter}>
         {soonest ? (
-          <>
-            <span style={s.radialSmall}>{t("home.upNext")}</span>
-            {/* Same honesty as the home panel: ±10 min = "now", older says how late it is. */}
-            <span style={s.radialBig}>
-              {soonest.etaMs > now + 10 * 60_000
+          (() => {
+            // Same honesty as the home panel (±10 min = "now", older says how late), but in a
+            // compact form: the circle fits ~12 glyphs of the serif, so a long-overdue eta
+            // rounds to whole hours ("il y a ~15h") and long strings step the font down.
+            const overdueMs = now - soonest.etaMs;
+            const centerText =
+              soonest.etaMs > now + 10 * 60_000
                 ? t("cal.inDuration", { duration: hm(soonest.etaMs - now) })
-                : soonest.etaMs >= now - 10 * 60_000
+                : overdueMs <= 10 * 60_000
                   ? t("home.dueNowExact")
-                  : t("home.overdueAgo", { ago: hm(now - soonest.etaMs) })}
-            </span>
-            <span style={{ ...s.radialActivity, color: palette.accents[soonest.activity].accent }}>{activityLabel(soonest.activity)}</span>
-          </>
+                  : t("home.overdueAgoShort", { ago: overdueMs >= 3_600_000 ? `~${Math.round(overdueMs / 3_600_000)}h` : hm(overdueMs) });
+            return (
+              <>
+                <span style={s.radialSmall}>{t("home.upNext")}</span>
+                <span style={{ ...s.radialBig, ...(centerText.length > 12 ? { fontSize: 23 } : {}) }}>{centerText}</span>
+                <span style={{ ...s.radialActivity, color: palette.accents[soonest.activity].accent }}>{activityLabel(soonest.activity)}</span>
+              </>
+            );
+          })()
         ) : (
           /* Past day (or nothing left to predict): the day's totals, icon per activity. */
           <div style={s.radialStats}>

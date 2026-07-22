@@ -84,7 +84,8 @@
     "version": "Baby Log v{{version}}",
     "doseOkFrom": "ok dalle ~{{time}}",
     "doseLastAgo": "ultima dose {{ago}} fa",
-    "lastFeeding": "Ultimo pasto"
+    "lastFeeding": "Ultimo pasto",
+    "overdueAgoShort": "{{ago}} fa"
   },
   "nav": {
     "home": "Home",
