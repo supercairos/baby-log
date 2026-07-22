@@ -828,7 +828,7 @@ export function Home({
                   {/* discard: end a mistaken timer WITHOUT logging it (more prominent when stale) */}
                   <button
                     onClick={() => void discard(rt)}
-                    style={{ ...s.runEdit, color: stale ? palette.danger : palette.textFaint, borderColor: stale ? `${palette.danger}66` : palette.surfaceStrongBorder }}
+                    style={{ ...s.runEdit, color: stale ? palette.danger : v.accent, borderColor: stale ? `${palette.danger}66` : `${v.accent}55` }}
                     aria-label={t("home.discardTimer")}
                   >
                     <TrashIcon size={16} />
