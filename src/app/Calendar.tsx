@@ -609,7 +609,7 @@ function TimeGrid({
                   <span style={{ ...s.nowCap, left: "100%", transform: "translate(-50%, -50%) rotate(45deg)" }} />
                 </div>
               )}
-              {layoutDay(blocks, dayStart).map((le) => renderBlock(le, hourPx, palette, onEdit, s))}
+              {layoutDay(blocks, dayStart, hourPx).map((le) => renderBlock(le, hourPx, palette, onEdit, s))}
             </div>
           );
         })}
@@ -633,8 +633,9 @@ interface LaidOut {
  * inside each cluster in a FIXED activity order (sleep, tummy, feeding, medication, diaper) so
  * concurrent blocks always read left→right the same way; start time only breaks ties within a
  * type. Non-overlapping events still share lanes, keeping the column as wide as possible.
- * Instants (diapers) and very short events reserve a ~20-min slot for layout purposes so
- * simultaneous ones still get distinct lanes.
+ * The layout footprint of an event is exactly its DRAWN footprint — renderBlock clamps every
+ * block to ≥6px tall, so short/instant events reserve 6px worth of time at the current zoom.
+ * Anything more (the old flat 20 min) split lanes for blocks that visibly don't touch.
  */
 const LANE_ORDER: Record<TimelineEntry["activity"], number> = { sleep: 0, tummy: 1, feeding: 2, medication: 3, diaper: 4 };
 /** Vertical position of an instant in a wall-clock-labelled grid: local h:mm × px/hour. This
@@ -644,9 +645,12 @@ function wallClockY(ms: number, hourPx: number): number {
   return (d.getHours() + d.getMinutes() / 60 + d.getSeconds() / 3600) * hourPx;
 }
 
-function layoutDay(entries: TimelineEntry[], dayStart: number): LaidOut[] {
+function layoutDay(entries: TimelineEntry[], dayStart: number, hourPx: number): LaidOut[] {
   const dayEnd = addDays(dayStart, 1); // DST-safe
-  const LAYOUT_MIN = 20 * 60_000;
+  const LAYOUT_MIN = (6 / hourPx) * 3_600_000; // the 6px minimum renderBlock draws, as time
+  // Overlaps thinner than a pixel aren't visible — a sleep ending 16 s into a diaper change
+  // must not split the column. Anything under 1px of drawn overlap counts as disjoint.
+  const EPS = (1 / hourPx) * 3_600_000;
   const evs = entries
     .filter((e) => Math.max(e.endMs ?? e.startMs, e.startMs) >= dayStart && e.startMs < dayEnd)
     .map((e) => {
@@ -660,7 +664,7 @@ function layoutDay(entries: TimelineEntry[], dayStart: number): LaidOut[] {
   const clusters: (typeof evs)[] = [];
   let clusterEnd = -Infinity;
   for (const ev of evs) {
-    if (ev.clipStart >= clusterEnd) clusters.push([]);
+    if (ev.clipStart >= clusterEnd - EPS) clusters.push([]);
     clusters[clusters.length - 1].push(ev);
     clusterEnd = Math.max(clusterEnd, ev.layoutEnd);
   }
@@ -671,7 +675,7 @@ function layoutDay(entries: TimelineEntry[], dayStart: number): LaidOut[] {
     const lanes: { s: number; e: number }[][] = [];
     const ordered = [...cluster].sort((a, b) => LANE_ORDER[a.e.activity] - LANE_ORDER[b.e.activity] || a.clipStart - b.clipStart);
     for (const ev of ordered) {
-      let lane = lanes.findIndex((ivs) => ivs.every((iv) => iv.e <= ev.clipStart || iv.s >= ev.layoutEnd));
+      let lane = lanes.findIndex((ivs) => ivs.every((iv) => Math.min(iv.e, ev.layoutEnd) - Math.max(iv.s, ev.clipStart) <= EPS));
       if (lane === -1) {
         lane = lanes.length;
         lanes.push([]);
