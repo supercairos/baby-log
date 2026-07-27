@@ -8,7 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import { useTranslation } from "react-i18next";
 import type { BabyBuddyClient, TimelineEntry } from "../api";
 import { useStyles, useTheme } from "../theme";
-import { ACTIVITY_ICON, DropFilledIcon, DropHalfIcon, PlusIcon, SunriseIcon, SunsetIcon } from "../ui/icons";
+import { ACTIVITY_ICON, PlusIcon, SunriseIcon, SunsetIcon } from "../ui/icons";
 import { clockTime } from "../lib/datetime";
 import { activityLabel } from "../lib/labels";
 import { hm } from "../lib/format";
@@ -196,11 +196,8 @@ function periodLabel(mode: CalMode, range: Range): string {
 // next-event prediction (today) or the day's totals.
 const RCX = 160;
 const RCY = 160;
-const R_RING = 112; // the band the activity arcs live on
-const RING_W = 34; // band (and arc) thickness
-// Badges float just OUTSIDE the band, as labels pointing at their moment — never ON it, so a
-// nudged badge can't sit on top of another activity's arc (a feed "over" a sleep reads wrong).
-const BADGE_R = R_RING + RING_W / 2 + 13;
+const R_RING = 118; // the single band everything lives on
+const RING_W = 40; // band (and arc) thickness
 const ARC_SPAN = 300; // degrees the window covers; the rest is the bottom opening
 const ARC_START = 180 + (360 - ARC_SPAN) / 2; // gap centred on the bottom
 
@@ -296,46 +293,8 @@ function RadialDay({
   // marker is identifiable at a glance. `dashed` renders the predicted ("ghost") variant.
   // Clickable badges act as buttons (keyboard + AT) and carry an invisible r=16 hit circle:
   // the visible 21px disc alone is well under a finger's width.
-  const badge = (
-    key: string,
-    deg: number,
-    accent: string,
-    Icon: (p: { size?: number }) => ReactNode,
-    opts: { dashed?: boolean; onClick?: () => void; label?: string } = {},
-  ) => {
-    const c = polar(deg, BADGE_R);
-    const clickable = !!opts.onClick;
-    return (
-      <g
-        key={key}
-        style={{ color: accent, cursor: clickable ? "pointer" : undefined }}
-        onClick={opts.onClick}
-        role={clickable ? "button" : undefined}
-        tabIndex={clickable ? 0 : undefined}
-        aria-label={clickable ? opts.label : undefined}
-        onKeyDown={
-          clickable
-            ? (e) => {
-                if (e.key !== "Enter" && e.key !== " ") return;
-                e.preventDefault(); // Space must not scroll the page
-                opts.onClick?.();
-              }
-            : undefined
-        }
-      >
-        {/* only on clickable badges — on a ghost/sun marker it would swallow taps meant
-            for the arc underneath */}
-        {clickable && <circle cx={c.x} cy={c.y} r={16} fill="transparent" pointerEvents="all" />}
-        {/* tileBase, not bg: `bg` is a CSS gradient string, which SVG would paint as black */}
-        <circle cx={c.x} cy={c.y} r={10.5} fill={palette.tileBase} stroke={accent} strokeWidth={1.6} strokeDasharray={opts.dashed ? "2.5 2.5" : undefined} />
-        <g transform={`translate(${(c.x - 6.5).toFixed(2)}, ${(c.y - 6.5).toFixed(2)})`}>
-          <Icon size={13} />
-        </g>
-      </g>
-    );
-  };
   const timeLabel = (key: string, deg: number, color: string, ms: number) => {
-    const lp = polar(deg, BADGE_R + 16);
+    const lp = polar(deg, R_RING + RING_W / 2 + 27);
     return (
       <text key={key} x={lp.x} y={lp.y} fill={color} fontSize={10} fontWeight={800} textAnchor="middle" dominantBaseline="middle">
         {clockTime(ms)}
@@ -376,53 +335,81 @@ function RadialDay({
 
   // All badges collected, sorted around the ring, then nudged apart so neighbours never overlap
   // (events close in time would otherwise stack their badges on top of each other).
-  interface Mark {
+  // ONE calm layer, everything at (or a hair from) its true position: spans are arcs on the
+  // band — a long arc carries its own icon at its midpoint — and instants are small fill-coded
+  // dots ON the band. Color is identity (the app-wide rule), so dots need no icons; diaper
+  // dots encode the change type by fill: ring = wet, disc = solid, donut = both.
+  interface Dot {
     key: string;
-    /** Display angle — may drift from `trueDeg` when neighbours are nudged apart. */
     deg: number;
-    /** The event's REAL angle: where the boudin marker sits and the leader line starts. */
-    trueDeg: number;
-    /** Draw the on-band marker (skipped when the entry already has a visible arc). */
-    marker: boolean;
     accent: string;
-    Icon: (p: { size?: number }) => ReactNode;
+    kind: "disc" | "ring" | "donut";
     dashed?: boolean;
     onClick?: () => void;
-    /** Accessible name for a clickable badge (activity + start time). */
     label?: string;
     labelMs?: number;
   }
   const entryLabel = (e: TimelineEntry) => `${activityLabel(e.activity)} ${clockTime(e.startMs)}`;
-  // Whether ringArc() draws a visible pill for this entry (same cap-fit rule) — if it does,
-  // the arc already marks the true position and the boudin would be noise on top of it.
+  // Whether ringArc() draws a visible pill for this entry (same cap-fit rule) — if not, the
+  // entry is marked by a dot at its midpoint instead.
   const hasArc = (e: TimelineEntry) => {
     const rawEnd = Math.max(e.endMs ?? e.startMs, e.startMs);
     return angleOf(Math.min(rawEnd, winEnd)) - angleOf(Math.max(e.startMs, winStart)) > 2 * CAP_DEG + 0.5;
   };
-  const marks: Mark[] = [
-    ...[...sleeps, ...bars].map((e): Mark => ({ key: `b-${e.path}${e.id}`, deg: midDeg(e), trueDeg: midDeg(e), marker: !hasArc(e), accent: palette.accents[e.activity].accent, Icon: ACTIVITY_ICON[e.activity], onClick: () => onEdit(e), label: entryLabel(e) })),
-    // Drop glyph encodes the change type: outline = wet, filled = solid, half-filled = both.
-    ...diapers.map((e): Mark => ({ key: `b-${e.path}${e.id}`, deg: angleOf(e.startMs), trueDeg: angleOf(e.startMs), marker: true, accent: palette.accents.diaper.accent, Icon: e.wet && e.solid ? DropHalfIcon : e.solid ? DropFilledIcon : ACTIVITY_ICON.diaper, onClick: () => onEdit(e), label: entryLabel(e) })),
-    ...meds.map((e): Mark => ({ key: `b-${e.path}${e.id}`, deg: angleOf(e.startMs), trueDeg: angleOf(e.startMs), marker: true, accent: palette.accents.medication.accent, Icon: ACTIVITY_ICON.medication, onClick: () => onEdit(e), label: entryLabel(e) })),
-    ...predMarks.map((p): Mark => ({ key: `pb-${p.activity}`, deg: angleOf(p.etaMs), trueDeg: angleOf(p.etaMs), marker: true, accent: palette.accents[p.activity].accent, Icon: ACTIVITY_ICON[p.activity], dashed: true, labelMs: p.etaMs })),
-    ...sunMarks.map((m): Mark => ({ key: `sb-${m.key}`, deg: angleOf(m.ms), trueDeg: angleOf(m.ms), marker: true, accent: m.color, Icon: m.key === "sunrise" ? SunriseIcon : SunsetIcon, labelMs: m.ms })),
+  const dots: Dot[] = [
+    ...[...sleeps, ...bars].filter((e) => !hasArc(e)).map((e): Dot => ({ key: `d-${e.path}${e.id}`, deg: midDeg(e), accent: palette.accents[e.activity].accent, kind: "disc", onClick: () => onEdit(e), label: entryLabel(e) })),
+    ...diapers.map((e): Dot => ({ key: `d-${e.path}${e.id}`, deg: angleOf(e.startMs), accent: palette.accents.diaper.accent, kind: e.wet && e.solid ? "donut" : e.solid ? "disc" : "ring", onClick: () => onEdit(e), label: entryLabel(e) })),
+    ...meds.map((e): Dot => ({ key: `d-${e.path}${e.id}`, deg: angleOf(e.startMs), accent: palette.accents.medication.accent, kind: "disc", onClick: () => onEdit(e), label: entryLabel(e) })),
+    ...predMarks.map((p): Dot => ({ key: `pd-${p.activity}`, deg: angleOf(p.etaMs), accent: palette.accents[p.activity].accent, kind: "ring", dashed: true, labelMs: p.etaMs })),
   ].sort((a, b) => a.deg - b.deg);
-  // Anti-overlap nudging, CONFINED to the open arc: the separation shrinks when a busy day
-  // holds more badges than 300° fits at full size (11° ≈ badge diameter), and a backward
-  // clamp pass keeps the tail from spilling into the bottom gap. sep ≤ span/(n−1) guarantees
-  // the compression never pushes the head past the arc start.
+  // Gentle anti-overlap (a dot is ~12px ≈ 6° — imperceptible drift, no leader lines needed),
+  // clamped to the open arc so nothing spills into the bottom opening.
   const ARC_END = ARC_START + ARC_SPAN;
-  // Badge diameter (21px) as degrees at the badge radius — the outer ring fits ~35 at full size.
-  const sep = Math.min((21 / BADGE_R) * (180 / Math.PI), ARC_SPAN / Math.max(1, marks.length - 1));
-  for (let i = 1; i < marks.length; i++) {
-    if (marks[i].deg < marks[i - 1].deg + sep) marks[i].deg = marks[i - 1].deg + sep;
+  const sep = Math.min(6, ARC_SPAN / Math.max(1, dots.length - 1));
+  for (let i = 1; i < dots.length; i++) {
+    if (dots[i].deg < dots[i - 1].deg + sep) dots[i].deg = dots[i - 1].deg + sep;
   }
-  if (marks.length > 0) {
-    marks[marks.length - 1].deg = Math.min(marks[marks.length - 1].deg, ARC_END);
-    for (let i = marks.length - 2; i >= 0; i--) {
-      if (marks[i].deg > marks[i + 1].deg - sep) marks[i].deg = marks[i + 1].deg - sep;
+  if (dots.length > 0) {
+    dots[dots.length - 1].deg = Math.min(dots[dots.length - 1].deg, ARC_END);
+    for (let i = dots.length - 2; i >= 0; i--) {
+      if (dots[i].deg > dots[i + 1].deg - sep) dots[i].deg = dots[i + 1].deg - sep;
     }
   }
+  const dot = (m: Dot) => {
+    const c = polar(m.deg, R_RING);
+    const clickable = !!m.onClick;
+    return (
+      <g
+        key={m.key}
+        style={{ color: m.accent, cursor: clickable ? "pointer" : undefined }}
+        onClick={m.onClick}
+        role={clickable ? "button" : undefined}
+        tabIndex={clickable ? 0 : undefined}
+        aria-label={clickable ? m.label : undefined}
+        onKeyDown={
+          clickable
+            ? (e) => {
+                if (e.key !== "Enter" && e.key !== " ") return;
+                e.preventDefault(); // Space must not scroll the page
+                m.onClick?.();
+              }
+            : undefined
+        }
+      >
+        {clickable && <circle cx={c.x} cy={c.y} r={15} fill="transparent" pointerEvents="all" />}
+        {/* halo so a dot reads on top of an arc (a change mid-sleep sits on the sleep pill) */}
+        <circle cx={c.x} cy={c.y} r={6.5} fill={palette.tileBase} />
+        {m.kind === "disc" ? (
+          <circle cx={c.x} cy={c.y} r={4.6} fill="currentColor" />
+        ) : (
+          <>
+            <circle cx={c.x} cy={c.y} r={3.9} fill="none" stroke="currentColor" strokeWidth={2.2} strokeDasharray={m.dashed ? "2 2.5" : undefined} />
+            {m.kind === "donut" && <circle cx={c.x} cy={c.y} r={1.7} fill="currentColor" />}
+          </>
+        )}
+      </g>
+    );
+  };
 
   return (
     <>
@@ -455,33 +442,46 @@ function RadialDay({
               />
             );
           })}
-        {/* True-position markers + leader lines: badges get nudged apart for legibility, so a
-            small boudin pins the REAL moment on the band (halo'd so it reads on top of an
-            arc — a change mid-sleep sits on the sleep pill) and a thin connector ties it to
-            its badge. Arc-backed entries skip the boudin (the pill already marks them). */}
-        {marks.map((m) => {
-          const from = polar(m.trueDeg, R_RING + RING_W / 2 + 1);
-          const to = polar(m.deg, BADGE_R - 11);
-          const p1 = polar(m.trueDeg, R_RING - 6);
-          const p2 = polar(m.trueDeg, R_RING + 6);
-          return (
-            <g key={`c-${m.key}`} aria-hidden>
-              <line x1={from.x} y1={from.y} x2={to.x} y2={to.y} stroke={m.accent} strokeWidth={1.2} opacity={0.5} />
-              {m.marker && (
-                <>
-                  <line x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke={palette.tileBase} strokeWidth={6} strokeLinecap="round" />
-                  <line x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke={m.accent} strokeWidth={3.5} strokeLinecap="round" strokeDasharray={m.dashed ? "2 3" : undefined} />
-                </>
-              )}
-            </g>
-          );
-        })}
-        {marks.map((m) => (
-          <g key={m.key}>
-            {badge(m.key, m.deg, m.accent, m.Icon, { dashed: m.dashed, onClick: m.onClick, label: m.label })}
+        {/* instants + short spans as fill-coded dots, at their true moments on the band */}
+        {dots.map((m) => (
+          <g key={`dw-${m.key}`}>
+            {dot(m)}
             {m.labelMs != null && timeLabel(`${m.key}-t`, m.deg, m.accent, m.labelMs)}
           </g>
         ))}
+        {/* a long arc carries its own icon at its midpoint — the icon labels the arc it sits
+            on, so it can't be mistaken for a different activity's moment */}
+        {[...sleeps, ...bars].filter(hasArc).map((e) => {
+          const a0 = angleOf(Math.max(e.startMs, winStart));
+          const a1 = angleOf(Math.min(Math.max(e.endMs ?? e.startMs, e.startMs), winEnd));
+          if (a1 - a0 < 26) return null; // too short to host the 21px disc
+          const c = polar((a0 + a1) / 2, R_RING);
+          const accent = palette.accents[e.activity].accent;
+          const Icon = ACTIVITY_ICON[e.activity];
+          return (
+            <g key={`ai-${e.path}${e.id}`} style={{ color: accent }} pointerEvents="none" aria-hidden>
+              {/* tileBase, not bg: `bg` is a CSS gradient string, which SVG would paint as black */}
+              <circle cx={c.x} cy={c.y} r={10.5} fill={palette.tileBase} stroke={accent} strokeWidth={1.6} />
+              <g transform={`translate(${(c.x - 6.5).toFixed(2)}, ${(c.y - 6.5).toFixed(2)})`}>
+                <Icon size={13} />
+              </g>
+            </g>
+          );
+        })}
+        {/* sunrise / sunset float just outside the band with their times */}
+        {sunMarks.map((m) => {
+          const deg = angleOf(m.ms);
+          const g = polar(deg, R_RING + RING_W / 2 + 12);
+          const Icon = m.key === "sunrise" ? SunriseIcon : SunsetIcon;
+          return (
+            <g key={`sb-${m.key}`} style={{ color: m.color }} aria-hidden>
+              <g transform={`translate(${(g.x - 8).toFixed(2)}, ${(g.y - 8).toFixed(2)})`}>
+                <Icon size={16} />
+              </g>
+              {timeLabel(`sb-${m.key}-t`, deg, m.color, m.ms)}
+            </g>
+          );
+        })}
         {/* "now" — a rounded radial tick crossing the ring, drawn on top of arcs and badges */}
         {isToday && now >= winStart && now < winEnd && (() => {
           const deg = angleOf(now);

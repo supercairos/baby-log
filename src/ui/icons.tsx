@@ -52,25 +52,9 @@ export const MoonIcon = (p: IconProps) => (
     <path d="M20 13.5A8 8 0 1 1 10.5 4a6.2 6.2 0 0 0 9.5 9.5Z" />
   </Svg>
 );
-const DROP_PATH = "M12 3.5s6 6.4 6 10.2A6 6 0 0 1 6 13.7C6 9.9 12 3.5 12 3.5Z";
-/** Outline drop — the default diaper glyph; on the day dial it means a WET-only change. */
 export const DropIcon = (p: IconProps) => (
   <Svg {...p}>
-    <path d={DROP_PATH} />
-  </Svg>
-);
-/** Filled drop — a SOLID-only change on the day dial. */
-export const DropFilledIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d={DROP_PATH} fill="currentColor" />
-  </Svg>
-);
-/** Bottom-half-filled drop — a wet AND solid change. CSS clip-path needs no SVG ids, so the
- *  icon stays safe to repeat many times in one document. */
-export const DropHalfIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d={DROP_PATH} />
-    <path d={DROP_PATH} fill="currentColor" stroke="none" style={{ clipPath: "inset(50% 0 0 0)" }} />
+    <path d="M12 3.5s6 6.4 6 10.2A6 6 0 0 1 6 13.7C6 9.9 12 3.5 12 3.5Z" />
   </Svg>
 );
 export const TummyIcon = (p: IconProps) => (
