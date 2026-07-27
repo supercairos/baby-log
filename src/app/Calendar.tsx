@@ -71,6 +71,9 @@ export function Calendar({
   listEntries,
   listUpdatedAt,
   listError,
+  listHasMore,
+  listLoadingMore,
+  onListMore,
   onRetryList,
   onAdd,
   onEdit,
@@ -80,6 +83,10 @@ export function Calendar({
   birthDate: string | null | undefined;
   listEntries: TimelineEntry[] | null;
   listUpdatedAt?: number;
+  /** The list's tail is truncated (more history on the server) → auto-load as it scrolls in. */
+  listHasMore?: boolean;
+  listLoadingMore?: boolean;
+  onListMore?: () => void;
   /** List-mode cold-start failure state + its retry, forwarded to `Timeline`. */
   listError?: boolean;
   onRetryList?: () => void;
@@ -145,7 +152,7 @@ export function Calendar({
       )}
 
       {mode === "list" ? (
-        <Timeline entries={listEntries} updatedAt={listUpdatedAt} showAdd={false} onEdit={onEdit} error={listError} onRetry={onRetryList} />
+        <Timeline entries={listEntries} updatedAt={listUpdatedAt} showAdd={false} onEdit={onEdit} error={listError} onRetry={onRetryList} hasMore={listHasMore} loadingMore={listLoadingMore} onMore={onListMore} />
       ) : mode === "summary" ? (
         <SummaryView entries={rangeEntries} prevEntries={prevEntries} range={range} birthDate={birthDate} />
       ) : mode === "day" ? (

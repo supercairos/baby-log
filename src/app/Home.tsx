@@ -130,7 +130,7 @@ export function Home({
 
   const { children, childId, selectChild, error: childrenError, refresh: refreshChildren } = useChildren(client);
   const { running, refresh: refreshRunning } = useRunningTimers(client, childId);
-  const { entries, refresh: refreshTimeline, removeLocal, restoreLocal, updatedAt: timelineUpdatedAt, error: timelineError } = useTimeline(client, childId);
+  const { entries, hasMore: listHasMore, loadMore: listLoadMore, loadingMore: listLoadingMore, refresh: refreshTimeline, removeLocal, restoreLocal, updatedAt: timelineUpdatedAt, error: timelineError } = useTimeline(client, childId);
   const { toast, show, dismiss } = useToast();
   const { canInstall, promptInstall } = usePwaInstall();
 
@@ -1153,6 +1153,9 @@ export function Home({
                 listEntries={entries}
                 listUpdatedAt={timelineUpdatedAt}
                 listError={timelineError}
+                listHasMore={listHasMore}
+                listLoadingMore={listLoadingMore}
+                onListMore={() => void listLoadMore()}
                 onRetryList={refreshTimeline}
                 onAdd={openAdd}
                 onEdit={openEdit}

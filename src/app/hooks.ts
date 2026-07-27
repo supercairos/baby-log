@@ -5,8 +5,8 @@
  * the running-timers view merges the local outbox state so a just-started timer shows
  * instantly — online or offline.
  */
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useInfiniteQuery, useQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import {
   type BabyBuddyClient,
   type Child,
@@ -248,24 +248,38 @@ const tkey = (path: EntryPath, id: number) => `${path}#${id}`;
  * server confirms they're gone — otherwise a poll landing before the DELETE propagates would
  * resurrect them.
  */
+/** Rows fetched per endpoint per page — one "page" is a parallel sweep of all five endpoints. */
+const TIMELINE_PAGE = 25;
+type TimelinePage = { entries: TimelineEntry[]; hasMore: boolean };
+
 export function useTimeline(client: BabyBuddyClient, childId: number | null) {
   const qc = useQueryClient();
-  const tombstones = useRef<Set<string>>(new Set());
+  // State, not a ref: tombstones are read while rendering (the entries memo filters on them).
+  const [tombstones, setTombstones] = useState<ReadonlySet<string>>(new Set());
 
-  const { data, dataUpdatedAt, isError } = useQuery({
+  const { data, dataUpdatedAt, isError, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
     queryKey: ["timeline", childId],
     enabled: childId != null,
     refetchInterval: 30_000,
     refetchOnWindowFocus: true,
-    queryFn: async () => {
-      const fresh = await listRecentEntries(client, childId as number);
-      // Drop tombstones the server now agrees are gone; keep suppressing the rest.
-      for (const t of [...tombstones.current]) {
-        if (!fresh.some((e) => tkey(e.path, e.id) === t)) tombstones.current.delete(t);
-      }
-      return fresh.filter((e) => !tombstones.current.has(tkey(e.path, e.id)));
-    },
+    initialPageParam: 0,
+    getNextPageParam: (last: TimelinePage, pages: TimelinePage[]) => (last.hasMore ? pages.length * TIMELINE_PAGE : undefined),
+    queryFn: ({ pageParam }) => listRecentEntries(client, childId as number, TIMELINE_PAGE, pageParam as number),
   });
+
+  // Merge the pages newest-first (pages are per-endpoint offset windows, so cross-type order
+  // needs the global re-sort) and hide tombstoned rows.
+  const entries = useMemo(() => {
+    if (!data) return null;
+    return data.pages
+      .flatMap((p) => p.entries)
+      .sort((a, b) => b.startMs - a.startMs)
+      .filter((e) => !tombstones.has(tkey(e.path, e.id)));
+  }, [data, tombstones]);
+
+  // Tombstones are never pruned: server ids are auto-increment (never reused), so once the
+  // delete propagates the tombstone simply stops matching anything. A session accumulates at
+  // most a handful — not worth an effect.
 
   const refresh = useCallback(() => {
     void qc.invalidateQueries({ queryKey: ["timeline", childId] });
@@ -275,9 +289,11 @@ export function useTimeline(client: BabyBuddyClient, childId: number | null) {
    *  hidden until the server confirms the deletion. */
   const removeLocal = useCallback(
     (path: EntryPath, id: number) => {
-      tombstones.current.add(tkey(path, id));
-      qc.setQueryData<TimelineEntry[]>(["timeline", childId], (prev) =>
-        prev ? prev.filter((e) => !(e.path === path && e.id === id)) : prev,
+      setTombstones((prev) => new Set(prev).add(tkey(path, id)));
+      qc.setQueryData<InfiniteData<TimelinePage>>(["timeline", childId], (prev) =>
+        prev
+          ? { ...prev, pages: prev.pages.map((p) => ({ ...p, entries: p.entries.filter((e) => !(e.path === path && e.id === id)) })) }
+          : prev,
       );
     },
     [qc, childId],
@@ -286,12 +302,28 @@ export function useTimeline(client: BabyBuddyClient, childId: number | null) {
   /** Inverse of `removeLocal` (the delete was undone before it was enqueued): drop the
    *  tombstone so the next refetch shows the row again — the server never saw a delete. */
   const restoreLocal = useCallback((path: EntryPath, id: number) => {
-    tombstones.current.delete(tkey(path, id));
+    setTombstones((prev) => {
+      const k = tkey(path, id);
+      if (!prev.has(k)) return prev;
+      const next = new Set(prev);
+      next.delete(k);
+      return next;
+    });
   }, []);
 
   // `updatedAt` is the last successful fetch time — drives the timeline's "updated Xs ago" line.
   // `error` is true once retries are exhausted with nothing cached — the cold-start failure case.
-  return { entries: childId == null ? [] : (data ?? null), refresh, removeLocal, restoreLocal, updatedAt: dataUpdatedAt, error: isError };
+  return {
+    entries: childId == null ? [] : entries,
+    hasMore: hasNextPage ?? false,
+    loadMore: fetchNextPage,
+    loadingMore: isFetchingNextPage,
+    refresh,
+    removeLocal,
+    restoreLocal,
+    updatedAt: dataUpdatedAt,
+    error: isError,
+  };
 }
 
 /**
