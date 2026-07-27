@@ -154,7 +154,8 @@
     "wet_one": "{{count}} pis",
     "wet_other": "{{count}} pis",
     "solid_one": "{{count}} caca",
-    "solid_other": "{{count}} caca"
+    "solid_other": "{{count}} caca",
+    "awake": "despierto"
   },
   "sheet": {
     "feedingDetails": "Detalles de la toma",

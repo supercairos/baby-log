@@ -154,7 +154,8 @@
     "wet_one": "{{count}} pipì",
     "wet_other": "{{count}} pipì",
     "solid_one": "{{count}} cacca",
-    "solid_other": "{{count}} cacca"
+    "solid_other": "{{count}} cacca",
+    "awake": "sveglio"
   },
   "sheet": {
     "feedingDetails": "Dettagli poppata",

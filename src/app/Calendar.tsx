@@ -8,7 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import { useTranslation } from "react-i18next";
 import type { BabyBuddyClient, TimelineEntry } from "../api";
 import { useStyles, useTheme } from "../theme";
-import { ACTIVITY_ICON, PlusIcon, SunriseIcon, SunsetIcon } from "../ui/icons";
+import { ACTIVITY_ICON, DropFilledIcon, DropHalfIcon, PlusIcon, SunriseIcon, SunsetIcon } from "../ui/icons";
 import { clockTime } from "../lib/datetime";
 import { activityLabel } from "../lib/labels";
 import { hm } from "../lib/format";
@@ -189,14 +189,17 @@ function periodLabel(mode: CalMode, range: Range): string {
 }
 
 // ── Radial day clock ─────────────────────────────────────────────────────────────
-// A 24-h ring: midnight at the bottom, noon at the top, morning down the left and evening
-// down the right — so the waking day arcs across the top. EVERYTHING lives on one fat ring:
-// timed activities as rounded arc pills, instants as dots — each carrying its activity icon so
-// the dial is legible at a glance. The centre shows the next-event prediction (today).
+// A bedtime-to-bedtime arc, open at the bottom: bedtime sits bottom-left, the night runs up
+// the left, the waking day across the top, and the next bedtime lands bottom-right.
+// EVERYTHING lives on one fat ring: timed activities as rounded arc pills, instants as dots —
+// each carrying its activity icon so the dial is legible at a glance. The centre shows the
+// next-event prediction (today) or the day's totals.
 const RCX = 160;
 const RCY = 160;
 const R_RING = 122; // the single ring everything sits on
-const RING_W = 30; // ring (and arc) thickness — fat enough to hold the icon badges
+const RING_W = 36; // ring (and arc) thickness — fat enough to hold the icon badges
+const ARC_SPAN = 300; // degrees the window covers; the rest is the bottom opening
+const ARC_START = 180 + (360 - ARC_SPAN) / 2; // gap centred on the bottom
 
 const polar = (deg: number, rad: number) => {
   const a = (deg * Math.PI) / 180;
@@ -231,24 +234,36 @@ function RadialDay({
   const isToday = dayStart === startOfDay(now);
   const list = entries ?? [];
 
-  const angleOf = (ms: number) => ((clamp(ms, dayStart, dayEnd) - dayStart) / (dayEnd - dayStart)) * 360 + 180;
+  // Bedtime-to-bedtime "baby day": each edge anchors on the night sleep crossing that
+  // midnight (fallback 21:00 when none is logged, e.g. tonight's). The arc leaves ARC_GAP°
+  // open at the bottom — bedtime bottom-left, morning up the left, next bedtime bottom-right.
+  const bedAnchor = (midnight: number): number => {
+    const crossing = list.find(
+      (e) => e.activity === "sleep" && e.startMs < midnight && e.startMs > midnight - 8 * 3_600_000 && (e.endMs ?? e.startMs) > midnight,
+    );
+    return crossing ? crossing.startMs : midnight - 3 * 3_600_000;
+  };
+  const winStart = bedAnchor(dayStart);
+  const winEnd = bedAnchor(dayEnd);
 
-  const sleeps = list.filter((e) => e.activity === "sleep" && e.endMs != null && e.endMs > dayStart && e.startMs < dayEnd);
-  const bars = list.filter((e) => (e.activity === "feeding" || e.activity === "tummy") && e.startMs < dayEnd && (e.endMs ?? e.startMs) >= dayStart);
-  const diapers = list.filter((e): e is Extract<TimelineEntry, { activity: "diaper" }> => e.activity === "diaper" && e.startMs >= dayStart && e.startMs < dayEnd);
-  const meds = list.filter((e) => e.activity === "medication" && e.startMs >= dayStart && e.startMs < dayEnd);
+  const angleOf = (ms: number) => ARC_START + ((clamp(ms, winStart, winEnd) - winStart) / (winEnd - winStart)) * ARC_SPAN;
+
+  const sleeps = list.filter((e) => e.activity === "sleep" && e.endMs != null && e.endMs > winStart && e.startMs < winEnd);
+  const bars = list.filter((e) => (e.activity === "feeding" || e.activity === "tummy") && e.startMs < winEnd && (e.endMs ?? e.startMs) >= winStart);
+  const diapers = list.filter((e): e is Extract<TimelineEntry, { activity: "diaper" }> => e.activity === "diaper" && e.startMs >= winStart && e.startMs < winEnd);
+  const meds = list.filter((e) => e.activity === "medication" && e.startMs >= winStart && e.startMs < winEnd);
 
   let sleepMs = 0;
-  for (const e of sleeps) sleepMs += Math.min(e.endMs as number, dayEnd) - Math.max(e.startMs, dayStart);
-  // Day stats for the dial centre (past days): totals per activity.
+  for (const e of sleeps) sleepMs += Math.min(e.endMs as number, winEnd) - Math.max(e.startMs, winStart);
+  // Day stats for the dial centre (past days) and the composition bar: totals per activity.
   let tummyMs = 0;
   let feedMs = 0;
   for (const e of bars) {
-    const span = Math.min(e.endMs ?? e.startMs, dayEnd) - Math.max(e.startMs, dayStart);
+    const span = Math.min(e.endMs ?? e.startMs, winEnd) - Math.max(e.startMs, winStart);
     if (e.activity === "tummy") tummyMs += span;
     else feedMs += span;
   }
-  const feedCount = list.filter((e) => e.activity === "feeding" && e.startMs >= dayStart && e.startMs < dayEnd).length;
+  const feedCount = list.filter((e) => e.activity === "feeding" && e.startMs >= winStart && e.startMs < winEnd).length;
   // Wet/solid overlap ("les deux" counts in both), matching the Résumé's split.
   const wetCount = diapers.filter((e) => e.wet).length;
   const solidCount = diapers.filter((e) => e.solid).length;
@@ -259,7 +274,7 @@ function RadialDay({
     ? (Object.values(predictNext(list, birthDate, now)) as ActivityPrediction[]).filter((p) => p.confidence >= 0.1 && predictionAlive(p, now))
     : [];
   const soonest = [...preds].sort((a, b) => a.etaMs - b.etaMs)[0];
-  const predMarks = preds.filter((p) => p.etaMs > now && p.etaMs < dayEnd);
+  const predMarks = preds.filter((p) => p.etaMs > now && p.etaMs < winEnd);
 
   // Sunrise / sunset for the viewed day (when we have a location).
   const geo = useGeo();
@@ -268,7 +283,7 @@ function RadialDay({
     ? ([
         { key: "sunrise", ms: sun.sunrise, color: "#f3c14e" },
         { key: "sunset", ms: sun.sunset, color: "#e8895b" },
-      ] as const).filter((m) => m.ms >= dayStart && m.ms < dayEnd)
+      ] as const).filter((m) => m.ms >= winStart && m.ms < winEnd)
     : [];
 
   const hours = [0, 6, 12, 18];
@@ -333,8 +348,8 @@ function RadialDay({
   const CAP_DEG = (RING_W / 2 / R_RING) * (180 / Math.PI);
   const ringArc = (e: TimelineEntry) => {
     const rawEnd = Math.max(e.endMs ?? e.startMs, e.startMs);
-    const a0 = angleOf(Math.max(e.startMs, dayStart));
-    const a1 = angleOf(Math.min(rawEnd, dayEnd));
+    const a0 = angleOf(Math.max(e.startMs, winStart));
+    const a1 = angleOf(Math.min(rawEnd, winEnd));
     if (a1 - a0 <= 2 * CAP_DEG + 0.5) return null; // shorter than the caps → badge only
     return (
       <path
@@ -351,8 +366,8 @@ function RadialDay({
     );
   };
   const midDeg = (e: TimelineEntry) => {
-    const start = Math.max(e.startMs, dayStart);
-    const end = Math.min(Math.max(e.endMs ?? e.startMs, e.startMs), dayEnd);
+    const start = Math.max(e.startMs, winStart);
+    const end = Math.min(Math.max(e.endMs ?? e.startMs, e.startMs), winEnd);
     return angleOf((start + end) / 2);
   };
 
@@ -372,7 +387,8 @@ function RadialDay({
   const entryLabel = (e: TimelineEntry) => `${activityLabel(e.activity)} ${clockTime(e.startMs)}`;
   const marks: Mark[] = [
     ...[...sleeps, ...bars].map((e): Mark => ({ key: `b-${e.path}${e.id}`, deg: midDeg(e), accent: palette.accents[e.activity].accent, Icon: ACTIVITY_ICON[e.activity], onClick: () => onEdit(e), label: entryLabel(e) })),
-    ...diapers.map((e): Mark => ({ key: `b-${e.path}${e.id}`, deg: angleOf(e.startMs), accent: palette.accents.diaper.accent, Icon: ACTIVITY_ICON.diaper, onClick: () => onEdit(e), label: entryLabel(e) })),
+    // Drop glyph encodes the change type: outline = wet, filled = solid, half-filled = both.
+    ...diapers.map((e): Mark => ({ key: `b-${e.path}${e.id}`, deg: angleOf(e.startMs), accent: palette.accents.diaper.accent, Icon: e.wet && e.solid ? DropHalfIcon : e.solid ? DropFilledIcon : ACTIVITY_ICON.diaper, onClick: () => onEdit(e), label: entryLabel(e) })),
     ...meds.map((e): Mark => ({ key: `b-${e.path}${e.id}`, deg: angleOf(e.startMs), accent: palette.accents.medication.accent, Icon: ACTIVITY_ICON.medication, onClick: () => onEdit(e), label: entryLabel(e) })),
     ...predMarks.map((p): Mark => ({ key: `pb-${p.activity}`, deg: angleOf(p.etaMs), accent: palette.accents[p.activity].accent, Icon: ACTIVITY_ICON[p.activity], dashed: true, labelMs: p.etaMs })),
     ...sunMarks.map((m): Mark => ({ key: `sb-${m.key}`, deg: angleOf(m.ms), accent: m.color, Icon: m.key === "sunrise" ? SunriseIcon : SunsetIcon, labelMs: m.ms })),
@@ -383,10 +399,14 @@ function RadialDay({
   }
 
   return (
+    <>
     <div style={s.radialWrap}>
-      <svg viewBox="0 0 320 320" style={s.radialSvg} role="img">
-        {/* the single fat ring everything sits on */}
-        <circle cx={RCX} cy={RCY} r={R_RING} fill="none" stroke={palette.surfaceBorder} strokeWidth={RING_W} opacity={0.35} />
+      {/* Height cropped to the open arc's extent (~296 of 320) — the bottom gap needs no
+          canvas, and the centre overlay sits a touch high inside the horseshoe, which reads
+          better than true-centre. */}
+      <svg viewBox="0 0 320 296" style={s.radialSvg} role="img">
+        {/* the single fat ring everything sits on — an open arc, not a full circle */}
+        <path d={arcPath(ARC_START, ARC_START + ARC_SPAN, R_RING)} fill="none" stroke={palette.surfaceBorder} strokeWidth={RING_W} strokeLinecap="round" opacity={0.35} />
         {[...sleeps, ...bars].map((e) => ringArc(e))}
         {/* predicted sleep: a dashed ghost arc spanning the expected onset → wake */}
         {predMarks
@@ -395,7 +415,7 @@ function RadialDay({
             const se = predictSleepEnd(list, birthDate, p.etaMs);
             if (!se || se.confidence < 0.3) return null;
             const a0 = angleOf(p.etaMs);
-            const a1 = Math.max(angleOf(Math.min(se.endMs, dayEnd)), a0 + 2);
+            const a1 = Math.max(angleOf(Math.min(se.endMs, winEnd)), a0 + 2);
             return (
               <path
                 key="pred-sleep-arc"
@@ -416,7 +436,7 @@ function RadialDay({
           </g>
         ))}
         {/* "now" — a rounded radial tick crossing the ring, drawn on top of arcs and badges */}
-        {isToday && now >= dayStart && now < dayEnd && (() => {
+        {isToday && now >= winStart && now < winEnd && (() => {
           const deg = angleOf(now);
           const p1 = polar(deg, R_RING - RING_W / 2 - 5);
           const p2 = polar(deg, R_RING + RING_W / 2 + 5);
@@ -448,7 +468,9 @@ function RadialDay({
         {hours.map((h) => {
           const at = new Date(dayStart);
           at.setHours(h, 0, 0, 0);
-          const p = polar(angleOf(at.getTime()), R_RING - 26);
+          const ms = at.getTime();
+          if (ms < winStart || ms >= winEnd) return null; // outside the bedtime-to-bedtime window
+          const p = polar(angleOf(ms), R_RING - 26);
           return (
             <text key={h} x={p.x} y={p.y} fill={palette.textFainter} fontSize={10} fontWeight={700} textAnchor="middle" dominantBaseline="middle">
               {hourLabel(h)}
@@ -506,6 +528,49 @@ function RadialDay({
         )}
       </div>
     </div>
+
+      {/* Day composition: one full-width stacked strip — how the (elapsed) bedtime-to-bedtime
+          window divides between sleep, tummy, feeding and awake time. Fixed activity order,
+          same as the week-grid lanes; every segment is directly labelled in the legend. */}
+      {(() => {
+        const barEnd = Math.min(Math.max(now, winStart + 60_000), winEnd);
+        const awakeMs = Math.max(0, barEnd - winStart - sleepMs - tummyMs - feedMs);
+        const segs = [
+          { key: "sleep", ms: sleepMs, color: palette.accents.sleep.accent },
+          { key: "tummy", ms: tummyMs, color: palette.accents.tummy.accent },
+          { key: "feeding", ms: feedMs, color: palette.accents.feeding.accent },
+          { key: "awake", ms: awakeMs, color: palette.surfaceStrongBorder },
+        ] as const;
+        return (
+          <div style={s.dayBarWrap}>
+            <div style={s.dayBar} role="img" aria-label={`${activityLabel("sleep")} ${hm(sleepMs)} · ${activityLabel("tummy")} ${hm(tummyMs)} · ${activityLabel("feeding")} ${hm(feedMs)} · ${t("cal.awake")} ${hm(awakeMs)}`}>
+              {segs.filter((g) => g.ms > 0).map((g) => (
+                <div key={g.key} style={{ ...s.dayBarSeg, flex: g.ms, background: g.color }} />
+              ))}
+            </div>
+            <div style={s.dayBarLegend}>
+              {segs.map((g) => (
+                <span key={g.key} style={s.dayBarLegendItem}>
+                  {g.key === "awake" ? (
+                    <>
+                      <span aria-hidden style={{ width: 9, height: 9, borderRadius: "50%", background: g.color }} />
+                      {t("cal.awake")} {hm(g.ms)}
+                    </>
+                  ) : (
+                    <>
+                      <span aria-hidden style={{ color: palette.accents[g.key].accent, display: "grid", placeItems: "center" }}>
+                        {(() => { const Icon = ACTIVITY_ICON[g.key]; return <Icon size={14} />; })()}
+                      </span>
+                      {hm(g.ms)}
+                    </>
+                  )}
+                </span>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+    </>
   );
 }
 

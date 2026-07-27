@@ -342,7 +342,14 @@ export function makeStyles(p: Palette): Styles {
     addBar: { position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)", width: "min(calc(100% - 36px), 404px)", zIndex: 4, paddingTop: 12, paddingBottom: "calc(14px + env(safe-area-inset-bottom))" },
 
     radialWrap: { position: "relative", display: "flex", justifyContent: "center", padding: "10px 0 6px" },
-    radialSvg: { width: "100%", maxWidth: 340, height: "auto", display: "block", overflow: "visible" },
+    radialSvg: { width: "100%", height: "auto", display: "block", overflow: "visible" },
+    // Day-composition bar under the dial: one full-width stacked strip + an icon legend.
+    // Bottom margin keeps the legend clear of the floating add-entry bar on short viewports.
+    dayBarWrap: { margin: "10px 2px 28px" },
+    dayBar: { display: "flex", gap: 2, height: 12, borderRadius: 999, overflow: "hidden" },
+    dayBarSeg: { borderRadius: 3, minWidth: 3 },
+    dayBarLegend: { display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8, color: p.textMuted, fontSize: 12.5, fontWeight: 700 },
+    dayBarLegendItem: { display: "inline-flex", alignItems: "center", gap: 5 },
     radialCenter: { position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, pointerEvents: "none", textAlign: "center" },
     radialSmall: { fontSize: 13, fontWeight: 700, color: p.textMuted },
     radialBig: { fontSize: 34, fontWeight: 600, fontFamily: p.serif, color: p.text, lineHeight: 1.05 },
