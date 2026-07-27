@@ -62,29 +62,44 @@ function mergeEntries({ feedings, sleep, tummy, changes, medication }: Lists): T
 }
 
 /**
- * Fetch the most recent entries across all activity types for a child, newest first.
- * @param limitPer max rows pulled from each endpoint before merging (default 25).
+ * Fetch one offset window of entries across all activity types for a child, newest first —
+ * one "page" of the infinite timeline. `hasMore` says whether ANY endpoint still holds rows
+ * past this window (each type truncates at a different depth otherwise).
+ * @param limitPer rows pulled from each endpoint in this window (default 25).
+ * @param offset per-endpoint offset of the window (page N passes N × limitPer).
  */
 export async function listRecentEntries(
   client: BabyBuddyClient,
   childId: number,
   limitPer = 25,
-): Promise<TimelineEntry[]> {
+  offset = 0,
+): Promise<{ entries: TimelineEntry[]; hasMore: boolean }> {
   const child = String(childId);
-  const [feedings, sleep, tummy, changes, medication] = await Promise.all([
-    client.GET("/api/feedings/", { params: { query: { child, limit: limitPer, ordering: "-start" } } }),
-    client.GET("/api/sleep/", { params: { query: { child, limit: limitPer, ordering: "-start" } } }),
-    client.GET("/api/tummy-times/", { params: { query: { child, limit: limitPer, ordering: "-start" } } }),
-    client.GET("/api/changes/", { params: { query: { child, limit: limitPer, ordering: "-time" } } }),
-    client.GET("/api/medication/", { params: { query: { child, limit: limitPer, ordering: "-time" } } }),
+  // Unwrapped one by one — mapping the heterogeneous tuple through the generic `unwrap`
+  // collapses every element type to unknown.
+  const [feedingsRes, sleepRes, tummyRes, changesRes, medicationRes] = await Promise.all([
+    client.GET("/api/feedings/", { params: { query: { child, limit: limitPer, offset, ordering: "-start" } } }),
+    client.GET("/api/sleep/", { params: { query: { child, limit: limitPer, offset, ordering: "-start" } } }),
+    client.GET("/api/tummy-times/", { params: { query: { child, limit: limitPer, offset, ordering: "-start" } } }),
+    client.GET("/api/changes/", { params: { query: { child, limit: limitPer, offset, ordering: "-time" } } }),
+    client.GET("/api/medication/", { params: { query: { child, limit: limitPer, offset, ordering: "-time" } } }),
   ]);
-  return mergeEntries({
-    feedings: unwrap(feedings).results ?? [],
-    sleep: unwrap(sleep).results ?? [],
-    tummy: unwrap(tummy).results ?? [],
-    changes: unwrap(changes).results ?? [],
-    medication: unwrap(medication).results ?? [],
-  });
+  const feedings = unwrap(feedingsRes);
+  const sleep = unwrap(sleepRes);
+  const tummy = unwrap(tummyRes);
+  const changes = unwrap(changesRes);
+  const medication = unwrap(medicationRes);
+  return {
+    entries: mergeEntries({
+      feedings: feedings.results ?? [],
+      sleep: sleep.results ?? [],
+      tummy: tummy.results ?? [],
+      changes: changes.results ?? [],
+      medication: medication.results ?? [],
+    }),
+    // DRF `count` is the endpoint's TOTAL — rows exist past this window on any endpoint.
+    hasMore: [feedings, sleep, tummy, changes, medication].some((p) => (p.count ?? 0) > offset + limitPer),
+  };
 }
 
 /**

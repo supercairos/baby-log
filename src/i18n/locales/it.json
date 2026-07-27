@@ -100,7 +100,9 @@
     "napOff": "Avviso pisolino · Off",
     "install": "Aggiungi alla schermata Home",
     "disconnect": "Disconnetti",
-    "language": "Lingua · {{lang}}"
+    "language": "Lingua · {{lang}}",
+    "predictOn": "Previsioni · On",
+    "predictOff": "Previsioni · Off"
   },
   "toast": {
     "started": "{{activity}} avviato",
@@ -145,11 +147,16 @@
     "longest": "max {{duration}}",
     "perDay": "{{count}}/giorno",
     "everyInterval": "ogni ~{{duration}}",
-    "wetSolid": "{{wet}} pipì · {{solid}} cacca",
     "minPerDay": "{{value}} min/giorno",
     "durationPerDay": "{{duration}}/giorno",
     "goalMin": "obiettivo {{goal}} min",
-    "vsLastWeek": "{{delta}} vs sett. scorsa"
+    "vsLastWeek": "{{delta}} vs sett. scorsa",
+    "wet_one": "{{count}} pipì",
+    "wet_other": "{{count}} pipì",
+    "solid_one": "{{count}} cacca",
+    "solid_other": "{{count}} cacca",
+    "awake": "sveglio",
+    "nextStat": "Statistica successiva"
   },
   "sheet": {
     "feedingDetails": "Dettagli poppata",

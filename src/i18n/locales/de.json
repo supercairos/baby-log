@@ -100,7 +100,9 @@
     "napOff": "Schlaf-Alarm · Aus",
     "install": "Zum Startbildschirm",
     "disconnect": "Trennen",
-    "language": "Sprache · {{lang}}"
+    "language": "Sprache · {{lang}}",
+    "predictOn": "Vorhersagen · An",
+    "predictOff": "Vorhersagen · Aus"
   },
   "toast": {
     "started": "{{activity}} gestartet",
@@ -145,11 +147,16 @@
     "longest": "max. {{duration}}",
     "perDay": "{{count}}/Tag",
     "everyInterval": "alle ~{{duration}}",
-    "wetSolid": "{{wet}} nass · {{solid}} fest",
     "minPerDay": "{{value}} Min./Tag",
     "durationPerDay": "{{duration}}/Tag",
     "goalMin": "Ziel {{goal}} Min.",
-    "vsLastWeek": "{{delta}} ggü. Vorwoche"
+    "vsLastWeek": "{{delta}} ggü. Vorwoche",
+    "wet_one": "{{count}} nass",
+    "wet_other": "{{count}} nass",
+    "solid_one": "{{count}} fest",
+    "solid_other": "{{count}} fest",
+    "awake": "wach",
+    "nextStat": "Nächster Wert"
   },
   "sheet": {
     "feedingDetails": "Mahlzeit-Details",

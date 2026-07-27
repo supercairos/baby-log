@@ -82,6 +82,9 @@ export function Timeline({
   error = false,
   onRetry,
   showAdd = true,
+  hasMore = false,
+  loadingMore = false,
+  onMore,
 }: {
   entries: TimelineEntry[] | null;
   updatedAt?: number;
@@ -92,6 +95,11 @@ export function Timeline({
   onRetry?: () => void;
   /** When false, the internal "Add entry" button is hidden (the calendar supplies its own). */
   showAdd?: boolean;
+  /** The tail is truncated (server holds older rows) — auto-load the next page when the list
+   *  bottom scrolls into view. */
+  hasMore?: boolean;
+  loadingMore?: boolean;
+  onMore?: () => void;
 }) {
   const { s } = useStyles();
   const { palette } = useTheme();
@@ -136,6 +144,25 @@ export function Timeline({
     const idx = entries.findIndex((e) => `${e.path}${e.id}` === ackKey);
     return idx < 0 ? 0 : idx;
   }, [atTop, entries, ackKey]);
+
+  // Bottom sentinel → auto-load the next page. Same pattern as the top sentinel; the latest
+  // onMore lives in a ref so the observer callback stays stable. fetchNextPage dedupes itself,
+  // so re-entries while a page is in flight are harmless.
+  const onMoreRef = useRef(onMore);
+  useEffect(() => {
+    onMoreRef.current = onMore;
+  }, [onMore]);
+  const moreObsRef = useRef<IntersectionObserver | null>(null);
+  const moreRef = useCallback((node: HTMLDivElement | null) => {
+    moreObsRef.current?.disconnect();
+    if (!node) return;
+    const obs = new IntersectionObserver(([e]) => {
+      if (e.isIntersecting) onMoreRef.current?.();
+    });
+    obs.observe(node);
+    moreObsRef.current = obs;
+  }, []);
+  useEffect(() => () => moreObsRef.current?.disconnect(), []);
 
   const jumpToTop = () => {
     buzz();
@@ -244,6 +271,15 @@ export function Timeline({
             })}
           </div>
           ))}
+          {/* Auto-load: when the list's tail scrolls into view (and more history exists on the
+              server), fetch the next page — no button to hunt for one-handed. The sentinel
+              unmounts once everything is loaded. */}
+          {hasMore && onMore && <div ref={moreRef} aria-hidden style={{ height: 1 }} />}
+          {loadingMore && (
+            <div style={{ display: "flex", justifyContent: "center", padding: "14px 0 4px" }}>
+              <div className="spin" style={{ width: 22, height: 22, borderRadius: "50%", border: `3px solid ${palette.surfaceStrongBorder}`, borderTopColor: palette.accents.feeding.accent }} />
+            </div>
+          )}
         </>
       )}
     </section>

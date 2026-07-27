@@ -100,7 +100,9 @@
     "napOff": "Nap alert · Off",
     "install": "Install on home screen",
     "disconnect": "Disconnect",
-    "language": "Language · {{lang}}"
+    "language": "Language · {{lang}}",
+    "predictOn": "Predictions · On",
+    "predictOff": "Predictions · Off"
   },
   "toast": {
     "started": "{{activity}} started",
@@ -145,11 +147,16 @@
     "longest": "longest {{duration}}",
     "perDay": "{{count}}/day",
     "everyInterval": "every ~{{duration}}",
-    "wetSolid": "{{wet}} wet · {{solid}} solid",
     "minPerDay": "{{value}} min/day",
     "durationPerDay": "{{duration}}/day",
     "goalMin": "goal {{goal}} min",
-    "vsLastWeek": "{{delta}} vs last week"
+    "vsLastWeek": "{{delta}} vs last week",
+    "wet_one": "{{count}} wet",
+    "wet_other": "{{count}} wet",
+    "solid_one": "{{count}} solid",
+    "solid_other": "{{count}} solid",
+    "awake": "awake",
+    "nextStat": "Next stat"
   },
   "sheet": {
     "feedingDetails": "Feeding details",

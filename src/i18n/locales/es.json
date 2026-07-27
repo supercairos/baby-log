@@ -100,7 +100,9 @@
     "napOff": "Alerta de siesta · Off",
     "install": "Añadir a la pantalla de inicio",
     "disconnect": "Desconectar",
-    "language": "Idioma · {{lang}}"
+    "language": "Idioma · {{lang}}",
+    "predictOn": "Predicciones · On",
+    "predictOff": "Predicciones · Off"
   },
   "toast": {
     "started": "{{activity}}: iniciado",
@@ -145,11 +147,16 @@
     "longest": "máx {{duration}}",
     "perDay": "{{count}}/día",
     "everyInterval": "cada ~{{duration}}",
-    "wetSolid": "{{wet}} pis · {{solid}} caca",
     "minPerDay": "{{value}} min/día",
     "durationPerDay": "{{duration}}/día",
     "goalMin": "meta {{goal}} min",
-    "vsLastWeek": "{{delta}} vs sem. pasada"
+    "vsLastWeek": "{{delta}} vs sem. pasada",
+    "wet_one": "{{count}} pis",
+    "wet_other": "{{count}} pis",
+    "solid_one": "{{count}} caca",
+    "solid_other": "{{count}} caca",
+    "awake": "despierto",
+    "nextStat": "Siguiente estadística"
   },
   "sheet": {
     "feedingDetails": "Detalles de la toma",
