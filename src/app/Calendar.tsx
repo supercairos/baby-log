@@ -585,16 +585,9 @@ function RadialDay({
             );
           })()
         ) : (
-          /* Past day (or nothing left to predict): ONE hero metric — total sleep, the question
-             every parent asks first. The full breakdown lives in the stat strip under the
-             composition bar, where there's room; a ring centre works best nearly empty. */
-          <>
-            <span style={{ ...s.radialSmall, color: palette.accents.sleep.accent }}>{activityLabel("sleep")}</span>
-            <span style={s.radialBig}>{hm(sleepMs)}</span>
-            <span style={{ fontSize: 13, fontWeight: 800, color: palette.accents.feeding.accent }}>
-              ×{feedCount} · {hm(feedMs)}
-            </span>
-          </>
+          /* No prediction to show → the centre stays EMPTY: the day's numbers live in the stat
+             strip under the composition bar, and repeating them here read as duplication. */
+          null
         )}
       </div>
     </div>
@@ -623,12 +616,13 @@ function RadialDay({
             <div style={s.dayBarLegend}>
               {(
                 [
+                  // Row 1: the durations (sleep, tummy, awake); row 2: the counts (feeds, wet, solid).
                   { key: "sleep", Icon: ACTIVITY_ICON.sleep, color: palette.accents.sleep.accent, text: hm(sleepMs) },
-                  { key: "feeding", Icon: ACTIVITY_ICON.feeding, color: palette.accents.feeding.accent, text: `×${feedCount} · ${hm(feedMs)}` },
                   { key: "tummy", Icon: ACTIVITY_ICON.tummy, color: palette.accents.tummy.accent, text: hm(tummyMs) },
+                  { key: "awake", Icon: null, color: palette.surfaceStrongBorder, text: `${t("cal.awake")} ${hm(awakeMs)}` },
+                  { key: "feeding", Icon: ACTIVITY_ICON.feeding, color: palette.accents.feeding.accent, text: `×${feedCount} · ${hm(feedMs)}` },
                   { key: "wet", Icon: ACTIVITY_ICON.diaper, color: palette.accents.diaper.accent, text: `×${wetCount} ${t("diaper.wet").toLocaleLowerCase()}` },
                   { key: "solid", Icon: DropFilledIcon, color: palette.accents.diaper.accent, text: `×${solidCount} ${t("diaper.solid").toLocaleLowerCase()}` },
-                  { key: "awake", Icon: null, color: palette.surfaceStrongBorder, text: `${t("cal.awake")} ${hm(awakeMs)}` },
                 ] as const
               ).map(({ key, Icon, color, text }) => (
                 <span key={key} style={s.dayBarLegendItem}>
