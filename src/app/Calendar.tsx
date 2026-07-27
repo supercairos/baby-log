@@ -293,6 +293,7 @@ function RadialDay({
   // marker is identifiable at a glance. `dashed` renders the predicted ("ghost") variant.
   // Clickable badges act as buttons (keyboard + AT) and carry an invisible r=16 hit circle:
   // the visible 21px disc alone is well under a finger's width.
+  const entryLabel = (e: TimelineEntry) => `${activityLabel(e.activity)} ${clockTime(e.startMs)}`;
   const timeLabel = (key: string, deg: number, color: string, ms: number) => {
     const lp = polar(deg, R_RING + RING_W / 2 + 27);
     return (
@@ -302,81 +303,84 @@ function RadialDay({
     );
   };
 
-  // The round linecap overshoots each path end by RING_W/2 (~28 min of angle), so a naively
-  // drawn arc reads ~1 h longer than the event. Inset BOTH ends by the cap's angular size so the
-  // visible pill spans exactly [start, end] — and when the event is too short for the caps to
-  // fit, draw no arc at all: the icon badge alone marks it (a fixed-size marker can't lie about
-  // duration the way a fat arc does).
+  // Watch-dial vocabulary: EVERY mark spans the full band width. Long events are long fat
+  // pills; anything too short for the fat round caps (a quick feed, an instant) renders as a
+  // short radial tick instead — a watch index. Caps overshoot each arc end by half the width,
+  // so ends are inset to keep the visible pill spanning exactly [start, end].
   const CAP_DEG = (RING_W / 2 / R_RING) * (180 / Math.PI);
-  const ringArc = (e: TimelineEntry) => {
-    const rawEnd = Math.max(e.endMs ?? e.startMs, e.startMs);
-    const a0 = angleOf(Math.max(e.startMs, winStart));
-    const a1 = angleOf(Math.min(rawEnd, winEnd));
-    if (a1 - a0 <= 2 * CAP_DEG + 0.5) return null; // shorter than the caps → badge only
+  const clippedAngles = (e: TimelineEntry): [number, number] => [
+    angleOf(Math.max(e.startMs, winStart)),
+    angleOf(Math.min(Math.max(e.endMs ?? e.startMs, e.startMs), winEnd)),
+  ];
+  const midDeg = (e: TimelineEntry) => {
+    const [a0, a1] = clippedAngles(e);
+    return (a0 + a1) / 2;
+  };
+  /** Too short for the fat caps → joins the tick layer instead of the arc layer. */
+  const isTick = (e: TimelineEntry) => {
+    const [a0, a1] = clippedAngles(e);
+    return a1 - a0 <= 2 * CAP_DEG + 0.5;
+  };
+  const spanArc = (e: TimelineEntry) => {
+    const [a0, a1] = clippedAngles(e);
+    const accent = palette.accents[e.activity].accent;
     return (
-      <path
+      <g
         key={`${e.path}${e.id}`}
-        d={arcPath(a0 + CAP_DEG, a1 - CAP_DEG, R_RING)}
-        fill="none"
-        stroke={palette.accents[e.activity].accent}
-        strokeWidth={RING_W}
-        strokeLinecap="round"
-        opacity={e.activity === "sleep" ? 0.45 : 0.8}
-        style={{ cursor: "pointer" }}
+        style={{ color: accent, cursor: "pointer" }}
         onClick={() => onEdit(e)}
-      />
+        role="button"
+        tabIndex={0}
+        aria-label={entryLabel(e)}
+        onKeyDown={(ev) => {
+          if (ev.key !== "Enter" && ev.key !== " ") return;
+          ev.preventDefault(); // Space must not scroll the page
+          onEdit(e);
+        }}
+      >
+        <path d={arcPath(a0 + CAP_DEG, a1 - CAP_DEG, R_RING)} fill="none" stroke="currentColor" strokeWidth={RING_W} strokeLinecap="round" opacity={e.activity === "sleep" ? 0.45 : 0.9} />
+      </g>
     );
   };
-  const midDeg = (e: TimelineEntry) => {
-    const start = Math.max(e.startMs, winStart);
-    const end = Math.min(Math.max(e.endMs ?? e.startMs, e.startMs), winEnd);
-    return angleOf((start + end) / 2);
-  };
 
-  // All badges collected, sorted around the ring, then nudged apart so neighbours never overlap
-  // (events close in time would otherwise stack their badges on top of each other).
-  // ONE calm layer, everything at (or a hair from) its true position: spans are arcs on the
-  // band — a long arc carries its own icon at its midpoint — and instants are small fill-coded
-  // dots ON the band. Color is identity (the app-wide rule), so dots need no icons; diaper
-  // dots encode the change type by fill: ring = wet, disc = solid, donut = both.
-  interface Dot {
+  // The tick layer — watch indices crossing the band radially: instants, predictions and any
+  // span too short for the fat caps. Layered strokes encode the diaper type — solid = selles,
+  // hollow = pipi, hollow with a centre thread = les deux; color is identity, as everywhere.
+  // Ticks get nudged apart minimally and stay inside the open arc.
+  interface Tick {
     key: string;
     deg: number;
     accent: string;
-    kind: "disc" | "ring" | "donut";
+    kind: "solid" | "hollow" | "thread";
     dashed?: boolean;
     onClick?: () => void;
     label?: string;
     labelMs?: number;
   }
-  const entryLabel = (e: TimelineEntry) => `${activityLabel(e.activity)} ${clockTime(e.startMs)}`;
-  // Whether ringArc() draws a visible pill for this entry (same cap-fit rule) — if not, the
-  // entry is marked by a dot at its midpoint instead.
-  const hasArc = (e: TimelineEntry) => {
-    const rawEnd = Math.max(e.endMs ?? e.startMs, e.startMs);
-    return angleOf(Math.min(rawEnd, winEnd)) - angleOf(Math.max(e.startMs, winStart)) > 2 * CAP_DEG + 0.5;
-  };
-  const dots: Dot[] = [
-    ...[...sleeps, ...bars].filter((e) => !hasArc(e)).map((e): Dot => ({ key: `d-${e.path}${e.id}`, deg: midDeg(e), accent: palette.accents[e.activity].accent, kind: "disc", onClick: () => onEdit(e), label: entryLabel(e) })),
-    ...diapers.map((e): Dot => ({ key: `d-${e.path}${e.id}`, deg: angleOf(e.startMs), accent: palette.accents.diaper.accent, kind: e.wet && e.solid ? "donut" : e.solid ? "disc" : "ring", onClick: () => onEdit(e), label: entryLabel(e) })),
-    ...meds.map((e): Dot => ({ key: `d-${e.path}${e.id}`, deg: angleOf(e.startMs), accent: palette.accents.medication.accent, kind: "disc", onClick: () => onEdit(e), label: entryLabel(e) })),
-    ...predMarks.map((p): Dot => ({ key: `pd-${p.activity}`, deg: angleOf(p.etaMs), accent: palette.accents[p.activity].accent, kind: "ring", dashed: true, labelMs: p.etaMs })),
+  const ticks: Tick[] = [
+    ...[...sleeps, ...bars].filter(isTick).map((e): Tick => ({ key: `d-${e.path}${e.id}`, deg: midDeg(e), accent: palette.accents[e.activity].accent, kind: "solid", onClick: () => onEdit(e), label: entryLabel(e) })),
+    ...diapers.map((e): Tick => ({ key: `d-${e.path}${e.id}`, deg: angleOf(e.startMs), accent: palette.accents.diaper.accent, kind: e.wet && e.solid ? "thread" : e.solid ? "solid" : "hollow", onClick: () => onEdit(e), label: entryLabel(e) })),
+    ...meds.map((e): Tick => ({ key: `d-${e.path}${e.id}`, deg: angleOf(e.startMs), accent: palette.accents.medication.accent, kind: "solid", onClick: () => onEdit(e), label: entryLabel(e) })),
+    ...predMarks.map((p): Tick => ({ key: `pd-${p.activity}`, deg: angleOf(p.etaMs), accent: palette.accents[p.activity].accent, kind: "hollow", dashed: true, labelMs: p.etaMs })),
   ].sort((a, b) => a.deg - b.deg);
-  // Gentle anti-overlap (a dot is ~12px ≈ 6° — imperceptible drift, no leader lines needed),
-  // clamped to the open arc so nothing spills into the bottom opening.
   const ARC_END = ARC_START + ARC_SPAN;
-  const sep = Math.min(6, ARC_SPAN / Math.max(1, dots.length - 1));
-  for (let i = 1; i < dots.length; i++) {
-    if (dots[i].deg < dots[i - 1].deg + sep) dots[i].deg = dots[i - 1].deg + sep;
+  const sep = Math.min(5.5, ARC_SPAN / Math.max(1, ticks.length - 1));
+  for (let i = 1; i < ticks.length; i++) {
+    if (ticks[i].deg < ticks[i - 1].deg + sep) ticks[i].deg = ticks[i - 1].deg + sep;
   }
-  if (dots.length > 0) {
-    dots[dots.length - 1].deg = Math.min(dots[dots.length - 1].deg, ARC_END);
-    for (let i = dots.length - 2; i >= 0; i--) {
-      if (dots[i].deg > dots[i + 1].deg - sep) dots[i].deg = dots[i + 1].deg - sep;
+  if (ticks.length > 0) {
+    ticks[ticks.length - 1].deg = Math.min(ticks[ticks.length - 1].deg, ARC_END);
+    for (let i = ticks.length - 2; i >= 0; i--) {
+      if (ticks[i].deg > ticks[i + 1].deg - sep) ticks[i].deg = ticks[i + 1].deg - sep;
     }
   }
-  const dot = (m: Dot) => {
+  const tick = (m: Tick) => {
+    const p1 = polar(m.deg, R_RING - (RING_W / 2 - 5));
+    const p2 = polar(m.deg, R_RING + (RING_W / 2 - 5));
     const c = polar(m.deg, R_RING);
+    const line = (stroke: string, w: number, dashed?: boolean) => (
+      <line x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke={stroke} strokeWidth={w} strokeLinecap="round" strokeDasharray={dashed ? "2.5 3.5" : undefined} />
+    );
     const clickable = !!m.onClick;
     return (
       <g
@@ -396,17 +400,10 @@ function RadialDay({
             : undefined
         }
       >
-        {clickable && <circle cx={c.x} cy={c.y} r={15} fill="transparent" pointerEvents="all" />}
-        {/* halo so a dot reads on top of an arc (a change mid-sleep sits on the sleep pill) */}
-        <circle cx={c.x} cy={c.y} r={6.5} fill={palette.tileBase} />
-        {m.kind === "disc" ? (
-          <circle cx={c.x} cy={c.y} r={4.6} fill="currentColor" />
-        ) : (
-          <>
-            <circle cx={c.x} cy={c.y} r={3.9} fill="none" stroke="currentColor" strokeWidth={2.2} strokeDasharray={m.dashed ? "2 2.5" : undefined} />
-            {m.kind === "donut" && <circle cx={c.x} cy={c.y} r={1.7} fill="currentColor" />}
-          </>
-        )}
+        {clickable && <circle cx={c.x} cy={c.y} r={17} fill="transparent" pointerEvents="all" />}
+        {line("currentColor", 8.5, m.dashed)}
+        {m.kind !== "solid" && line(palette.tileBase, 4)}
+        {m.kind === "thread" && line("currentColor", 1.6)}
       </g>
     );
   };
@@ -420,7 +417,7 @@ function RadialDay({
       <svg viewBox="0 0 320 296" style={s.radialSvg} role="img">
         {/* the single fat ring everything sits on — an open arc, not a full circle */}
         <path d={arcPath(ARC_START, ARC_START + ARC_SPAN, R_RING)} fill="none" stroke={palette.surfaceBorder} strokeWidth={RING_W} strokeLinecap="round" opacity={0.35} />
-        {[...sleeps, ...bars].map((e) => ringArc(e))}
+        {[...sleeps, ...bars].filter((e) => !isTick(e)).map((e) => spanArc(e))}
         {/* predicted sleep: a dashed ghost arc spanning the expected onset → wake */}
         {predMarks
           .filter((p) => p.activity === "sleep")
@@ -442,22 +439,21 @@ function RadialDay({
               />
             );
           })}
-        {/* instants + short spans as fill-coded dots, at their true moments on the band */}
-        {dots.map((m) => (
+        {/* instants + short events as watch-index ticks crossing the band */}
+        {ticks.map((m) => (
           <g key={`dw-${m.key}`}>
-            {dot(m)}
+            {tick(m)}
             {m.labelMs != null && timeLabel(`${m.key}-t`, m.deg, m.accent, m.labelMs)}
           </g>
         ))}
-        {/* a long arc carries its own icon at its midpoint — the icon labels the arc it sits
-            on, so it can't be mistaken for a different activity's moment */}
-        {[...sleeps, ...bars].filter(hasArc).map((e) => {
-          const a0 = angleOf(Math.max(e.startMs, winStart));
-          const a1 = angleOf(Math.min(Math.max(e.endMs ?? e.startMs, e.startMs), winEnd));
+        {/* a long sleep arc carries its own moon at its midpoint — the icon labels the arc it
+            sits on, so it can't be mistaken for a different activity's moment */}
+        {sleeps.map((e) => {
+          const [a0, a1] = clippedAngles(e);
           if (a1 - a0 < 26) return null; // too short to host the 21px disc
           const c = polar((a0 + a1) / 2, R_RING);
-          const accent = palette.accents[e.activity].accent;
-          const Icon = ACTIVITY_ICON[e.activity];
+          const accent = palette.accents.sleep.accent;
+          const Icon = ACTIVITY_ICON.sleep;
           return (
             <g key={`ai-${e.path}${e.id}`} style={{ color: accent }} pointerEvents="none" aria-hidden>
               {/* tileBase, not bg: `bg` is a CSS gradient string, which SVG would paint as black */}

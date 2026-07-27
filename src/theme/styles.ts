@@ -346,8 +346,8 @@ export function makeStyles(p: Palette): Styles {
     // Day-composition bar under the dial: one full-width stacked strip + an icon legend.
     // Bottom margin keeps the legend clear of the floating add-entry bar on short viewports.
     dayBarWrap: { margin: "10px 2px 28px" },
-    dayBar: { display: "flex", gap: 2, height: 18, borderRadius: 999, overflow: "hidden" },
-    dayBarSeg: { borderRadius: 5, minWidth: 4 },
+    dayBar: { display: "flex", gap: 2, height: 12, borderRadius: 999, overflow: "hidden" },
+    dayBarSeg: { borderRadius: 3, minWidth: 3 },
     dayBarLegend: { display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8, color: p.textMuted, fontSize: 12.5, fontWeight: 700 },
     dayBarLegendItem: { display: "inline-flex", alignItems: "center", gap: 5 },
     radialCenter: { position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, pointerEvents: "none", textAlign: "center" },
