@@ -196,8 +196,11 @@ function periodLabel(mode: CalMode, range: Range): string {
 // next-event prediction (today) or the day's totals.
 const RCX = 160;
 const RCY = 160;
-const R_RING = 122; // the single ring everything sits on
-const RING_W = 36; // ring (and arc) thickness — fat enough to hold the icon badges
+const R_RING = 112; // the band the activity arcs live on
+const RING_W = 34; // band (and arc) thickness
+// Badges float just OUTSIDE the band, as labels pointing at their moment — never ON it, so a
+// nudged badge can't sit on top of another activity's arc (a feed "over" a sleep reads wrong).
+const BADGE_R = R_RING + RING_W / 2 + 13;
 const ARC_SPAN = 300; // degrees the window covers; the rest is the bottom opening
 const ARC_START = 180 + (360 - ARC_SPAN) / 2; // gap centred on the bottom
 
@@ -300,7 +303,7 @@ function RadialDay({
     Icon: (p: { size?: number }) => ReactNode,
     opts: { dashed?: boolean; onClick?: () => void; label?: string } = {},
   ) => {
-    const c = polar(deg, R_RING);
+    const c = polar(deg, BADGE_R);
     const clickable = !!opts.onClick;
     return (
       <g
@@ -332,7 +335,7 @@ function RadialDay({
     );
   };
   const timeLabel = (key: string, deg: number, color: string, ms: number) => {
-    const lp = polar(deg, R_RING + 26);
+    const lp = polar(deg, BADGE_R + 16);
     return (
       <text key={key} x={lp.x} y={lp.y} fill={color} fontSize={10} fontWeight={800} textAnchor="middle" dominantBaseline="middle">
         {clockTime(ms)}
@@ -398,7 +401,8 @@ function RadialDay({
   // clamp pass keeps the tail from spilling into the bottom gap. sep ≤ span/(n−1) guarantees
   // the compression never pushes the head past the arc start.
   const ARC_END = ARC_START + ARC_SPAN;
-  const sep = Math.min(11, ARC_SPAN / Math.max(1, marks.length - 1));
+  // Badge diameter (21px) as degrees at the badge radius — the outer ring fits ~35 at full size.
+  const sep = Math.min((21 / BADGE_R) * (180 / Math.PI), ARC_SPAN / Math.max(1, marks.length - 1));
   for (let i = 1; i < marks.length; i++) {
     if (marks[i].deg < marks[i - 1].deg + sep) marks[i].deg = marks[i - 1].deg + sep;
   }
@@ -491,8 +495,10 @@ function RadialDay({
         {/* Window edges, labelled inside the bottom opening: the horseshoe crosses midnight,
             so each end carries its own date + time (start anchors on last night's bedtime). */}
         {([
-          { key: "win-start", ms: winStart, deg: ARC_START, anchor: "start" as const, dx: 20 },
-          { key: "win-end", ms: winEnd, deg: ARC_START + ARC_SPAN, anchor: "end" as const, dx: -20 },
+          // Anchored at each arc end, growing OUTWARD (under the arc caps) so the two labels
+          // can't collide in the middle of the opening.
+          { key: "win-start", ms: winStart, deg: ARC_START, anchor: "end" as const, dx: 6 },
+          { key: "win-end", ms: winEnd, deg: ARC_START + ARC_SPAN, anchor: "start" as const, dx: -6 },
         ] as const).map(({ key, ms, deg, anchor, dx }) => {
           const p = polar(deg, R_RING);
           const d = new Date(ms);
@@ -683,14 +689,23 @@ function TimeGrid({
 
   // Default zoom FITS the full 24 h between the grid head and the floating add bar — a fixed
   // 24 px/h either forces a scroll or leaves a hole under the grid, depending on the phone.
+  // The bar is `position: fixed`, so its MEASURED top is the true usable bottom edge (browser
+  // chrome and safe-area included — guessing via innerHeight left a big hole on iPhones).
   // An explicit pinch choice (persisted under ZOOM_KEY) always wins over the fit.
   useEffect(() => {
     if (localStorage.getItem(ZOOM_KEY) != null) return;
     const el = viewportRef.current;
-    if (!el?.firstElementChild) return;
-    const bodyTop = el.firstElementChild.getBoundingClientRect().bottom;
-    const fit = (window.innerHeight - bodyTop - 96) / 24; // 96 ≈ floating bar + breathing room
-    onZoomRef.current(fit, false); // applyZoom clamps to [MIN_HOUR_PX, MAX_HOUR_PX]
+    const head = el?.firstElementChild;
+    if (!el || !head) return;
+    const fit = () => {
+      const bodyTop = head.getBoundingClientRect().bottom + window.scrollY; // as if unscrolled
+      const bar = el.closest("section")?.lastElementChild;
+      const bottom = bar ? bar.getBoundingClientRect().top : window.innerHeight - 96;
+      onZoomRef.current((bottom - bodyTop - 10) / 24, false); // applyZoom clamps [MIN, MAX]
+    };
+    fit();
+    window.addEventListener("resize", fit);
+    return () => window.removeEventListener("resize", fit);
   }, []);
 
   return (
