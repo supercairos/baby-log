@@ -100,7 +100,9 @@
     "napOff": "Alerte sieste · Off",
     "install": "Ajouter à l'écran d'accueil",
     "disconnect": "Se déconnecter",
-    "language": "Langue · {{lang}}"
+    "language": "Langue · {{lang}}",
+    "predictOn": "Prédictions · On",
+    "predictOff": "Prédictions · Off"
   },
   "toast": {
     "started": "{{activity}} démarré",

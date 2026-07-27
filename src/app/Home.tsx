@@ -49,6 +49,7 @@ import {
   HomeIcon,
   InstallIcon,
   MenuIcon,
+  ClockIcon,
   StopIcon,
   TrashIcon,
   ThemeIcon,
@@ -144,6 +145,10 @@ export function Home({
   const [lastFeed, setLastFeed] = useState<Record<number, FeedSel>>({});
   const [notify, setNotify] = useState(() => localStorage.getItem("baby-log:notify") === "on");
   const [napAlert, setNapAlert] = useState(() => localStorage.getItem("baby-log:napalert") === "on");
+  // Predictions are opt-in (default OFF): some parents find guessed etas more stressful than
+  // helpful. Gates the home "Prédiction" rows, the sleep card's wake estimate and the day
+  // dial's ghosts — never the facts (night recap, last feed, dose guard).
+  const [predict, setPredict] = useState(() => localStorage.getItem("baby-log:predict") === "on");
   // Offline/pending pill inputs: `navigator.onLine` flips instantly via the window events; the
   // pending count re-reads the outbox on its change events (enqueue/drain), not by polling.
   const [online, setOnline] = useState(() => navigator.onLine);
@@ -188,11 +193,12 @@ export function Home({
   // (it's already in progress), and a long-expired eta is dropped — a prediction blown far
   // past its own confidence window is noise, not a forecast.
   const upNext = useMemo(() => {
+    if (!predict) return [];
     const busy = new Set<string>(running.map((r) => r.activity));
     return (Object.values(predictions) as ActivityPrediction[])
       .filter((p) => p.confidence >= 0.1 && !busy.has(p.activity) && predictionAlive(p, nowMinute * 60_000))
       .sort((a, b) => a.etaMs - b.etaMs);
-  }, [predictions, running, nowMinute]);
+  }, [predict, predictions, running, nowMinute]);
   // Show the tummy stat unless a tummy timer is already running, and don't let a lone "0/x min"
   // row pre-empt the cold-start nudge (only surface it once there's tummy time logged or other
   // estimates to sit beside).
@@ -413,6 +419,14 @@ export function Home({
     setNapAlert(true);
     localStorage.setItem("baby-log:napalert", "on");
     show(t("toast.napAlertOn"), accentOf("sleep"));
+  };
+
+  const togglePredict = () => {
+    buzz();
+    setPredict((p) => {
+      localStorage.setItem("baby-log:predict", p ? "off" : "on");
+      return !p;
+    });
   };
 
   // Nap-window alert: ~10 min before the predicted sleep onset, when the prediction comes from
@@ -956,7 +970,7 @@ export function Home({
               const elapsed = now - rt.startedMs;
               let meta = rt.activity === "feeding" ? feedingMeta(rt.feeding?.type, rt.feeding?.method, rt.feeding?.amount) : "";
               // The question a parent has the moment baby goes down: how long do I have?
-              if (rt.activity === "sleep" && rt === runningSleep && runningSleepEnd && runningSleepEnd.confidence >= 0.3 && runningSleepEnd.endMs > now) {
+              if (predict && rt.activity === "sleep" && rt === runningSleep && runningSleepEnd && runningSleepEnd.confidence >= 0.3 && runningSleepEnd.endMs > now) {
                 meta = t("home.wakeAround", { time: clockTime(runningSleepEnd.endMs) });
               }
               const stale = elapsed > STALE_AFTER_MS[rt.activity];
@@ -1157,6 +1171,7 @@ export function Home({
                 listLoadingMore={listLoadingMore}
                 onListMore={() => void listLoadMore()}
                 onRetryList={refreshTimeline}
+                showPredictions={predict}
                 onAdd={openAdd}
                 onEdit={openEdit}
               />
@@ -1216,6 +1231,10 @@ export function Home({
             {napAlert ? t("nav.napOn") : t("nav.napOff")}
           </button>
         )}
+        <button onClick={togglePredict} style={s.navItem}>
+          <ClockIcon size={20} />
+          {predict ? t("nav.predictOn") : t("nav.predictOff")}
+        </button>
         {canInstall && (
           <button onClick={() => { buzz(); setMenu(false); void promptInstall(); }} style={s.navItem}>
             <InstallIcon size={20} />

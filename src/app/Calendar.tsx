@@ -77,6 +77,7 @@ export function Calendar({
   onRetryList,
   onAdd,
   onEdit,
+  showPredictions = true,
 }: {
   client: BabyBuddyClient;
   childId: number | null;
@@ -92,6 +93,8 @@ export function Calendar({
   onRetryList?: () => void;
   onAdd: () => void;
   onEdit: (e: TimelineEntry) => void;
+  /** Off = the day dial hides its predicted ghost markers and centre eta (facts stay). */
+  showPredictions?: boolean;
 }) {
   const { s } = useStyles();
   const { t } = useTranslation();
@@ -156,7 +159,7 @@ export function Calendar({
       ) : mode === "summary" ? (
         <SummaryView entries={rangeEntries} prevEntries={prevEntries} range={range} birthDate={birthDate} />
       ) : mode === "day" ? (
-        <RadialDay entries={rangeEntries} range={range} birthDate={birthDate} onEdit={onEdit} />
+        <RadialDay entries={rangeEntries} range={range} birthDate={birthDate} onEdit={onEdit} showPredictions={showPredictions} />
       ) : (
         <TimeGrid entries={rangeEntries} range={range} hourPx={hourPx} onZoom={applyZoom} onEdit={onEdit} />
       )}
@@ -211,11 +214,13 @@ function RadialDay({
   range,
   birthDate,
   onEdit,
+  showPredictions = true,
 }: {
   entries: TimelineEntry[] | null;
   range: Range;
   birthDate: string | null | undefined;
   onEdit: (e: TimelineEntry) => void;
+  showPredictions?: boolean;
 }) {
   const { s } = useStyles();
   const { palette } = useTheme();
@@ -245,7 +250,7 @@ function RadialDay({
 
   // Predicted upcoming events (today only) — shown as dashed "ghost" markers on the ring.
   // Long-expired etas are dropped, same rule as the home panel.
-  const preds = isToday
+  const preds = isToday && showPredictions
     ? (Object.values(predictNext(list, birthDate, now)) as ActivityPrediction[]).filter((p) => p.confidence >= 0.1 && predictionAlive(p, now))
     : [];
   const soonest = [...preds].sort((a, b) => a.etaMs - b.etaMs)[0];

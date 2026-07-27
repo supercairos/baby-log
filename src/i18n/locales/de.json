@@ -100,7 +100,9 @@
     "napOff": "Schlaf-Alarm · Aus",
     "install": "Zum Startbildschirm",
     "disconnect": "Trennen",
-    "language": "Sprache · {{lang}}"
+    "language": "Sprache · {{lang}}",
+    "predictOn": "Vorhersagen · An",
+    "predictOff": "Vorhersagen · Aus"
   },
   "toast": {
     "started": "{{activity}} gestartet",

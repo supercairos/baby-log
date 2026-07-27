@@ -100,7 +100,9 @@
     "napOff": "Nap alert · Off",
     "install": "Install on home screen",
     "disconnect": "Disconnect",
-    "language": "Language · {{lang}}"
+    "language": "Language · {{lang}}",
+    "predictOn": "Predictions · On",
+    "predictOff": "Predictions · Off"
   },
   "toast": {
     "started": "{{activity}} started",

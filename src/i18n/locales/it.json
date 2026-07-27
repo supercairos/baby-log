@@ -100,7 +100,9 @@
     "napOff": "Avviso pisolino · Off",
     "install": "Aggiungi alla schermata Home",
     "disconnect": "Disconnetti",
-    "language": "Lingua · {{lang}}"
+    "language": "Lingua · {{lang}}",
+    "predictOn": "Previsioni · On",
+    "predictOff": "Previsioni · Off"
   },
   "toast": {
     "started": "{{activity}} avviato",
