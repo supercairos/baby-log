@@ -393,9 +393,20 @@ function RadialDay({
     ...predMarks.map((p): Mark => ({ key: `pb-${p.activity}`, deg: angleOf(p.etaMs), accent: palette.accents[p.activity].accent, Icon: ACTIVITY_ICON[p.activity], dashed: true, labelMs: p.etaMs })),
     ...sunMarks.map((m): Mark => ({ key: `sb-${m.key}`, deg: angleOf(m.ms), accent: m.color, Icon: m.key === "sunrise" ? SunriseIcon : SunsetIcon, labelMs: m.ms })),
   ].sort((a, b) => a.deg - b.deg);
-  const MIN_SEP = 11; // ≈ badge diameter at the ring radius, in degrees
+  // Anti-overlap nudging, CONFINED to the open arc: the separation shrinks when a busy day
+  // holds more badges than 300° fits at full size (11° ≈ badge diameter), and a backward
+  // clamp pass keeps the tail from spilling into the bottom gap. sep ≤ span/(n−1) guarantees
+  // the compression never pushes the head past the arc start.
+  const ARC_END = ARC_START + ARC_SPAN;
+  const sep = Math.min(11, ARC_SPAN / Math.max(1, marks.length - 1));
   for (let i = 1; i < marks.length; i++) {
-    if (marks[i].deg < marks[i - 1].deg + MIN_SEP) marks[i].deg = marks[i - 1].deg + MIN_SEP;
+    if (marks[i].deg < marks[i - 1].deg + sep) marks[i].deg = marks[i - 1].deg + sep;
+  }
+  if (marks.length > 0) {
+    marks[marks.length - 1].deg = Math.min(marks[marks.length - 1].deg, ARC_END);
+    for (let i = marks.length - 2; i >= 0; i--) {
+      if (marks[i].deg > marks[i + 1].deg - sep) marks[i].deg = marks[i + 1].deg - sep;
+    }
   }
 
   return (
@@ -474,6 +485,21 @@ function RadialDay({
           return (
             <text key={h} x={p.x} y={p.y} fill={palette.textFainter} fontSize={10} fontWeight={700} textAnchor="middle" dominantBaseline="middle">
               {hourLabel(h)}
+            </text>
+          );
+        })}
+        {/* Window edges, labelled inside the bottom opening: the horseshoe crosses midnight,
+            so each end carries its own date + time (start anchors on last night's bedtime). */}
+        {([
+          { key: "win-start", ms: winStart, deg: ARC_START, anchor: "start" as const, dx: 20 },
+          { key: "win-end", ms: winEnd, deg: ARC_START + ARC_SPAN, anchor: "end" as const, dx: -20 },
+        ] as const).map(({ key, ms, deg, anchor, dx }) => {
+          const p = polar(deg, R_RING);
+          const d = new Date(ms);
+          return (
+            <text key={key} x={p.x + dx} y={p.y - 3} fill={palette.textMuted} fontSize={10} fontWeight={700} textAnchor={anchor}>
+              <tspan x={p.x + dx} dy={0}>{d.toLocaleDateString(undefined, { weekday: "short", day: "numeric" })}</tspan>
+              <tspan x={p.x + dx} dy={12}>{clockTime(ms)}</tspan>
             </text>
           );
         })}
@@ -653,6 +679,18 @@ function TimeGrid({
       el.removeEventListener("touchend", onEnd);
       el.removeEventListener("touchcancel", onEnd);
     };
+  }, []);
+
+  // Default zoom FITS the full 24 h between the grid head and the floating add bar — a fixed
+  // 24 px/h either forces a scroll or leaves a hole under the grid, depending on the phone.
+  // An explicit pinch choice (persisted under ZOOM_KEY) always wins over the fit.
+  useEffect(() => {
+    if (localStorage.getItem(ZOOM_KEY) != null) return;
+    const el = viewportRef.current;
+    if (!el?.firstElementChild) return;
+    const bodyTop = el.firstElementChild.getBoundingClientRect().bottom;
+    const fit = (window.innerHeight - bodyTop - 96) / 24; // 96 ≈ floating bar + breathing room
+    onZoomRef.current(fit, false); // applyZoom clamps to [MIN_HOUR_PX, MAX_HOUR_PX]
   }, []);
 
   return (
