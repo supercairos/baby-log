@@ -75,24 +75,30 @@ export async function listRecentEntries(
   offset = 0,
 ): Promise<{ entries: TimelineEntry[]; hasMore: boolean }> {
   const child = String(childId);
-  const responses = await Promise.all([
+  // Unwrapped one by one — mapping the heterogeneous tuple through the generic `unwrap`
+  // collapses every element type to unknown.
+  const [feedingsRes, sleepRes, tummyRes, changesRes, medicationRes] = await Promise.all([
     client.GET("/api/feedings/", { params: { query: { child, limit: limitPer, offset, ordering: "-start" } } }),
     client.GET("/api/sleep/", { params: { query: { child, limit: limitPer, offset, ordering: "-start" } } }),
     client.GET("/api/tummy-times/", { params: { query: { child, limit: limitPer, offset, ordering: "-start" } } }),
     client.GET("/api/changes/", { params: { query: { child, limit: limitPer, offset, ordering: "-time" } } }),
     client.GET("/api/medication/", { params: { query: { child, limit: limitPer, offset, ordering: "-time" } } }),
   ]);
-  const pages = responses.map(unwrap);
-  const [feedings, sleep, tummy, changes, medication] = pages;
+  const feedings = unwrap(feedingsRes);
+  const sleep = unwrap(sleepRes);
+  const tummy = unwrap(tummyRes);
+  const changes = unwrap(changesRes);
+  const medication = unwrap(medicationRes);
   return {
     entries: mergeEntries({
-      feedings: (feedings.results ?? []) as Lists["feedings"],
-      sleep: (sleep.results ?? []) as Lists["sleep"],
-      tummy: (tummy.results ?? []) as Lists["tummy"],
-      changes: (changes.results ?? []) as Lists["changes"],
-      medication: (medication.results ?? []) as Lists["medication"],
+      feedings: feedings.results ?? [],
+      sleep: sleep.results ?? [],
+      tummy: tummy.results ?? [],
+      changes: changes.results ?? [],
+      medication: medication.results ?? [],
     }),
-    hasMore: pages.some((p) => (p.count ?? 0) > offset + limitPer),
+    // DRF `count` is the endpoint's TOTAL — rows exist past this window on any endpoint.
+    hasMore: [feedings, sleep, tummy, changes, medication].some((p) => (p.count ?? 0) > offset + limitPer),
   };
 }
 
