@@ -8,7 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import { useTranslation } from "react-i18next";
 import type { BabyBuddyClient, TimelineEntry } from "../api";
 import { useStyles, useTheme } from "../theme";
-import { ACTIVITY_ICON, PlusIcon, SunriseIcon, SunsetIcon } from "../ui/icons";
+import { ACTIVITY_ICON, DropFilledIcon, DropHalfIcon, PlusIcon, SunriseIcon, SunsetIcon } from "../ui/icons";
 import { clockTime } from "../lib/datetime";
 import { activityLabel } from "../lib/labels";
 import { hm } from "../lib/format";
@@ -279,11 +279,13 @@ function RadialDay({
   // Sunrise / sunset for the viewed day (when we have a location).
   const geo = useGeo();
   const sun = geo ? sunTimes(dayStart + 12 * 3_600_000, geo.lat, geo.lng) : null;
+  // Today's sunset often falls AFTER the anticipated bedtime edge (21:00 fallback) — keep it:
+  // anything belonging to the calendar day stays, clamped by angleOf to the arc end.
   const sunMarks = sun
     ? ([
         { key: "sunrise", ms: sun.sunrise, color: "#f3c14e" },
         { key: "sunset", ms: sun.sunset, color: "#e8895b" },
-      ] as const).filter((m) => m.ms >= winStart && m.ms < winEnd)
+      ] as const).filter((m) => m.ms >= winStart && m.ms < Math.max(winEnd, dayEnd))
     : [];
 
   const hours = [0, 6, 12, 18];
@@ -360,7 +362,8 @@ function RadialDay({
   }
   const ticks: Tick[] = [
     ...[...sleeps, ...bars].filter(isTick).map((e): Tick => ({ key: `d-${e.path}${e.id}`, deg: midDeg(e), accent: palette.accents[e.activity].accent, kind: "solid", Icon: ACTIVITY_ICON[e.activity], onClick: () => onEdit(e), label: entryLabel(e) })),
-    ...diapers.map((e): Tick => ({ key: `d-${e.path}${e.id}`, deg: angleOf(e.startMs), accent: palette.accents.diaper.accent, kind: e.wet && e.solid ? "thread" : e.solid ? "solid" : "hollow", Icon: ACTIVITY_ICON.diaper, onClick: () => onEdit(e), label: entryLabel(e) })),
+    // Orbit glyph mirrors the tick's coding: filled drop = solid, outline = wet, half = both.
+    ...diapers.map((e): Tick => ({ key: `d-${e.path}${e.id}`, deg: angleOf(e.startMs), accent: palette.accents.diaper.accent, kind: e.wet && e.solid ? "thread" : e.solid ? "solid" : "hollow", Icon: e.wet && e.solid ? DropHalfIcon : e.solid ? DropFilledIcon : ACTIVITY_ICON.diaper, onClick: () => onEdit(e), label: entryLabel(e) })),
     ...meds.map((e): Tick => ({ key: `d-${e.path}${e.id}`, deg: angleOf(e.startMs), accent: palette.accents.medication.accent, kind: "solid", Icon: ACTIVITY_ICON.medication, onClick: () => onEdit(e), label: entryLabel(e) })),
     ...predMarks.map((p): Tick => ({ key: `pd-${p.activity}`, deg: angleOf(p.etaMs), accent: palette.accents[p.activity].accent, kind: "hollow", Icon: ACTIVITY_ICON[p.activity], dashed: true, labelMs: p.etaMs })),
   ].sort((a, b) => a.deg - b.deg);
@@ -391,7 +394,6 @@ function RadialDay({
   const icons: OrbitIcon[] = [
     ...[...sleeps, ...bars].filter((e) => !isTick(e)).map((e): OrbitIcon => ({ key: `i-${e.path}${e.id}`, deg: midDeg(e), color: palette.accents[e.activity].accent, Icon: ACTIVITY_ICON[e.activity] })),
     ...ticks.map((t): OrbitIcon => ({ key: `i-${t.key}`, deg: t.deg, color: t.accent, Icon: t.Icon, ghost: t.dashed, labelMs: t.labelMs })),
-    ...sunMarks.map((m): OrbitIcon => ({ key: `i-s-${m.key}`, deg: angleOf(m.ms), color: m.color, Icon: m.key === "sunrise" ? SunriseIcon : SunsetIcon, labelMs: m.ms })),
   ].sort((a, b) => a.deg - b.deg);
   const isep = Math.min((15 / ICON_R) * (180 / Math.PI) + 0.8, ARC_SPAN / Math.max(1, icons.length - 1));
   for (let i = 1; i < icons.length; i++) {
@@ -482,6 +484,22 @@ function RadialDay({
             </g>
           );
         })}
+        {/* sunrise / sunset INSIDE the ring (the outer orbit belongs to event glyphs), glyph
+            stacked over its time; a colliding hour label yields (see the hours block) */}
+        {sunMarks.map((m) => {
+          const g = polar(angleOf(m.ms), R_RING - 34);
+          const Icon = m.key === "sunrise" ? SunriseIcon : SunsetIcon;
+          return (
+            <g key={`sun-${m.key}`} style={{ color: m.color }} aria-hidden>
+              <g transform={`translate(${(g.x - 7).toFixed(2)}, ${(g.y - 13).toFixed(2)})`}>
+                <Icon size={14} />
+              </g>
+              <text x={g.x} y={g.y + 11} fill={m.color} fontSize={9.5} fontWeight={800} textAnchor="middle">
+                {clockTime(m.ms)}
+              </text>
+            </g>
+          );
+        })}
         {/* "now" — a rounded radial tick crossing the ring, drawn on top of arcs and badges */}
         {isToday && now >= winStart && now < winEnd && (() => {
           const deg = angleOf(now);
@@ -517,6 +535,7 @@ function RadialDay({
           at.setHours(h, 0, 0, 0);
           const ms = at.getTime();
           if (ms < winStart || ms >= winEnd) return null; // outside the bedtime-to-bedtime window
+          if (sunMarks.some((m) => Math.abs(angleOf(m.ms) - angleOf(ms)) < 10)) return null; // sun mark sits here
           const p = polar(angleOf(ms), R_RING - 26);
           return (
             <text key={h} x={p.x} y={p.y} fill={palette.textFainter} fontSize={10} fontWeight={700} textAnchor="middle" dominantBaseline="middle">
@@ -566,27 +585,16 @@ function RadialDay({
             );
           })()
         ) : (
-          /* Past day (or nothing left to predict): the day's totals, icon per activity. */
-          <div style={s.radialStats}>
-            {(
-              [
-                { key: "sleep", value: hm(sleepMs) },
-                { key: "feeding", value: `×${feedCount}${feedMs > 0 ? ` · ${hm(feedMs)}` : ""}` },
-                { key: "diaper", value: diapers.length > 0 ? `${t("cal.wet", { count: wetCount })} · ${t("cal.solid", { count: solidCount })}` : "×0" },
-                { key: "tummy", value: hm(tummyMs) },
-              ] as const
-            ).map(({ key, value }) => {
-              const Icon = ACTIVITY_ICON[key];
-              return (
-                <div key={key} style={s.radialStatRow}>
-                  <span style={{ color: palette.accents[key].accent, display: "grid", placeItems: "center" }}>
-                    <Icon size={15} />
-                  </span>
-                  <span style={s.radialStatValue}>{value}</span>
-                </div>
-              );
-            })}
-          </div>
+          /* Past day (or nothing left to predict): ONE hero metric — total sleep, the question
+             every parent asks first. The full breakdown lives in the stat strip under the
+             composition bar, where there's room; a ring centre works best nearly empty. */
+          <>
+            <span style={{ ...s.radialSmall, color: palette.accents.sleep.accent }}>{activityLabel("sleep")}</span>
+            <span style={s.radialBig}>{hm(sleepMs)}</span>
+            <span style={{ fontSize: 13, fontWeight: 800, color: palette.accents.feeding.accent }}>
+              ×{feedCount} · {hm(feedMs)}
+            </span>
+          </>
         )}
       </div>
     </div>
@@ -610,22 +618,28 @@ function RadialDay({
                 <div key={g.key} style={{ ...s.dayBarSeg, flex: g.ms, background: g.color }} />
               ))}
             </div>
+            {/* The day's full breakdown — the ring centre keeps only the hero. Wet and solid
+                changes split out, glyph-coded like the dial (outline = pipi, filled = selles). */}
             <div style={s.dayBarLegend}>
-              {segs.map((g) => (
-                <span key={g.key} style={s.dayBarLegendItem}>
-                  {g.key === "awake" ? (
-                    <>
-                      <span aria-hidden style={{ width: 9, height: 9, borderRadius: "50%", background: g.color }} />
-                      {t("cal.awake")} {hm(g.ms)}
-                    </>
+              {(
+                [
+                  { key: "sleep", Icon: ACTIVITY_ICON.sleep, color: palette.accents.sleep.accent, text: hm(sleepMs) },
+                  { key: "feeding", Icon: ACTIVITY_ICON.feeding, color: palette.accents.feeding.accent, text: `×${feedCount} · ${hm(feedMs)}` },
+                  { key: "tummy", Icon: ACTIVITY_ICON.tummy, color: palette.accents.tummy.accent, text: hm(tummyMs) },
+                  { key: "wet", Icon: ACTIVITY_ICON.diaper, color: palette.accents.diaper.accent, text: `×${wetCount} ${t("diaper.wet").toLocaleLowerCase()}` },
+                  { key: "solid", Icon: DropFilledIcon, color: palette.accents.diaper.accent, text: `×${solidCount} ${t("diaper.solid").toLocaleLowerCase()}` },
+                  { key: "awake", Icon: null, color: palette.surfaceStrongBorder, text: `${t("cal.awake")} ${hm(awakeMs)}` },
+                ] as const
+              ).map(({ key, Icon, color, text }) => (
+                <span key={key} style={s.dayBarLegendItem}>
+                  {Icon ? (
+                    <span aria-hidden style={{ color, display: "grid", placeItems: "center" }}>
+                      <Icon size={14} />
+                    </span>
                   ) : (
-                    <>
-                      <span aria-hidden style={{ color: palette.accents[g.key].accent, display: "grid", placeItems: "center" }}>
-                        {(() => { const Icon = ACTIVITY_ICON[g.key]; return <Icon size={14} />; })()}
-                      </span>
-                      {hm(g.ms)}
-                    </>
+                    <span aria-hidden style={{ width: 9, height: 9, borderRadius: "50%", background: color }} />
                   )}
+                  {text}
                 </span>
               ))}
             </div>

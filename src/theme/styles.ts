@@ -348,15 +348,12 @@ export function makeStyles(p: Palette): Styles {
     dayBarWrap: { margin: "10px 2px 28px" },
     dayBar: { display: "flex", gap: 2, height: 12, borderRadius: 999, overflow: "hidden" },
     dayBarSeg: { borderRadius: 3, minWidth: 3 },
-    dayBarLegend: { display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8, color: p.textMuted, fontSize: 12.5, fontWeight: 700 },
+    dayBarLegend: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "7px 10px", alignItems: "center", marginTop: 9, color: p.textMuted, fontSize: 12.5, fontWeight: 700 },
     dayBarLegendItem: { display: "inline-flex", alignItems: "center", gap: 5 },
     radialCenter: { position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, pointerEvents: "none", textAlign: "center" },
     radialSmall: { fontSize: 13, fontWeight: 700, color: p.textMuted },
     radialBig: { fontSize: 34, fontWeight: 600, fontFamily: p.serif, color: p.text, lineHeight: 1.05 },
     radialActivity: { fontSize: 14, fontWeight: 800 },
-    radialStats: { display: "flex", flexDirection: "column", gap: 7, alignItems: "flex-start" },
-    radialStatRow: { display: "flex", alignItems: "center", gap: 9 },
-    radialStatValue: { fontSize: 15.5, fontWeight: 700, color: p.text, fontFamily: p.serif, letterSpacing: ".2px" },
 
     // Offline/pending sync pill — one quiet row above the running timers (no card chrome: it
     // informs, never competes with logging). The dot pulses feed-colored while writes are
