@@ -147,11 +147,14 @@
     "longest": "max {{duration}}",
     "perDay": "{{count}}/giorno",
     "everyInterval": "ogni ~{{duration}}",
-    "wetSolid": "{{wet}} pipì · {{solid}} cacca",
     "minPerDay": "{{value}} min/giorno",
     "durationPerDay": "{{duration}}/giorno",
     "goalMin": "obiettivo {{goal}} min",
-    "vsLastWeek": "{{delta}} vs sett. scorsa"
+    "vsLastWeek": "{{delta}} vs sett. scorsa",
+    "wet_one": "{{count}} pipì",
+    "wet_other": "{{count}} pipì",
+    "solid_one": "{{count}} cacca",
+    "solid_other": "{{count}} cacca"
   },
   "sheet": {
     "feedingDetails": "Dettagli poppata",

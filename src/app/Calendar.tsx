@@ -235,18 +235,23 @@ function RadialDay({
 
   const sleeps = list.filter((e) => e.activity === "sleep" && e.endMs != null && e.endMs > dayStart && e.startMs < dayEnd);
   const bars = list.filter((e) => (e.activity === "feeding" || e.activity === "tummy") && e.startMs < dayEnd && (e.endMs ?? e.startMs) >= dayStart);
-  const diapers = list.filter((e) => e.activity === "diaper" && e.startMs >= dayStart && e.startMs < dayEnd);
+  const diapers = list.filter((e): e is Extract<TimelineEntry, { activity: "diaper" }> => e.activity === "diaper" && e.startMs >= dayStart && e.startMs < dayEnd);
   const meds = list.filter((e) => e.activity === "medication" && e.startMs >= dayStart && e.startMs < dayEnd);
 
   let sleepMs = 0;
   for (const e of sleeps) sleepMs += Math.min(e.endMs as number, dayEnd) - Math.max(e.startMs, dayStart);
   // Day stats for the dial centre (past days): totals per activity.
   let tummyMs = 0;
+  let feedMs = 0;
   for (const e of bars) {
-    if (e.activity !== "tummy") continue;
-    tummyMs += Math.min(e.endMs ?? e.startMs, dayEnd) - Math.max(e.startMs, dayStart);
+    const span = Math.min(e.endMs ?? e.startMs, dayEnd) - Math.max(e.startMs, dayStart);
+    if (e.activity === "tummy") tummyMs += span;
+    else feedMs += span;
   }
   const feedCount = list.filter((e) => e.activity === "feeding" && e.startMs >= dayStart && e.startMs < dayEnd).length;
+  // Wet/solid overlap ("les deux" counts in both), matching the Résumé's split.
+  const wetCount = diapers.filter((e) => e.wet).length;
+  const solidCount = diapers.filter((e) => e.solid).length;
 
   // Predicted upcoming events (today only) — shown as dashed "ghost" markers on the ring.
   // Long-expired etas are dropped, same rule as the home panel.
@@ -482,8 +487,8 @@ function RadialDay({
             {(
               [
                 { key: "sleep", value: hm(sleepMs) },
-                { key: "feeding", value: `×${feedCount}` },
-                { key: "diaper", value: `×${diapers.length}` },
+                { key: "feeding", value: `×${feedCount}${feedMs > 0 ? ` · ${hm(feedMs)}` : ""}` },
+                { key: "diaper", value: diapers.length > 0 ? `${t("cal.wet", { count: wetCount })} · ${t("cal.solid", { count: solidCount })}` : "×0" },
                 { key: "tummy", value: hm(tummyMs) },
               ] as const
             ).map(({ key, value }) => {
@@ -781,7 +786,7 @@ function SummaryView({
     // "/day" on the value, like the other cards — a bare "9h 30m" reads as the week's total.
     { key: "sleep", big: t("cal.durationPerDay", { duration: hm(stats.sleepMs / days) }), sub: t("cal.longest", { duration: hm(stats.longestSleep) }) },
     { key: "feeding", big: t("cal.perDay", { count: Math.round(stats.feedCount / days) }), sub: stats.avgGap != null ? t("cal.everyInterval", { duration: hm(stats.avgGap) }) : "—" },
-    { key: "diaper", big: t("cal.perDay", { count: Math.round(stats.diaperCount / days) }), sub: t("cal.wetSolid", { wet: stats.wet, solid: stats.solid }) },
+    { key: "diaper", big: t("cal.perDay", { count: Math.round(stats.diaperCount / days) }), sub: `${t("cal.wet", { count: stats.wet })} · ${t("cal.solid", { count: stats.solid })}` },
     { key: "tummy", big: t("cal.minPerDay", { value: Math.round(stats.tummyMs / days / 60_000) }), sub: t("cal.goalMin", { goal }) },
   ] as const;
 

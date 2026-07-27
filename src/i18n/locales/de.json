@@ -147,11 +147,14 @@
     "longest": "max. {{duration}}",
     "perDay": "{{count}}/Tag",
     "everyInterval": "alle ~{{duration}}",
-    "wetSolid": "{{wet}} nass · {{solid}} fest",
     "minPerDay": "{{value}} Min./Tag",
     "durationPerDay": "{{duration}}/Tag",
     "goalMin": "Ziel {{goal}} Min.",
-    "vsLastWeek": "{{delta}} ggü. Vorwoche"
+    "vsLastWeek": "{{delta}} ggü. Vorwoche",
+    "wet_one": "{{count}} nass",
+    "wet_other": "{{count}} nass",
+    "solid_one": "{{count}} fest",
+    "solid_other": "{{count}} fest"
   },
   "sheet": {
     "feedingDetails": "Mahlzeit-Details",
