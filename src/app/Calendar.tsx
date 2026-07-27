@@ -378,7 +378,12 @@ function RadialDay({
   // (events close in time would otherwise stack their badges on top of each other).
   interface Mark {
     key: string;
+    /** Display angle — may drift from `trueDeg` when neighbours are nudged apart. */
     deg: number;
+    /** The event's REAL angle: where the boudin marker sits and the leader line starts. */
+    trueDeg: number;
+    /** Draw the on-band marker (skipped when the entry already has a visible arc). */
+    marker: boolean;
     accent: string;
     Icon: (p: { size?: number }) => ReactNode;
     dashed?: boolean;
@@ -388,13 +393,19 @@ function RadialDay({
     labelMs?: number;
   }
   const entryLabel = (e: TimelineEntry) => `${activityLabel(e.activity)} ${clockTime(e.startMs)}`;
+  // Whether ringArc() draws a visible pill for this entry (same cap-fit rule) — if it does,
+  // the arc already marks the true position and the boudin would be noise on top of it.
+  const hasArc = (e: TimelineEntry) => {
+    const rawEnd = Math.max(e.endMs ?? e.startMs, e.startMs);
+    return angleOf(Math.min(rawEnd, winEnd)) - angleOf(Math.max(e.startMs, winStart)) > 2 * CAP_DEG + 0.5;
+  };
   const marks: Mark[] = [
-    ...[...sleeps, ...bars].map((e): Mark => ({ key: `b-${e.path}${e.id}`, deg: midDeg(e), accent: palette.accents[e.activity].accent, Icon: ACTIVITY_ICON[e.activity], onClick: () => onEdit(e), label: entryLabel(e) })),
+    ...[...sleeps, ...bars].map((e): Mark => ({ key: `b-${e.path}${e.id}`, deg: midDeg(e), trueDeg: midDeg(e), marker: !hasArc(e), accent: palette.accents[e.activity].accent, Icon: ACTIVITY_ICON[e.activity], onClick: () => onEdit(e), label: entryLabel(e) })),
     // Drop glyph encodes the change type: outline = wet, filled = solid, half-filled = both.
-    ...diapers.map((e): Mark => ({ key: `b-${e.path}${e.id}`, deg: angleOf(e.startMs), accent: palette.accents.diaper.accent, Icon: e.wet && e.solid ? DropHalfIcon : e.solid ? DropFilledIcon : ACTIVITY_ICON.diaper, onClick: () => onEdit(e), label: entryLabel(e) })),
-    ...meds.map((e): Mark => ({ key: `b-${e.path}${e.id}`, deg: angleOf(e.startMs), accent: palette.accents.medication.accent, Icon: ACTIVITY_ICON.medication, onClick: () => onEdit(e), label: entryLabel(e) })),
-    ...predMarks.map((p): Mark => ({ key: `pb-${p.activity}`, deg: angleOf(p.etaMs), accent: palette.accents[p.activity].accent, Icon: ACTIVITY_ICON[p.activity], dashed: true, labelMs: p.etaMs })),
-    ...sunMarks.map((m): Mark => ({ key: `sb-${m.key}`, deg: angleOf(m.ms), accent: m.color, Icon: m.key === "sunrise" ? SunriseIcon : SunsetIcon, labelMs: m.ms })),
+    ...diapers.map((e): Mark => ({ key: `b-${e.path}${e.id}`, deg: angleOf(e.startMs), trueDeg: angleOf(e.startMs), marker: true, accent: palette.accents.diaper.accent, Icon: e.wet && e.solid ? DropHalfIcon : e.solid ? DropFilledIcon : ACTIVITY_ICON.diaper, onClick: () => onEdit(e), label: entryLabel(e) })),
+    ...meds.map((e): Mark => ({ key: `b-${e.path}${e.id}`, deg: angleOf(e.startMs), trueDeg: angleOf(e.startMs), marker: true, accent: palette.accents.medication.accent, Icon: ACTIVITY_ICON.medication, onClick: () => onEdit(e), label: entryLabel(e) })),
+    ...predMarks.map((p): Mark => ({ key: `pb-${p.activity}`, deg: angleOf(p.etaMs), trueDeg: angleOf(p.etaMs), marker: true, accent: palette.accents[p.activity].accent, Icon: ACTIVITY_ICON[p.activity], dashed: true, labelMs: p.etaMs })),
+    ...sunMarks.map((m): Mark => ({ key: `sb-${m.key}`, deg: angleOf(m.ms), trueDeg: angleOf(m.ms), marker: true, accent: m.color, Icon: m.key === "sunrise" ? SunriseIcon : SunsetIcon, labelMs: m.ms })),
   ].sort((a, b) => a.deg - b.deg);
   // Anti-overlap nudging, CONFINED to the open arc: the separation shrinks when a busy day
   // holds more badges than 300° fits at full size (11° ≈ badge diameter), and a backward
@@ -444,6 +455,27 @@ function RadialDay({
               />
             );
           })}
+        {/* True-position markers + leader lines: badges get nudged apart for legibility, so a
+            small boudin pins the REAL moment on the band (halo'd so it reads on top of an
+            arc — a change mid-sleep sits on the sleep pill) and a thin connector ties it to
+            its badge. Arc-backed entries skip the boudin (the pill already marks them). */}
+        {marks.map((m) => {
+          const from = polar(m.trueDeg, R_RING + RING_W / 2 + 1);
+          const to = polar(m.deg, BADGE_R - 11);
+          const p1 = polar(m.trueDeg, R_RING - 6);
+          const p2 = polar(m.trueDeg, R_RING + 6);
+          return (
+            <g key={`c-${m.key}`} aria-hidden>
+              <line x1={from.x} y1={from.y} x2={to.x} y2={to.y} stroke={m.accent} strokeWidth={1.2} opacity={0.5} />
+              {m.marker && (
+                <>
+                  <line x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke={palette.tileBase} strokeWidth={6} strokeLinecap="round" />
+                  <line x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke={m.accent} strokeWidth={3.5} strokeLinecap="round" strokeDasharray={m.dashed ? "2 3" : undefined} />
+                </>
+              )}
+            </g>
+          );
+        })}
         {marks.map((m) => (
           <g key={m.key}>
             {badge(m.key, m.deg, m.accent, m.Icon, { dashed: m.dashed, onClick: m.onClick, label: m.label })}
@@ -687,21 +719,25 @@ function TimeGrid({
     };
   }, []);
 
-  // Default zoom FITS the full 24 h between the grid head and the floating add bar — a fixed
-  // 24 px/h either forces a scroll or leaves a hole under the grid, depending on the phone.
-  // The bar is `position: fixed`, so its MEASURED top is the true usable bottom edge (browser
-  // chrome and safe-area included — guessing via innerHeight left a big hole on iPhones).
-  // An explicit pinch choice (persisted under ZOOM_KEY) always wins over the fit.
+  // Size the grid to the REAL space between its top and the floating add bar. Two things fight
+  // otherwise: the style sheet's static maxHeight cap (58vh — wrong on iOS, where vh ≠ visible
+  // viewport) and the zoom. Both now derive from one measurement: the bar is `position: fixed`,
+  // so its rect top is the true usable bottom edge, browser chrome and safe-area included.
+  // The element cap applies always (a pinched-in grid scrolls inside it); the default zoom is
+  // fitted only when no explicit pinch choice is stored under ZOOM_KEY.
   useEffect(() => {
-    if (localStorage.getItem(ZOOM_KEY) != null) return;
     const el = viewportRef.current;
     const head = el?.firstElementChild;
     if (!el || !head) return;
     const fit = () => {
-      const bodyTop = head.getBoundingClientRect().bottom + window.scrollY; // as if unscrolled
       const bar = el.closest("section")?.lastElementChild;
       const bottom = bar ? bar.getBoundingClientRect().top : window.innerHeight - 96;
-      onZoomRef.current((bottom - bodyTop - 10) / 24, false); // applyZoom clamps [MIN, MAX]
+      const top = el.getBoundingClientRect().top + window.scrollY; // as if unscrolled
+      const avail = Math.max(240, bottom - top - 10);
+      el.style.maxHeight = `${Math.round(avail)}px`;
+      if (localStorage.getItem(ZOOM_KEY) == null) {
+        onZoomRef.current(Math.floor((avail - head.getBoundingClientRect().height) / 24), false);
+      }
     };
     fit();
     window.addEventListener("resize", fit);
