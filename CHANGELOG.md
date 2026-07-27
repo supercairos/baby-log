@@ -1,5 +1,31 @@
 # Changelog
 
+## [1.18.0](https://github.com/supercairos/baby-log/compare/baby-log-v1.17.0...baby-log-v1.18.0) (2026-07-27)
+
+
+### Features
+
+* badges orbit outside the dial band; robust week-grid height fit ([b6b07e5](https://github.com/supercairos/baby-log/commit/b6b07e5f8e8b14bcec2e9c9b9972f503dc941f1a))
+* bedtime-anchored day dial, composition bar, typed drop glyphs ([c1820c7](https://github.com/supercairos/baby-log/commit/c1820c7e7a8da559f55fe18005aed35a01a5c7b4))
+* day-view redesign, night-chain & list-pagination fixes, opt-in predictions ([c74d306](https://github.com/supercairos/baby-log/commit/c74d306cb39a1f9def0dc985a3a008d3a8a8313c))
+* dial centre cycles one stat per tap ([5dd2e5c](https://github.com/supercairos/baby-log/commit/5dd2e5c00c6a483676310a293bb3da5ddaa36d50))
+* drawer toggle to enable predictions, off by default ([23f0179](https://github.com/supercairos/baby-log/commit/23f01792e2578376706f4cc27962ee9baa8687a3))
+* empty dial centre; stat strip rows split durations / counts ([0b20130](https://github.com/supercairos/baby-log/commit/0b201306d5ca91b6dacc16feefd79237d336acd3))
+* hero dial centre, sun inside the ring, full stat strip below ([8c0f5fc](https://github.com/supercairos/baby-log/commit/8c0f5fc181b3e3ce09110f4cccf59bbcc38911b3))
+* horseshoe end labels, confined badges, fit-to-height week grid ([e3f074b](https://github.com/supercairos/baby-log/commit/e3f074bfd17f7c0a02e1baebe1e175832933d288))
+* icon orbit outside the dial band; edge dates below the dial ([626bcb8](https://github.com/supercairos/baby-log/commit/626bcb81005fe801c6e8a3bf13e5f0621656ca3d))
+* redesign day-dial marks — one calm layer of arcs and coded dots ([eda8b4f](https://github.com/supercairos/baby-log/commit/eda8b4f3c1f261263b64337c839a23bc7152ddb2))
+* richer day-dial centre stats — feeding time and wet/solid split ([8f88855](https://github.com/supercairos/baby-log/commit/8f888554333a289db492fff380a2ce5669f362cb))
+* true-position boudins with leader lines; measured week-grid cap ([b9ebae2](https://github.com/supercairos/baby-log/commit/b9ebae226e860c7c48bc616e132d669c79c0efd0))
+* watch-dial marks — fat pills for spans, radial ticks for instants ([c71982e](https://github.com/supercairos/baby-log/commit/c71982ef40b1cc80a82f24c6724bdf41bd1fbe8d))
+
+
+### Bug Fixes
+
+* chain the night across feeding gaps and core night hours ([e835297](https://github.com/supercairos/baby-log/commit/e835297a520a1e0fac4cce7d2cc8ba0903c98c0a))
+* journal list loads all history via infinite pagination ([b721a92](https://github.com/supercairos/baby-log/commit/b721a925150b7a3cd3339910e382bf5c1d0a127f))
+* unwrap timeline responses individually — CI typecheck failure ([b73eff6](https://github.com/supercairos/baby-log/commit/b73eff6dbe9c28f9860f6ad2344511ac5bb31f49))
+
 ## [1.17.0](https://github.com/supercairos/baby-log/compare/baby-log-v1.16.0...baby-log-v1.17.0) (2026-07-22)
 
 
