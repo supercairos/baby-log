@@ -233,6 +233,8 @@ function RadialDay({
   const dayEnd = addDays(dayStart, 1); // DST-safe: a local day can be 23 or 25 h
   const isToday = dayStart === startOfDay(now);
   const list = entries ?? [];
+  // Which centre slide is showing — tap cycles; modulo at read time keeps it valid across days.
+  const [statIdx, setStatIdx] = useState(0);
 
   // Bedtime-to-bedtime "baby day": each edge anchors on the night sleep crossing that
   // midnight (fallback 21:00 when none is logged, e.g. tonight's). The arc leaves ARC_GAP°
@@ -267,6 +269,9 @@ function RadialDay({
   // Wet/solid overlap ("les deux" counts in both), matching the Résumé's split.
   const wetCount = diapers.filter((e) => e.wet).length;
   const solidCount = diapers.filter((e) => e.solid).length;
+  // Awake = the elapsed window minus everything logged (never counts future time today).
+  const barEnd = Math.min(Math.max(now, winStart + 60_000), winEnd);
+  const awakeMs = Math.max(0, barEnd - winStart - sleepMs - tummyMs - feedMs);
 
   // Predicted upcoming events (today only) — shown as dashed "ghost" markers on the ring.
   // Long-expired etas are dropped, same rule as the home panel.
@@ -560,35 +565,74 @@ function RadialDay({
         })}
       </svg>
 
+      {/* Cycling centre: ONE stat at a time, tap to advance (prediction first when live).
+          The page dots hint that there's more behind the tap. */}
       <div style={s.radialCenter}>
-        {soonest ? (
-          (() => {
-            // Same honesty as the home panel (±10 min = "now", older reads late — a forecast,
-            // never past tense; expired etas are filtered out of `preds` above). A late eta
-            // splits over two lines ("en retard de" caption + big "4h 21m") so the serif value
-            // keeps its full size inside the ring; long future etas still step the font down.
-            const overdueMs = now - soonest.etaMs;
-            const overdue = overdueMs > 10 * 60_000;
-            const centerText =
-              soonest.etaMs > now + 10 * 60_000
-                ? t("cal.inDuration", { duration: hm(soonest.etaMs - now) })
-                : overdue
-                  ? hm(overdueMs)
-                  : t("home.dueNowExact");
-            return (
-              <>
-                <span style={s.radialSmall}>{t("home.upNext")}</span>
-                {overdue && <span style={s.radialSmall}>{t("home.overdueByLabel")}</span>}
-                <span style={{ ...s.radialBig, ...(centerText.length > 12 ? { fontSize: 23 } : {}) }}>{centerText}</span>
-                <span style={{ ...s.radialActivity, color: palette.accents[soonest.activity].accent }}>{activityLabel(soonest.activity)}</span>
-              </>
-            );
-          })()
-        ) : (
-          /* No prediction to show → the centre stays EMPTY: the day's numbers live in the stat
-             strip under the composition bar, and repeating them here read as duplication. */
-          null
-        )}
+        {(() => {
+          interface Slide {
+            key: string;
+            cap: string;
+            capColor: string;
+            big: string;
+            sub?: string;
+          }
+          const slides: Slide[] = [
+            { key: "sleep", cap: activityLabel("sleep"), capColor: palette.accents.sleep.accent, big: hm(sleepMs) },
+            { key: "feeding", cap: activityLabel("feeding"), capColor: palette.accents.feeding.accent, big: `×${feedCount}`, sub: hm(feedMs) },
+            { key: "wet", cap: t("diaper.wet"), capColor: palette.accents.diaper.accent, big: `×${wetCount}` },
+            { key: "solid", cap: t("diaper.solid"), capColor: palette.accents.diaper.accent, big: `×${solidCount}` },
+            { key: "tummy", cap: activityLabel("tummy"), capColor: palette.accents.tummy.accent, big: hm(tummyMs) },
+            { key: "awake", cap: t("cal.awake"), capColor: palette.textMuted, big: hm(awakeMs) },
+          ];
+          const total = slides.length + (soonest ? 1 : 0);
+          const idx = statIdx % total;
+          const slide = soonest && idx === 0 ? null : slides[soonest ? idx - 1 : idx];
+          return (
+            <button
+              onClick={() => {
+                buzz();
+                setStatIdx((i) => (i + 1) % total);
+              }}
+              aria-label={t("cal.nextStat")}
+              style={{ pointerEvents: "auto", background: "none", border: "none", padding: 18, font: "inherit", color: "inherit", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}
+            >
+              {slide == null && soonest ? (
+                (() => {
+                  // Same honesty as the home panel (±10 min = "now", older reads late — a
+                  // forecast, never past tense; expired etas are filtered out of `preds`
+                  // above). A late eta splits over two lines so the serif keeps its size.
+                  const overdueMs = now - soonest.etaMs;
+                  const overdue = overdueMs > 10 * 60_000;
+                  const centerText =
+                    soonest.etaMs > now + 10 * 60_000
+                      ? t("cal.inDuration", { duration: hm(soonest.etaMs - now) })
+                      : overdue
+                        ? hm(overdueMs)
+                        : t("home.dueNowExact");
+                  return (
+                    <>
+                      <span style={s.radialSmall}>{t("home.upNext")}</span>
+                      {overdue && <span style={s.radialSmall}>{t("home.overdueByLabel")}</span>}
+                      <span style={{ ...s.radialBig, ...(centerText.length > 12 ? { fontSize: 23 } : {}) }}>{centerText}</span>
+                      <span style={{ ...s.radialActivity, color: palette.accents[soonest.activity].accent }}>{activityLabel(soonest.activity)}</span>
+                    </>
+                  );
+                })()
+              ) : slide ? (
+                <>
+                  <span style={{ ...s.radialSmall, color: slide.capColor }}>{slide.cap}</span>
+                  <span style={s.radialBig}>{slide.big}</span>
+                  {slide.sub != null && <span style={{ fontSize: 13, fontWeight: 800, color: palette.textMuted }}>{slide.sub}</span>}
+                </>
+              ) : null}
+              <span aria-hidden style={{ display: "flex", gap: 4.5, marginTop: 7 }}>
+                {Array.from({ length: total }, (_, i) => (
+                  <span key={i} style={{ width: 4.5, height: 4.5, borderRadius: "50%", background: i === idx ? palette.textMuted : palette.surfaceStrongBorder }} />
+                ))}
+              </span>
+            </button>
+          );
+        })()}
       </div>
     </div>
 
@@ -596,8 +640,6 @@ function RadialDay({
           window divides between sleep, tummy, feeding and awake time. Fixed activity order,
           same as the week-grid lanes; every segment is directly labelled in the legend. */}
       {(() => {
-        const barEnd = Math.min(Math.max(now, winStart + 60_000), winEnd);
-        const awakeMs = Math.max(0, barEnd - winStart - sleepMs - tummyMs - feedMs);
         const segs = [
           { key: "sleep", ms: sleepMs, color: palette.accents.sleep.accent },
           { key: "tummy", ms: tummyMs, color: palette.accents.tummy.accent },

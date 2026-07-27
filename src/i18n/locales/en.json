@@ -155,7 +155,8 @@
     "wet_other": "{{count}} wet",
     "solid_one": "{{count}} solid",
     "solid_other": "{{count}} solid",
-    "awake": "awake"
+    "awake": "awake",
+    "nextStat": "Next stat"
   },
   "sheet": {
     "feedingDetails": "Feeding details",

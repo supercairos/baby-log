@@ -155,7 +155,8 @@
     "wet_other": "{{count}} pipi",
     "solid_one": "{{count}} selle",
     "solid_other": "{{count}} selles",
-    "awake": "éveil"
+    "awake": "éveil",
+    "nextStat": "Statistique suivante"
   },
   "sheet": {
     "feedingDetails": "Détails du repas",

@@ -155,7 +155,8 @@
     "wet_other": "{{count}} nass",
     "solid_one": "{{count}} fest",
     "solid_other": "{{count}} fest",
-    "awake": "wach"
+    "awake": "wach",
+    "nextStat": "Nächster Wert"
   },
   "sheet": {
     "feedingDetails": "Mahlzeit-Details",
