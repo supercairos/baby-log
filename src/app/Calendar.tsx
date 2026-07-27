@@ -295,7 +295,7 @@ function RadialDay({
   // the visible 21px disc alone is well under a finger's width.
   const entryLabel = (e: TimelineEntry) => `${activityLabel(e.activity)} ${clockTime(e.startMs)}`;
   const timeLabel = (key: string, deg: number, color: string, ms: number) => {
-    const lp = polar(deg, R_RING + RING_W / 2 + 27);
+    const lp = polar(deg, R_RING + RING_W / 2 + 28);
     return (
       <text key={key} x={lp.x} y={lp.y} fill={color} fontSize={10} fontWeight={800} textAnchor="middle" dominantBaseline="middle">
         {clockTime(ms)}
@@ -352,16 +352,17 @@ function RadialDay({
     deg: number;
     accent: string;
     kind: "solid" | "hollow" | "thread";
+    Icon: (p: { size?: number }) => ReactNode;
     dashed?: boolean;
     onClick?: () => void;
     label?: string;
     labelMs?: number;
   }
   const ticks: Tick[] = [
-    ...[...sleeps, ...bars].filter(isTick).map((e): Tick => ({ key: `d-${e.path}${e.id}`, deg: midDeg(e), accent: palette.accents[e.activity].accent, kind: "solid", onClick: () => onEdit(e), label: entryLabel(e) })),
-    ...diapers.map((e): Tick => ({ key: `d-${e.path}${e.id}`, deg: angleOf(e.startMs), accent: palette.accents.diaper.accent, kind: e.wet && e.solid ? "thread" : e.solid ? "solid" : "hollow", onClick: () => onEdit(e), label: entryLabel(e) })),
-    ...meds.map((e): Tick => ({ key: `d-${e.path}${e.id}`, deg: angleOf(e.startMs), accent: palette.accents.medication.accent, kind: "solid", onClick: () => onEdit(e), label: entryLabel(e) })),
-    ...predMarks.map((p): Tick => ({ key: `pd-${p.activity}`, deg: angleOf(p.etaMs), accent: palette.accents[p.activity].accent, kind: "hollow", dashed: true, labelMs: p.etaMs })),
+    ...[...sleeps, ...bars].filter(isTick).map((e): Tick => ({ key: `d-${e.path}${e.id}`, deg: midDeg(e), accent: palette.accents[e.activity].accent, kind: "solid", Icon: ACTIVITY_ICON[e.activity], onClick: () => onEdit(e), label: entryLabel(e) })),
+    ...diapers.map((e): Tick => ({ key: `d-${e.path}${e.id}`, deg: angleOf(e.startMs), accent: palette.accents.diaper.accent, kind: e.wet && e.solid ? "thread" : e.solid ? "solid" : "hollow", Icon: ACTIVITY_ICON.diaper, onClick: () => onEdit(e), label: entryLabel(e) })),
+    ...meds.map((e): Tick => ({ key: `d-${e.path}${e.id}`, deg: angleOf(e.startMs), accent: palette.accents.medication.accent, kind: "solid", Icon: ACTIVITY_ICON.medication, onClick: () => onEdit(e), label: entryLabel(e) })),
+    ...predMarks.map((p): Tick => ({ key: `pd-${p.activity}`, deg: angleOf(p.etaMs), accent: palette.accents[p.activity].accent, kind: "hollow", Icon: ACTIVITY_ICON[p.activity], dashed: true, labelMs: p.etaMs })),
   ].sort((a, b) => a.deg - b.deg);
   const ARC_END = ARC_START + ARC_SPAN;
   const sep = Math.min(5.5, ARC_SPAN / Math.max(1, ticks.length - 1));
@@ -372,6 +373,34 @@ function RadialDay({
     ticks[ticks.length - 1].deg = Math.min(ticks[ticks.length - 1].deg, ARC_END);
     for (let i = ticks.length - 2; i >= 0; i--) {
       if (ticks[i].deg > ticks[i + 1].deg - sep) ticks[i].deg = ticks[i + 1].deg - sep;
+    }
+  }
+
+  // A quiet icon orbit just outside the band: one bare glyph per mark (no discs, no leader
+  // lines — radial proximity does the linking), co-nudged so glyphs never collide. Sun marks
+  // live on the same orbit; predicted ("ghost") glyphs render half-faded.
+  const ICON_R = R_RING + RING_W / 2 + 13;
+  interface OrbitIcon {
+    key: string;
+    deg: number;
+    color: string;
+    Icon: (p: { size?: number }) => ReactNode;
+    ghost?: boolean;
+    labelMs?: number;
+  }
+  const icons: OrbitIcon[] = [
+    ...[...sleeps, ...bars].filter((e) => !isTick(e)).map((e): OrbitIcon => ({ key: `i-${e.path}${e.id}`, deg: midDeg(e), color: palette.accents[e.activity].accent, Icon: ACTIVITY_ICON[e.activity] })),
+    ...ticks.map((t): OrbitIcon => ({ key: `i-${t.key}`, deg: t.deg, color: t.accent, Icon: t.Icon, ghost: t.dashed, labelMs: t.labelMs })),
+    ...sunMarks.map((m): OrbitIcon => ({ key: `i-s-${m.key}`, deg: angleOf(m.ms), color: m.color, Icon: m.key === "sunrise" ? SunriseIcon : SunsetIcon, labelMs: m.ms })),
+  ].sort((a, b) => a.deg - b.deg);
+  const isep = Math.min((15 / ICON_R) * (180 / Math.PI) + 0.8, ARC_SPAN / Math.max(1, icons.length - 1));
+  for (let i = 1; i < icons.length; i++) {
+    if (icons[i].deg < icons[i - 1].deg + isep) icons[i].deg = icons[i - 1].deg + isep;
+  }
+  if (icons.length > 0) {
+    icons[icons.length - 1].deg = Math.min(icons[icons.length - 1].deg, ARC_END);
+    for (let i = icons.length - 2; i >= 0; i--) {
+      if (icons[i].deg > icons[i + 1].deg - isep) icons[i].deg = icons[i + 1].deg - isep;
     }
   }
   const tick = (m: Tick) => {
@@ -411,10 +440,9 @@ function RadialDay({
   return (
     <>
     <div style={s.radialWrap}>
-      {/* Height cropped to the open arc's extent (~296 of 320) — the bottom gap needs no
-          canvas, and the centre overlay sits a touch high inside the horseshoe, which reads
-          better than true-centre. */}
-      <svg viewBox="0 0 320 296" style={s.radialSvg} role="img">
+      {/* Canvas extends below the open arc so the window-edge date labels sit UNDER the dial
+          (never overlaying the marks near the arc ends). */}
+      <svg viewBox="0 0 320 316" style={s.radialSvg} role="img">
         {/* the single fat ring everything sits on — an open arc, not a full circle */}
         <path d={arcPath(ARC_START, ARC_START + ARC_SPAN, R_RING)} fill="none" stroke={palette.surfaceBorder} strokeWidth={RING_W} strokeLinecap="round" opacity={0.35} />
         {[...sleeps, ...bars].filter((e) => !isTick(e)).map((e) => spanArc(e))}
@@ -440,41 +468,17 @@ function RadialDay({
             );
           })}
         {/* instants + short events as watch-index ticks crossing the band */}
-        {ticks.map((m) => (
-          <g key={`dw-${m.key}`}>
-            {tick(m)}
-            {m.labelMs != null && timeLabel(`${m.key}-t`, m.deg, m.accent, m.labelMs)}
-          </g>
-        ))}
-        {/* a long sleep arc carries its own moon at its midpoint — the icon labels the arc it
-            sits on, so it can't be mistaken for a different activity's moment */}
-        {sleeps.map((e) => {
-          const [a0, a1] = clippedAngles(e);
-          if (a1 - a0 < 26) return null; // too short to host the 21px disc
-          const c = polar((a0 + a1) / 2, R_RING);
-          const accent = palette.accents.sleep.accent;
-          const Icon = ACTIVITY_ICON.sleep;
+        {ticks.map((m) => tick(m))}
+        {/* the icon orbit: one bare glyph per mark, just outside the band */}
+        {icons.map((ic) => {
+          const c = polar(ic.deg, ICON_R);
+          const Icon = ic.Icon;
           return (
-            <g key={`ai-${e.path}${e.id}`} style={{ color: accent }} pointerEvents="none" aria-hidden>
-              {/* tileBase, not bg: `bg` is a CSS gradient string, which SVG would paint as black */}
-              <circle cx={c.x} cy={c.y} r={10.5} fill={palette.tileBase} stroke={accent} strokeWidth={1.6} />
-              <g transform={`translate(${(c.x - 6.5).toFixed(2)}, ${(c.y - 6.5).toFixed(2)})`}>
-                <Icon size={13} />
+            <g key={ic.key} style={{ color: ic.color }} opacity={ic.ghost ? 0.55 : 1} aria-hidden>
+              <g transform={`translate(${(c.x - 7.5).toFixed(2)}, ${(c.y - 7.5).toFixed(2)})`}>
+                <Icon size={15} />
               </g>
-            </g>
-          );
-        })}
-        {/* sunrise / sunset float just outside the band with their times */}
-        {sunMarks.map((m) => {
-          const deg = angleOf(m.ms);
-          const g = polar(deg, R_RING + RING_W / 2 + 12);
-          const Icon = m.key === "sunrise" ? SunriseIcon : SunsetIcon;
-          return (
-            <g key={`sb-${m.key}`} style={{ color: m.color }} aria-hidden>
-              <g transform={`translate(${(g.x - 8).toFixed(2)}, ${(g.y - 8).toFixed(2)})`}>
-                <Icon size={16} />
-              </g>
-              {timeLabel(`sb-${m.key}-t`, deg, m.color, m.ms)}
+              {ic.labelMs != null && timeLabel(`${ic.key}-t`, ic.deg, ic.color, ic.labelMs)}
             </g>
           );
         })}
@@ -520,20 +524,18 @@ function RadialDay({
             </text>
           );
         })}
-        {/* Window edges, labelled inside the bottom opening: the horseshoe crosses midnight,
-            so each end carries its own date + time (start anchors on last night's bedtime). */}
+        {/* Window edges, labelled BELOW the dial under their arc ends: the horseshoe crosses
+            midnight, so each end carries its own date + time (start = last night's bedtime). */}
         {([
-          // Anchored at each arc end, growing OUTWARD (under the arc caps) so the two labels
-          // can't collide in the middle of the opening.
-          { key: "win-start", ms: winStart, deg: ARC_START, anchor: "end" as const, dx: 6 },
-          { key: "win-end", ms: winEnd, deg: ARC_START + ARC_SPAN, anchor: "start" as const, dx: -6 },
-        ] as const).map(({ key, ms, deg, anchor, dx }) => {
-          const p = polar(deg, R_RING);
+          { key: "win-start", ms: winStart, deg: ARC_START },
+          { key: "win-end", ms: winEnd, deg: ARC_END },
+        ] as const).map(({ key, ms, deg }) => {
+          const x = polar(deg, R_RING).x;
           const d = new Date(ms);
           return (
-            <text key={key} x={p.x + dx} y={p.y - 3} fill={palette.textMuted} fontSize={10} fontWeight={700} textAnchor={anchor}>
-              <tspan x={p.x + dx} dy={0}>{d.toLocaleDateString(undefined, { weekday: "short", day: "numeric" })}</tspan>
-              <tspan x={p.x + dx} dy={12}>{clockTime(ms)}</tspan>
+            <text key={key} x={x} y={296} fill={palette.textMuted} fontSize={10} fontWeight={700} textAnchor="middle">
+              <tspan x={x} dy={0}>{d.toLocaleDateString(undefined, { weekday: "short", day: "numeric" })}</tspan>
+              <tspan x={x} dy={12}>{clockTime(ms)}</tspan>
             </text>
           );
         })}
