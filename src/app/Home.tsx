@@ -25,6 +25,7 @@ import {
   createTummyMutation,
   deleteEntryMutation,
   discardTimerMutation,
+  patchTimerMutation,
   enqueueMutation,
   flushOutbox,
   getLastFeedingChoice,
@@ -672,7 +673,12 @@ export function Home({
     const method = feedSel.method && allowed.includes(feedSel.method) ? feedSel.method : allowed.length === 1 ? allowed[0] : null;
     const next = { type, method, amount: feedSel.amount ?? null };
     setFeedSel(next);
-    if (sheet?.type === "feeding" && sheet.localId != null) void mergeTimerMapping(sheet.localId, { feeding: next }).then(refreshRunning);
+    // Persist the refine locally, then rename the server timer so other devices see the new
+    // side on the *running* feeding (patch-timer rebuilds the name from the mapping).
+    if (sheet?.type === "feeding" && sheet.localId != null) {
+      const lid = sheet.localId;
+      void mergeTimerMapping(lid, { feeding: next }).then(() => submit(patchTimerMutation(lid)));
+    }
     if (childId != null) setLastFeed((p) => ({ ...p, [childId]: next }));
   };
 
@@ -680,7 +686,10 @@ export function Home({
     buzz();
     const next = { type: feedSel.type, method, amount: feedSel.amount ?? null };
     setFeedSel(next);
-    if (sheet?.type === "feeding" && sheet.localId != null) void mergeTimerMapping(sheet.localId, { feeding: next }).then(refreshRunning);
+    if (sheet?.type === "feeding" && sheet.localId != null) {
+      const lid = sheet.localId;
+      void mergeTimerMapping(lid, { feeding: next }).then(() => submit(patchTimerMutation(lid)));
+    }
     if (childId != null) setLastFeed((p) => ({ ...p, [childId]: next }));
   };
 

@@ -42,7 +42,8 @@ import {
 import type { Mutation, LocalId } from "./mutations";
 import { BabyBuddyApiError, TimerAlreadyConsumedError, apiErrorDetail } from "./errors";
 import { emitOutboxError } from "./outbox-events";
-import { startTimer, discardTimer } from "./timers";
+import { startTimer, discardTimer, patchTimerName } from "./timers";
+import { feedingTimerName } from "./activities";
 import {
   consumeFeedingTimer,
   consumeSleepTimer,
@@ -236,8 +237,22 @@ async function executeRecord(
         return;
       }
       if (decision === "consume") return; // coalesced: the stop will direct-create the entry
-      const timer = await startTimer(client, m.activity, m.childId, m.startedAt);
+      // Encode the feeding's type/method into the timer name so other devices see the side on
+      // the running timer (a bare timer carries no method). Sleep/tummy use their plain name.
+      const name = m.activity === "feeding" ? feedingTimerName(existing?.feeding) : undefined;
+      const timer = await startTimer(client, m.activity, m.childId, m.startedAt, name);
       await mergeTimerMapping(m.localId, { serverId: timer.id }); // merge, don't clobber feeding
+      return;
+    }
+
+    case "patch-timer": {
+      // Sync a refined feeding side by renaming the server timer. Only meaningful once the
+      // timer exists server-side; if its start is still queued or was coalesced away, skip —
+      // the start flush encodes the latest side into the name itself.
+      const mapping = await getTimerMapping(m.localId);
+      if (mapping?.serverId != null && mapping.activity === "feeding") {
+        await patchTimerName(client, mapping.serverId, feedingTimerName(mapping.feeding));
+      }
       return;
     }
 

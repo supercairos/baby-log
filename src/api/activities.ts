@@ -81,12 +81,24 @@ function normalizeName(name: string | null | undefined): string {
   return (name ?? "").trim().toLowerCase();
 }
 
+/** Separator for an optional feeding-side marker in a timer name, e.g. "Feeding|left breast".
+ *  The Home Assistant buttons write it so the app can show the side on a *running* feeding
+ *  (a bare timer carries no method); the base name before the "|" is what we classify. */
+const TIMER_NAME_SEP = "|";
+
+function timerBaseName(name: string | null | undefined): string {
+  const raw = name ?? "";
+  const i = raw.indexOf(TIMER_NAME_SEP);
+  return i >= 0 ? raw.slice(0, i) : raw;
+}
+
 /**
  * Map a timer's `name` to one of our timed activities, or `null` if we don't recognize
- * it. `null` means "leave this timer completely alone."
+ * it. `null` means "leave this timer completely alone." An optional "|side" suffix
+ * (written by the HA buttons) is ignored for classification.
  */
 export function classifyTimerName(name: string | null | undefined): TimerActivityKey | null {
-  return TIMER_NAME_ALIASES[normalizeName(name)] ?? null;
+  return TIMER_NAME_ALIASES[normalizeName(timerBaseName(name))] ?? null;
 }
 
 /**
@@ -105,6 +117,41 @@ export const METHODS_FOR_TYPE: Record<FeedingType, FeedingMethod[]> = {
   "fortified breast milk": ["bottle"],
   "solid food": ["parent fed", "self fed"],
 };
+
+/** Every valid feeding type / method, for validating a name-encoded side. */
+const ALL_FEEDING_TYPES = new Set<string>(Object.keys(METHODS_FOR_TYPE));
+const ALL_FEEDING_METHODS = new Set<string>(Object.values(METHODS_FOR_TYPE).flat());
+
+/**
+ * Timer name for a feeding, with type/method encoded after "|" separators
+ * (e.g. `Feeding|breast milk|left breast`) so a *running* feeding shows its side across
+ * devices — a Baby Buddy timer has no method field, so the name is the only cross-device
+ * channel. Missing parts are omitted. `feedingFromName` is the inverse. The base is still
+ * `Feeding`, so `classifyTimerName` and other clients keep recognizing it.
+ */
+export function feedingTimerName(feeding?: { type?: FeedingType | null; method?: FeedingMethod | null }): string {
+  const parts = [TIMER_NAMES.feeding];
+  if (feeding?.type) parts.push(feeding.type);
+  if (feeding?.method) parts.push(feeding.method);
+  return parts.join(TIMER_NAME_SEP);
+}
+
+/**
+ * Feeding type/method decoded from a timer name's "|" suffix. The app writes both
+ * (`Feeding|breast milk|left breast`); the HA buttons write method only
+ * (`Feeding|left breast`). Order-agnostic and tolerant of either — returns whatever it
+ * recognizes so a running feeding shows its side on any device.
+ */
+export function feedingFromName(name: string | null | undefined): { type?: FeedingType; method?: FeedingMethod } {
+  const parts = (name ?? "").split(TIMER_NAME_SEP).slice(1).map((p) => normalizeName(p));
+  let type: FeedingType | undefined;
+  let method: FeedingMethod | undefined;
+  for (const p of parts) {
+    if (!type && ALL_FEEDING_TYPES.has(p)) type = p as FeedingType;
+    else if (!method && ALL_FEEDING_METHODS.has(p)) method = p as FeedingMethod;
+  }
+  return { type, method };
+}
 
 /** Dosage units offered in the medication sheet, in chooser order. From the schema enum. */
 export const MEDICATION_UNITS: MedicationUnit[] = ["mg", "ml", "tablets", "drops"];
