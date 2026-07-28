@@ -81,12 +81,24 @@ function normalizeName(name: string | null | undefined): string {
   return (name ?? "").trim().toLowerCase();
 }
 
+/** Separator for an optional feeding-side marker in a timer name, e.g. "Feeding|left breast".
+ *  The Home Assistant buttons write it so the app can show the side on a *running* feeding
+ *  (a bare timer carries no method); the base name before the "|" is what we classify. */
+const TIMER_NAME_SEP = "|";
+
+function timerBaseName(name: string | null | undefined): string {
+  const raw = name ?? "";
+  const i = raw.indexOf(TIMER_NAME_SEP);
+  return i >= 0 ? raw.slice(0, i) : raw;
+}
+
 /**
  * Map a timer's `name` to one of our timed activities, or `null` if we don't recognize
- * it. `null` means "leave this timer completely alone."
+ * it. `null` means "leave this timer completely alone." An optional "|side" suffix
+ * (written by the HA buttons) is ignored for classification.
  */
 export function classifyTimerName(name: string | null | undefined): TimerActivityKey | null {
-  return TIMER_NAME_ALIASES[normalizeName(name)] ?? null;
+  return TIMER_NAME_ALIASES[normalizeName(timerBaseName(name))] ?? null;
 }
 
 /**
@@ -105,6 +117,22 @@ export const METHODS_FOR_TYPE: Record<FeedingType, FeedingMethod[]> = {
   "fortified breast milk": ["bottle"],
   "solid food": ["parent fed", "self fed"],
 };
+
+/** Every valid feeding method, for validating a name-encoded side. */
+const ALL_FEEDING_METHODS = new Set<string>(Object.values(METHODS_FOR_TYPE).flat());
+
+/**
+ * The feeding side encoded after a "|" in a timer name (the HA buttons write e.g.
+ * "Feeding|left breast" so a running feeding shows its side in the app). Returns the
+ * `FeedingMethod`, or `undefined` when there's no suffix or it isn't a known method.
+ */
+export function feedingMethodFromName(name: string | null | undefined): FeedingMethod | undefined {
+  const raw = name ?? "";
+  const i = raw.indexOf(TIMER_NAME_SEP);
+  if (i < 0) return undefined;
+  const m = normalizeName(raw.slice(i + 1));
+  return ALL_FEEDING_METHODS.has(m) ? (m as FeedingMethod) : undefined;
+}
 
 /** Dosage units offered in the medication sheet, in chooser order. From the schema enum. */
 export const MEDICATION_UNITS: MedicationUnit[] = ["mg", "ml", "tablets", "drops"];

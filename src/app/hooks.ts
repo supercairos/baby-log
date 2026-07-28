@@ -204,7 +204,17 @@ async function computeRunning(client: BabyBuddyClient, childId: number): Promise
     const startedMs = ct.timer.start ? Date.parse(ct.timer.start) : Date.now();
     // Skip if this is our own just-started timer whose serverId hasn't been recorded yet.
     if (unmappedLocal.some((u) => u.activity === ct.activity && Math.abs(u.startedMs - startedMs) < 10_000)) continue;
-    out.push({ key: `s${ct.timer.id}`, serverId: ct.timer.id, activity: ct.activity, startedMs });
+    out.push({
+      key: `s${ct.timer.id}`,
+      serverId: ct.timer.id,
+      activity: ct.activity,
+      startedMs,
+      // A feeding started by the HA buttons encodes its breast side in the timer name; surface
+      // it so the running card + refine sheet show/pre-select it (bare timers carry no method).
+      ...(ct.activity === "feeding" && ct.feedingMethod
+        ? { feeding: { type: "breast milk" as FeedingType, method: ct.feedingMethod } }
+        : {}),
+    });
   }
   return out.sort((a, b) => a.startedMs - b.startedMs);
 }

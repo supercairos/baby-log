@@ -13,7 +13,7 @@
 import type { components } from "./generated/schema";
 import type { BabyBuddyClient } from "./client";
 import { unwrap } from "./errors";
-import { TIMER_NAMES, classifyTimerName, type TimerActivityKey } from "./activities";
+import { TIMER_NAMES, classifyTimerName, feedingMethodFromName, type FeedingMethod, type TimerActivityKey } from "./activities";
 
 export type Timer = components["schemas"]["Timer"];
 
@@ -21,6 +21,8 @@ export type Timer = components["schemas"]["Timer"];
 export interface ClassifiedTimer {
   timer: Timer;
   activity: TimerActivityKey;
+  /** Breast side, when the timer name encodes one (HA buttons); feeding timers only. */
+  feedingMethod?: FeedingMethod;
 }
 
 /**
@@ -40,7 +42,9 @@ export async function listActiveTimers(
   const out: ClassifiedTimer[] = [];
   for (const timer of page.results ?? []) {
     const activity = classifyTimerName(timer.name);
-    if (activity) out.push({ timer, activity });
+    if (!activity) continue;
+    const feedingMethod = activity === "feeding" ? feedingMethodFromName(timer.name) : undefined;
+    out.push({ timer, activity, ...(feedingMethod ? { feedingMethod } : {}) });
   }
   return out;
 }
