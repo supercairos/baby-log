@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.19.0](https://github.com/supercairos/baby-log/compare/baby-log-v1.18.0...baby-log-v1.19.0) (2026-07-28)
+
+
+### Features
+
+* encode feeding side in the timer name on start + refine (cross-device sync) ([b42d6da](https://github.com/supercairos/baby-log/commit/b42d6da184930143afa597778154a86956ef640a))
+* show breast side on a button-started running feeding ([514eb97](https://github.com/supercairos/baby-log/commit/514eb975feca6529a489f55a6b947a57aa52127e))
+* sync a running feeding's breast side across devices (timer-name encoding) ([cf130a0](https://github.com/supercairos/baby-log/commit/cf130a040fcef22518959b5e5a60a590573cc4b1))
+
 ## [1.18.0](https://github.com/supercairos/baby-log/compare/baby-log-v1.17.0...baby-log-v1.18.0) (2026-07-27)
 
 
