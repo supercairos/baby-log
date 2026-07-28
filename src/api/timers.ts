@@ -13,7 +13,7 @@
 import type { components } from "./generated/schema";
 import type { BabyBuddyClient } from "./client";
 import { unwrap } from "./errors";
-import { TIMER_NAMES, classifyTimerName, feedingMethodFromName, type FeedingMethod, type TimerActivityKey } from "./activities";
+import { TIMER_NAMES, classifyTimerName, feedingFromName, type FeedingMethod, type FeedingType, type TimerActivityKey } from "./activities";
 
 export type Timer = components["schemas"]["Timer"];
 
@@ -21,8 +21,8 @@ export type Timer = components["schemas"]["Timer"];
 export interface ClassifiedTimer {
   timer: Timer;
   activity: TimerActivityKey;
-  /** Breast side, when the timer name encodes one (HA buttons); feeding timers only. */
-  feedingMethod?: FeedingMethod;
+  /** Type/method decoded from the timer name (app-encoded or HA buttons); feeding timers only. */
+  feeding?: { type?: FeedingType; method?: FeedingMethod };
 }
 
 /**
@@ -43,8 +43,8 @@ export async function listActiveTimers(
   for (const timer of page.results ?? []) {
     const activity = classifyTimerName(timer.name);
     if (!activity) continue;
-    const feedingMethod = activity === "feeding" ? feedingMethodFromName(timer.name) : undefined;
-    out.push({ timer, activity, ...(feedingMethod ? { feedingMethod } : {}) });
+    const feeding = activity === "feeding" ? feedingFromName(timer.name) : undefined;
+    out.push({ timer, activity, ...(feeding && (feeding.type || feeding.method) ? { feeding } : {}) });
   }
   return out;
 }
@@ -60,11 +60,22 @@ export async function startTimer(
   activity: TimerActivityKey,
   childId: number,
   startedAt?: string,
+  name?: string,
 ): Promise<Timer> {
   const res = await client.POST("/api/timers/", {
-    body: { name: TIMER_NAMES[activity], child: childId, ...(startedAt ? { start: startedAt } : {}) },
+    body: { name: name ?? TIMER_NAMES[activity], child: childId, ...(startedAt ? { start: startedAt } : {}) },
   });
   return unwrap(res);
+}
+
+/** Rename a running timer (`PATCH /api/timers/{id}/`) — updates the encoded feeding side so
+ *  other devices (and the Baby Buddy web UI) reflect a refine while the timer is still running. */
+export async function patchTimerName(client: BabyBuddyClient, id: number, name: string): Promise<void> {
+  const res = await client.PATCH("/api/timers/{id}/", {
+    params: { path: { id: String(id) } },
+    body: { name },
+  });
+  unwrap(res);
 }
 
 /** Discard a timer without logging an entry (`DELETE /api/timers/{id}/`). */

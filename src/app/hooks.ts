@@ -209,10 +209,12 @@ async function computeRunning(client: BabyBuddyClient, childId: number): Promise
       serverId: ct.timer.id,
       activity: ct.activity,
       startedMs,
-      // A feeding started by the HA buttons encodes its breast side in the timer name; surface
-      // it so the running card + refine sheet show/pre-select it (bare timers carry no method).
-      ...(ct.activity === "feeding" && ct.feedingMethod
-        ? { feeding: { type: "breast milk" as FeedingType, method: ct.feedingMethod } }
+      // A feeding started elsewhere (the HA buttons, or the app on another device) encodes its
+      // type/method in the timer name; surface it so the running card + refine sheet show and
+      // pre-select the side (a bare timer carries no method). Method-only names (older HA format)
+      // default the type to breast milk.
+      ...(ct.activity === "feeding" && ct.feeding?.method
+        ? { feeding: { type: (ct.feeding.type ?? "breast milk") as FeedingType, method: ct.feeding.method } }
         : {}),
     });
   }
