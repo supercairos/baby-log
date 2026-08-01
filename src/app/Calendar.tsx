@@ -399,10 +399,15 @@ function RadialDay({
     labelMs?: number;
     /** ≥2 = a folded run of same-glyph events; the orbit shows "N×" and tap opens a picker. */
     count?: number;
+    /** Half-span in degrees when the folded run stretches wider than one tick slot —
+     *  rendered over its true first→last extent as a full-band capsule/pill (the same
+     *  rounded family as timed-event marks) instead of a radial index. */
+    span?: number;
   }
   // Same-glyph events in a tight run fold into ONE tick — a cluster feed or a burst of
   // changes reads as a single "N×" mark instead of a smear of nudged ticks.
   const FOLD_MS = 25 * 60_000; // one tick-width of time: the same threshold that makes a tick
+  const TICK_HW = 2.75; // half a tick's slot in degrees — matches the old 5.5° separation
   interface TickSeed {
     entry: TimelineEntry;
     ms: number;
@@ -440,9 +445,17 @@ function RadialDay({
       const accent = palette.accents[e.activity].accent;
       if (g.length === 1) return { key: `d-${e.path}${e.id}`, deg, accent, kind, Icon, onClick: () => onEdit(e), label: entryLabel(e) };
       const members = g.map((s) => s.entry);
+      // A run wider than one tick slot would lie as a single index — span it as an arc
+      // over its true extent instead: first member's START to last member's END (short
+      // timed events have real lengths; their centres alone under-measure the run).
+      const ext = g.map((s) => clippedAngles(s.entry));
+      const first = Math.min(...ext.map((x) => x[0]));
+      const last = Math.max(...ext.map((x) => x[1]));
+      const wide = last - first > 2 * TICK_HW;
       return {
         key: `d-${e.path}${e.id}`,
-        deg: g.reduce((sum, s) => sum + s.deg, 0) / g.length,
+        deg: wide ? (first + last) / 2 : g.reduce((sum, s) => sum + s.deg, 0) / g.length,
+        span: wide ? (last - first) / 2 : undefined,
         accent,
         kind,
         Icon,
@@ -463,7 +476,6 @@ function RadialDay({
   // a segment marks keep their true width and nudge apart minimally — position gives way,
   // width never lies — and an over-full segment compresses instead of spilling onto a
   // neighbouring sleep or past the arc tips onto the bare page.
-  const TICK_HW = 2.75; // half a tick's slot in degrees — matches the old 5.5° separation
   const LANE_GAP = 0.4;
   interface LaneItem {
     deg: number;
@@ -477,7 +489,7 @@ function RadialDay({
       const [a0, a1] = clippedAngles(e);
       return { deg: (a0 + a1) / 2, hw: (a1 - a0) / 2, capsule: e };
     }),
-    ...ticks.map((t): LaneItem => ({ deg: t.deg, hw: TICK_HW, tick: t })),
+    ...ticks.map((t): LaneItem => ({ deg: t.deg, hw: t.span ?? TICK_HW, tick: t })),
   ];
   const fixedSpans = [...sleeps, ...bars]
     .filter((e) => !isTick(e) && (e.activity === "sleep" || spanPx(e) >= RING_W))
@@ -581,14 +593,30 @@ function RadialDay({
   const tick = (m: Tick) => {
     const p1 = polar(m.deg, R_RING - (RING_W / 2 - 5));
     const p2 = polar(m.deg, R_RING + (RING_W / 2 - 5));
-    const line = (stroke: string, w: number, dashed?: boolean) => (
-      <line x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke={stroke} strokeWidth={w} strokeLinecap="round" strokeDasharray={dashed ? "2.5 3.5" : undefined} />
-    );
+    // A wide fold renders over its true extent in the SAME capsule→pill family as timed
+    // events (full band height, tip rounding growing with the span). The layered diaper
+    // coding survives by redrawing the same shape at a scaled-down stroke: identical
+    // endpoints + round caps inset the inner layer at the tips for free.
+    const line = (stroke: string, w: number, dashed?: boolean) => {
+      if (m.span == null)
+        return <line x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke={stroke} strokeWidth={w} strokeLinecap="round" strokeDasharray={dashed ? "2.5 3.5" : undefined} />;
+      const scale = w / 8.5;
+      const len = ((2 * m.span) / 180) * Math.PI * R_RING;
+      if (len < RING_W) {
+        const half = Math.max(0, RING_W - len) / 2;
+        const q1 = polar(m.deg, R_RING - half);
+        const q2 = polar(m.deg, R_RING + half);
+        return <line x1={q1.x} y1={q1.y} x2={q2.x} y2={q2.y} stroke={stroke} strokeWidth={len * scale} strokeLinecap="round" />;
+      }
+      const capIn = Math.min(CAP_DEG, m.span - 0.01);
+      return <path d={arcPath(m.deg - m.span + capIn, m.deg + m.span - capIn, R_RING)} fill="none" stroke={stroke} strokeWidth={RING_W * scale} strokeLinecap="round" />;
+    };
     const clickable = !!m.onClick;
     return (
       <g
         key={m.key}
         style={{ color: m.accent, cursor: clickable ? "pointer" : undefined }}
+        opacity={m.span != null ? 0.9 : undefined}
         onClick={m.onClick}
         role={clickable ? "button" : undefined}
         tabIndex={clickable ? 0 : undefined}
