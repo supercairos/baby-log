@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.20.0](https://github.com/supercairos/baby-log/compare/baby-log-v1.19.0...baby-log-v1.20.0) (2026-08-01)
+
+
+### Features
+
+* 24h dial scale and sleep-exclusive band layout ([d18d2ce](https://github.com/supercairos/baby-log/commit/d18d2ce14b8cd380b364b8d901587a6784122acc))
+* day dial legibility — collision-free band, 24h scale, folded ticks ([c7a6fcc](https://github.com/supercairos/baby-log/commit/c7a6fccf4a2138d9a293657c6f0fc071d42f919e))
+* folded dial ticks with entry picker; orbit icons synced to marks ([bf46197](https://github.com/supercairos/baby-log/commit/bf46197309365e39763bf7571389fbdb67a999f5))
+* true-span day-dial marks and radioactive selles glyph ([e387223](https://github.com/supercairos/baby-log/commit/e387223c595f31c75515f4eea68243da56975337))
+* true-span day-dial marks and radioactive selles glyph ([e74dc5c](https://github.com/supercairos/baby-log/commit/e74dc5c7b2d3538391046fc10bbf3d051f7abbd3))
+
+
+### Bug Fixes
+
+* bounded drift for orbit icons so glyphs never overlap ([9d55fee](https://github.com/supercairos/baby-log/commit/9d55fee7981031c25bfd9e3d3a0f7f7063e71fe8))
+* darken the day dial's background ring ([9af5cf9](https://github.com/supercairos/baby-log/commit/9af5cf9ce7094fe65704ec228a8d9d065e079cb3))
+* day dial band collisions, edge-label overlap and hour graduations ([a7fcaef](https://github.com/supercairos/baby-log/commit/a7fcaefa7e2c9a1a2fdd36595f442c608c9cc750))
+* only fold CONSECUTIVE same-type dial events ([41719da](https://github.com/supercairos/baby-log/commit/41719dae02868e747a129aca80c683a0c5c54bc2))
+
 ## [1.19.0](https://github.com/supercairos/baby-log/compare/baby-log-v1.18.0...baby-log-v1.19.0) (2026-07-28)
 
 
