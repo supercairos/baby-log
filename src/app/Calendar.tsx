@@ -505,7 +505,7 @@ function RadialDay({
         {/* the single fat ring everything sits on — an open arc, not a full circle. Inset by
             the round-cap overshoot so its visible tips land exactly on ARC_START/ARC_END —
             an event at a window edge must visually reach the end of the ring. */}
-        <path d={arcPath(ARC_START + CAP_DEG, ARC_START + ARC_SPAN - CAP_DEG, R_RING)} fill="none" stroke={palette.surfaceBorder} strokeWidth={RING_W} strokeLinecap="round" opacity={0.35} />
+        <path d={arcPath(ARC_START + CAP_DEG, ARC_START + ARC_SPAN - CAP_DEG, R_RING)} fill="none" stroke={palette.surfaceBorder} strokeWidth={RING_W} strokeLinecap="round" opacity={0.55} />
         {/* hourly graduations hugging the band's inner edge — a quiet clock scale that makes
             positions readable at a glance. The 6-hour anchors are the text labels themselves,
             so those hours skip their tick. Wall-clock stepping stays truthful across DST. */}
