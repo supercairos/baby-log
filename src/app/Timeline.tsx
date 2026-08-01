@@ -45,6 +45,38 @@ function groupByDay(entries: TimelineEntry[]): { label: string; items: TimelineE
   return out;
 }
 
+/** One journal row — icon, label + structured meta, optional note, time range + duration.
+ *  Shared between the timeline list and the day dial's folded-tick picker, so an entry
+ *  reads identically wherever it appears. */
+export function EntryRow({ entry, onEdit }: { entry: TimelineEntry; onEdit: (e: TimelineEntry) => void }) {
+  const { s } = useStyles();
+  const { palette } = useTheme();
+  const accent = palette.accents[entry.activity].accent;
+  const Icon = ACTIVITY_ICON[entry.activity];
+  const { meta, note } = entryParts(entry);
+  return (
+    <div className="entry-in" style={s.entry}>
+      <button onClick={() => onEdit(entry)} style={s.entryTap}>
+        <span style={{ ...s.entryIco, color: accent, background: `${accent}1a` }}>
+          <Icon size={20} />
+        </span>
+        <div style={s.entryMid}>
+          <div style={s.entryLabel}>
+            {activityLabel(entry.activity)}
+            {meta ? <span style={s.entryMeta}> · {meta}</span> : null}
+          </div>
+          {note && <div style={s.entryNote}>“{note}”</div>}
+          <div style={s.entryTime}>
+            {clockTime(entry.startMs)}
+            {/* hm, not fmt: "0:45" would read as clock time in a row full of clock times */}
+            {entry.endMs ? ` – ${clockTime(entry.endMs)} · ${hm(entry.endMs - entry.startMs)}` : ""}
+          </div>
+        </div>
+      </button>
+    </div>
+  );
+}
+
 /** Localized "5 sec. ago" / "2 min ago" via the platform formatter — no per-unit translations. */
 function relativeAgo(ms: number): string {
   const rtf = new Intl.RelativeTimeFormat(currentLocale(), { numeric: "auto", style: "short" });
@@ -243,32 +275,9 @@ export function Timeline({
           {groupByDay(entries).map((group) => (
           <div key={group.label} style={s.daygroup}>
             <div style={s.dayhead}>{group.label}</div>
-            {group.items.map((e) => {
-              const accent = palette.accents[e.activity].accent;
-              const Icon = ACTIVITY_ICON[e.activity];
-              const { meta, note } = entryParts(e);
-              return (
-                <div key={`${e.path}${e.id}`} className="entry-in" style={s.entry}>
-                  <button onClick={() => onEdit(e)} style={s.entryTap}>
-                    <span style={{ ...s.entryIco, color: accent, background: `${accent}1a` }}>
-                      <Icon size={20} />
-                    </span>
-                    <div style={s.entryMid}>
-                      <div style={s.entryLabel}>
-                        {activityLabel(e.activity)}
-                        {meta ? <span style={s.entryMeta}> · {meta}</span> : null}
-                      </div>
-                      {note && <div style={s.entryNote}>“{note}”</div>}
-                      <div style={s.entryTime}>
-                        {clockTime(e.startMs)}
-                        {/* hm, not fmt: "0:45" would read as clock time in a row full of clock times */}
-                        {e.endMs ? ` – ${clockTime(e.endMs)} · ${hm(e.endMs - e.startMs)}` : ""}
-                      </div>
-                    </div>
-                  </button>
-                </div>
-              );
-            })}
+            {group.items.map((e) => (
+              <EntryRow key={`${e.path}${e.id}`} entry={e} onEdit={onEdit} />
+            ))}
           </div>
           ))}
           {/* Auto-load: when the list's tail scrolls into view (and more history exists on the

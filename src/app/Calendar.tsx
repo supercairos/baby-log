@@ -10,14 +10,14 @@ import type { BabyBuddyClient, TimelineEntry } from "../api";
 import { useStyles, useTheme } from "../theme";
 import { ACTIVITY_ICON, PlusIcon, RadioactiveDropIcon, RadioactiveIcon, SunriseIcon, SunsetIcon } from "../ui/icons";
 import { clockTime } from "../lib/datetime";
-import { activityLabel, diaperMeta, feedingMeta, medicationMeta } from "../lib/labels";
+import { activityLabel } from "../lib/labels";
 import { useFocusTrap } from "./useFocusTrap";
 import { hm } from "../lib/format";
 import { predictNext, predictSleepEnd, predictionAlive, type ActivityPrediction } from "../lib/predict";
 import { tummyGoalForAge } from "../lib/tummy";
 import { sunTimes } from "../lib/sun";
 import { useEntriesInRange, useGeo, useNow, buzz } from "./hooks";
-import { Timeline } from "./Timeline";
+import { EntryRow, Timeline } from "./Timeline";
 
 type CalMode = "day" | "week" | "list" | "summary";
 const MODES: CalMode[] = ["list", "day", "week", "summary"];
@@ -891,41 +891,17 @@ function RadialDay({
       >
         <div style={s.sheetHandle} />
         <div style={s.sheetTitle}>{t("cal.pickEntry")}</div>
-        {(pick ?? []).map((e) => {
-          const Icon = ACTIVITY_ICON[e.activity];
-          const accent = palette.accents[e.activity].accent;
-          const meta =
-            e.activity === "feeding" ? feedingMeta(e.type, e.method, e.amount)
-            : e.activity === "diaper" ? diaperMeta(e.wet, e.solid)
-            : e.activity === "medication" ? medicationMeta(e.name, e.dosage, e.dosageUnit)
-            : null;
-          return (
-            <div key={`${e.path}${e.id}`} style={s.entry}>
-              <button
-                style={s.entryTap}
-                onClick={() => {
-                  buzz();
-                  setPick(null);
-                  onEdit(e);
-                }}
-              >
-                <span aria-hidden style={{ ...s.entryIco, background: `${accent}26`, color: accent }}>
-                  <Icon size={20} />
-                </span>
-                <span style={s.entryMid}>
-                  <span style={s.entryLabel}>
-                    {activityLabel(e.activity)}
-                    {meta ? <span style={s.entryMeta}> · {meta}</span> : null}
-                  </span>
-                  <span style={s.entryTime}>
-                    {clockTime(e.startMs)}
-                    {e.endMs != null ? ` – ${clockTime(e.endMs)}` : ""}
-                  </span>
-                </span>
-              </button>
-            </div>
-          );
-        })}
+        {(pick ?? []).map((e) => (
+          <EntryRow
+            key={`${e.path}${e.id}`}
+            entry={e}
+            onEdit={(entry) => {
+              buzz();
+              setPick(null);
+              onEdit(entry);
+            }}
+          />
+        ))}
       </div>
     </>
   );
