@@ -338,10 +338,12 @@ function RadialDay({
     const len = spanPx(e);
     const opacity = e.activity === "sleep" ? 0.45 : 0.9;
     // Short-span capsule: a radial stroke whose round caps reach the band edges — full band
-    // height, width = the true span, tip rounding len/2.
+    // height, width = the true span, tip rounding len/2. Drawn at its band-lane slot (the
+    // collision pass may nudge it off dead-centre; the width stays truthful).
     const half = Math.max(0, RING_W - len) / 2;
-    const p1 = polar(midDeg(e), R_RING - half);
-    const p2 = polar(midDeg(e), R_RING + half);
+    const cDeg = capsuleDeg.get(e) ?? midDeg(e);
+    const p1 = polar(cDeg, R_RING - half);
+    const p2 = polar(cDeg, R_RING + half);
     // Pill inset never crosses the mid-span (degenerate zero-length arcs render nothing).
     const capIn = Math.min(CAP_DEG, (a1 - a0) / 2 - 0.01);
     return (
@@ -370,7 +372,7 @@ function RadialDay({
   // The tick layer — watch indices crossing the band radially: instants, predictions and any
   // span too short for the fat caps. Layered strokes encode the diaper type — solid = selles,
   // hollow = pipi, hollow with a centre thread = les deux; color is identity, as everywhere.
-  // Ticks get nudged apart minimally and stay inside the open arc.
+  // Collision handling lives in the shared band lane below.
   interface Tick {
     key: string;
     deg: number;
@@ -390,15 +392,50 @@ function RadialDay({
     ...predMarks.map((p): Tick => ({ key: `pd-${p.activity}`, deg: angleOf(p.etaMs), accent: palette.accents[p.activity].accent, kind: "hollow", Icon: ACTIVITY_ICON[p.activity], dashed: true, labelMs: p.etaMs })),
   ].sort((a, b) => a.deg - b.deg);
   const ARC_END = ARC_START + ARC_SPAN;
-  const sep = Math.min(5.5, ARC_SPAN / Math.max(1, ticks.length - 1));
-  for (let i = 1; i < ticks.length; i++) {
-    if (ticks[i].deg < ticks[i - 1].deg + sep) ticks[i].deg = ticks[i - 1].deg + sep;
+  // ── The band lane ────────────────────────────────────────────────────────────
+  // Capsules and ticks share the single band, so they resolve collisions TOGETHER: every
+  // mark occupies its true width and movable marks nudge apart minimally — position gives
+  // way, width never lies. Both arc ends clamp (a mark drifting past a tip would float on
+  // the bare page background). Sleeps and full-width pills stay anchored underneath — a
+  // tick or capsule crossing a sleep is real data (a feed during a nap), not a collision.
+  const TICK_HW = 2.75; // half a tick's slot in degrees — matches the old 5.5° separation
+  const LANE_GAP = 0.4;
+  interface LaneItem {
+    deg: number;
+    hw: number;
+    tick?: Tick;
+    capsule?: TimelineEntry;
   }
-  if (ticks.length > 0) {
-    ticks[ticks.length - 1].deg = Math.min(ticks[ticks.length - 1].deg, ARC_END);
-    for (let i = ticks.length - 2; i >= 0; i--) {
-      if (ticks[i].deg > ticks[i + 1].deg - sep) ticks[i].deg = ticks[i + 1].deg - sep;
+  const capsules = bars.filter((e) => !isTick(e) && spanPx(e) < RING_W);
+  const lane: LaneItem[] = [
+    ...capsules.map((e): LaneItem => {
+      const [a0, a1] = clippedAngles(e);
+      return { deg: (a0 + a1) / 2, hw: (a1 - a0) / 2, capsule: e };
+    }),
+    ...ticks.map((t): LaneItem => ({ deg: t.deg, hw: TICK_HW, tick: t })),
+  ].sort((a, b) => a.deg - b.deg);
+  // On an over-full day the slots compress (marks may kiss) instead of overflowing the arc.
+  const laneSpan = lane.reduce((s, it) => s + 2 * it.hw + LANE_GAP, -LANE_GAP);
+  const squeeze = Math.min(1, ARC_SPAN / Math.max(1, laneSpan));
+  const slot = (a: LaneItem, b: LaneItem) => (a.hw + b.hw + LANE_GAP) * squeeze;
+  for (let i = 1; i < lane.length; i++) {
+    if (lane[i].deg < lane[i - 1].deg + slot(lane[i - 1], lane[i])) lane[i].deg = lane[i - 1].deg + slot(lane[i - 1], lane[i]);
+  }
+  if (lane.length > 0) {
+    lane[lane.length - 1].deg = Math.min(lane[lane.length - 1].deg, ARC_END - lane[lane.length - 1].hw * squeeze);
+    for (let i = lane.length - 2; i >= 0; i--) {
+      if (lane[i].deg > lane[i + 1].deg - slot(lane[i], lane[i + 1])) lane[i].deg = lane[i + 1].deg - slot(lane[i], lane[i + 1]);
     }
+    lane[0].deg = Math.max(lane[0].deg, ARC_START + lane[0].hw * squeeze);
+    for (let i = 1; i < lane.length; i++) {
+      if (lane[i].deg < lane[i - 1].deg + slot(lane[i - 1], lane[i])) lane[i].deg = lane[i - 1].deg + slot(lane[i - 1], lane[i]);
+    }
+  }
+  /** Placed band position per capsule; ticks carry theirs on the Tick itself. */
+  const capsuleDeg = new Map<TimelineEntry, number>();
+  for (const it of lane) {
+    if (it.tick) it.tick.deg = it.deg;
+    else if (it.capsule) capsuleDeg.set(it.capsule, it.deg);
   }
 
   // A quiet icon orbit just outside the band: one bare glyph per mark (no discs, no leader
@@ -414,7 +451,7 @@ function RadialDay({
     labelMs?: number;
   }
   const icons: OrbitIcon[] = [
-    ...[...sleeps, ...bars].filter((e) => !isTick(e)).map((e): OrbitIcon => ({ key: `i-${e.path}${e.id}`, deg: midDeg(e), color: palette.accents[e.activity].accent, Icon: ACTIVITY_ICON[e.activity] })),
+    ...[...sleeps, ...bars].filter((e) => !isTick(e)).map((e): OrbitIcon => ({ key: `i-${e.path}${e.id}`, deg: capsuleDeg.get(e) ?? midDeg(e), color: palette.accents[e.activity].accent, Icon: ACTIVITY_ICON[e.activity] })),
     ...ticks.map((t): OrbitIcon => ({ key: `i-${t.key}`, deg: t.deg, color: t.accent, Icon: t.Icon, ghost: t.dashed, labelMs: t.labelMs })),
   ].sort((a, b) => a.deg - b.deg);
   const isep = Math.min((15 / ICON_R) * (180 / Math.PI) + 0.8, ARC_SPAN / Math.max(1, icons.length - 1));
@@ -469,6 +506,24 @@ function RadialDay({
             the round-cap overshoot so its visible tips land exactly on ARC_START/ARC_END —
             an event at a window edge must visually reach the end of the ring. */}
         <path d={arcPath(ARC_START + CAP_DEG, ARC_START + ARC_SPAN - CAP_DEG, R_RING)} fill="none" stroke={palette.surfaceBorder} strokeWidth={RING_W} strokeLinecap="round" opacity={0.35} />
+        {/* hourly graduations hugging the band's inner edge — a quiet clock scale that makes
+            positions readable at a glance. The 6-hour anchors are the text labels themselves,
+            so those hours skip their tick. Wall-clock stepping stays truthful across DST. */}
+        {(() => {
+          const marks: ReactNode[] = [];
+          const d = new Date(winStart);
+          d.setMinutes(0, 0, 0);
+          for (;;) {
+            d.setHours(d.getHours() + 1);
+            const ms = d.getTime();
+            if (ms >= winEnd) break;
+            if (d.getHours() % 6 === 0) continue;
+            const p1 = polar(angleOf(ms), R_RING - RING_W / 2 - 4);
+            const p2 = polar(angleOf(ms), R_RING - RING_W / 2 - 8);
+            marks.push(<line key={ms} x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke={palette.textFainter} strokeWidth={1.5} strokeLinecap="round" opacity={0.5} />);
+          }
+          return marks;
+        })()}
         {[...sleeps, ...bars].filter((e) => !isTick(e)).map((e) => spanArc(e))}
         {/* predicted sleep: a dashed ghost arc spanning the expected onset → wake */}
         {predMarks
@@ -566,12 +621,15 @@ function RadialDay({
           );
         })}
         {/* Window edges, labelled BELOW the dial under their arc ends: the horseshoe crosses
-            midnight, so each end carries its own date + time (start = last night's bedtime). */}
+            midnight, so each end carries its own date + time (start = last night's bedtime).
+            Nudged toward the open gap — the icon orbit can clamp a glyph exactly onto an arc
+            end (same height as these labels), and the orbit sits OUTSIDE the tips, so moving
+            inward guarantees clearance on both sides. */}
         {([
-          { key: "win-start", ms: winStart, deg: ARC_START },
-          { key: "win-end", ms: winEnd, deg: ARC_END },
-        ] as const).map(({ key, ms, deg }) => {
-          const x = polar(deg, R_RING).x;
+          { key: "win-start", ms: winStart, deg: ARC_START, dx: 16 },
+          { key: "win-end", ms: winEnd, deg: ARC_END, dx: -16 },
+        ] as const).map(({ key, ms, deg, dx }) => {
+          const x = polar(deg, R_RING).x + dx;
           const d = new Date(ms);
           return (
             <text key={key} x={x} y={296} fill={palette.textMuted} fontSize={10} fontWeight={700} textAnchor="middle">
