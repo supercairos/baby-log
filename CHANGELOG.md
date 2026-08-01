@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.21.0](https://github.com/supercairos/baby-log/compare/baby-log-v1.20.0...baby-log-v1.21.0) (2026-08-01)
+
+
+### Features
+
+* app-icon brand mark in the drawer ([b30fc27](https://github.com/supercairos/baby-log/commit/b30fc273466d48a76fd84024bbf0a9c7b31b7e39))
+* wide folded dial runs as full-band pills + drawer brand mark ([a454bf6](https://github.com/supercairos/baby-log/commit/a454bf6b2d205b327e140ae6182fa5a99bcde40d))
+* wide folded dial runs render as full-band event pills ([c5889ed](https://github.com/supercairos/baby-log/commit/c5889ed21c21fbeb140e724001da9fdc45a75746))
+
 ## [1.20.0](https://github.com/supercairos/baby-log/compare/baby-log-v1.19.0...baby-log-v1.20.0) (2026-08-01)
 
 
