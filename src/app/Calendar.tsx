@@ -418,11 +418,21 @@ function RadialDay({
     ...diapers.map((e): TickSeed => ({ entry: e, ms: e.startMs, deg: angleOf(e.startMs), fold: `diaper-${e.wet}-${e.solid}`, kind: e.wet && e.solid ? "thread" : e.solid ? "solid" : "hollow", Icon: e.wet && e.solid ? RadioactiveDropIcon : e.solid ? RadioactiveIcon : ACTIVITY_ICON.diaper })),
     ...meds.map((e): TickSeed => ({ entry: e, ms: e.startMs, deg: angleOf(e.startMs), fold: "medication", kind: "solid", Icon: ACTIVITY_ICON.medication })),
   ].sort((a, b) => a.ms - b.ms);
+  // A fold only merges CONSECUTIVE same-glyph events: any event of another type landing
+  // in between (another tick kind, a capsule, a sleep) breaks the run — "feed, change,
+  // feed" stays three marks even when it all happens within FOLD_MS.
+  const stream: { ms: number; fold: string; seed?: TickSeed }[] = [
+    ...seeds.map((s) => ({ ms: s.ms, fold: s.fold, seed: s })),
+    ...[...sleeps, ...bars].filter((e) => !isTick(e)).map((e) => ({ ms: e.startMs, fold: `x-${e.path}${e.id}` })),
+  ].sort((a, b) => a.ms - b.ms);
   const groups: TickSeed[][] = [];
-  for (const seed of seeds) {
-    const open = groups.find((g) => g[0].fold === seed.fold && seed.ms - g[g.length - 1].ms <= FOLD_MS);
-    if (open) open.push(seed);
-    else groups.push([seed]);
+  for (let i = 0; i < stream.length; i++) {
+    const it = stream[i];
+    if (!it.seed) continue;
+    const prev = stream[i - 1];
+    const open = groups[groups.length - 1];
+    if (open && prev?.seed && prev.fold === it.fold && it.ms - prev.ms <= FOLD_MS) open.push(it.seed);
+    else groups.push([it.seed]);
   }
   const ticks: Tick[] = [
     ...groups.map((g): Tick => {
