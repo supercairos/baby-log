@@ -44,6 +44,7 @@ import {
 import { useStyles, useTheme } from "../theme";
 import {
   ACTIVITY_ICON,
+  BabyLogMark,
   BellIcon,
   DisconnectIcon,
   EditIcon,
@@ -1203,7 +1204,10 @@ export function Home({
         style={{ ...s.drawer, ...(menu ? s.drawerOn : {}) }}
       >
         <div style={s.drawerBrand}>
-          <span style={s.drawerLogo}>·</span> Baby Log
+          <span style={s.drawerLogo} aria-hidden>
+            <BabyLogMark size={26} />
+          </span>
+          Baby Log
         </div>
         {([
           { to: "/", key: "nav.home", Icon: HomeIcon },

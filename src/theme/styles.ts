@@ -265,7 +265,8 @@ export function makeStyles(p: Palette): Styles {
     },
     drawerOn: { transform: "translateX(0)" },
     drawerBrand: { color: p.text, fontFamily: p.serif, fontSize: dark ? 22 : 23, fontWeight: 600, padding: "4px 12px 20px", display: "flex", alignItems: "center", gap: 8 },
-    drawerLogo: { color: feed, fontSize: 34, lineHeight: 0 },
+    // Mini app-icon tile — the login hero's brand mark shrunk to nav size.
+    drawerLogo: { width: 30, height: 30, borderRadius: 10, display: "grid", placeItems: "center", background: brandGradient, lineHeight: 0, boxShadow: "0 4px 12px rgba(196,98,45,.3)" },
     navItem: { display: "flex", alignItems: "center", gap: 13, padding: "13px 14px", borderRadius: 14, background: "transparent", border: "none", color: dark ? "#b3a9bd" : "#5c5345", fontSize: 15.5, fontWeight: 700, textAlign: "left", width: "100%", transition: "all .18s ease" },
     navItemOn: { background: `${feed}24`, color: feed },
     navDivider: { height: 1, background: p.drawerBorder, margin: "14px 12px" },
