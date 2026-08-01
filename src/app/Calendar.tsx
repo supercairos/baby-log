@@ -534,14 +534,16 @@ function RadialDay({
   }
 
   // A quiet icon orbit just outside the band: one bare glyph per mark (no discs, no leader
-  // lines — radial proximity does the linking). Every glyph sits EXACTLY at its mark's
-  // placed angle — no independent nudging, so icon and mark can never drift apart; the
-  // folding above is what keeps same-type crowds from colliding. Sun marks live inside;
-  // predicted ("ghost") glyphs render half-faded.
+  // lines — radial proximity does the linking). Each glyph is anchored to its mark's placed
+  // angle and may drift only a FEW degrees to keep neighbouring glyphs apart — enough to
+  // separate a pair, never enough to visually detach from its mark (folding handles the
+  // same-type crowds). Sun marks live inside; predicted ("ghost") glyphs render half-faded.
   const ICON_R = R_RING + RING_W / 2 + 13;
   interface OrbitIcon {
     key: string;
     deg: number;
+    /** The mark's placed angle — the icon's home it may only drift ICON_DRIFT away from. */
+    anchor: number;
     color: string;
     Icon: (p: { size?: number }) => ReactNode;
     ghost?: boolean;
@@ -549,9 +551,23 @@ function RadialDay({
     count?: number;
   }
   const icons: OrbitIcon[] = [
-    ...[...sleeps, ...bars].filter((e) => !isTick(e)).map((e): OrbitIcon => ({ key: `i-${e.path}${e.id}`, deg: capsuleDeg.get(e) ?? midDeg(e), color: palette.accents[e.activity].accent, Icon: ACTIVITY_ICON[e.activity] })),
-    ...ticks.map((t): OrbitIcon => ({ key: `i-${t.key}`, deg: t.deg, color: t.accent, Icon: t.Icon, ghost: t.dashed, labelMs: t.labelMs, count: t.count })),
-  ];
+    ...[...sleeps, ...bars].filter((e) => !isTick(e)).map((e): OrbitIcon => {
+      const deg = capsuleDeg.get(e) ?? midDeg(e);
+      return { key: `i-${e.path}${e.id}`, deg, anchor: deg, color: palette.accents[e.activity].accent, Icon: ACTIVITY_ICON[e.activity] };
+    }),
+    ...ticks.map((t): OrbitIcon => ({ key: `i-${t.key}`, deg: t.deg, anchor: t.deg, color: t.accent, Icon: t.Icon, ghost: t.dashed, labelMs: t.labelMs, count: t.count })),
+  ].sort((a, b) => a.deg - b.deg);
+  const ICON_DRIFT = 3.5; // ≈9 px along the orbit — a nudge, not a relocation
+  const isep = (15 / ICON_R) * (180 / Math.PI) + 0.6; // one glyph width + breathing room
+  for (let i = 1; i < icons.length; i++) {
+    if (icons[i].deg < icons[i - 1].deg + isep) icons[i].deg = Math.min(icons[i - 1].deg + isep, icons[i].anchor + ICON_DRIFT);
+  }
+  if (icons.length > 0) {
+    icons[icons.length - 1].deg = Math.min(icons[icons.length - 1].deg, ARC_END);
+    for (let i = icons.length - 2; i >= 0; i--) {
+      if (icons[i].deg > icons[i + 1].deg - isep) icons[i].deg = Math.max(icons[i + 1].deg - isep, icons[i].anchor - ICON_DRIFT);
+    }
+  }
   const tick = (m: Tick) => {
     const p1 = polar(m.deg, R_RING - (RING_W / 2 - 5));
     const p2 = polar(m.deg, R_RING + (RING_W / 2 - 5));
