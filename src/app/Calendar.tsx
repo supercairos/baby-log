@@ -10,7 +10,8 @@ import type { BabyBuddyClient, TimelineEntry } from "../api";
 import { useStyles, useTheme } from "../theme";
 import { ACTIVITY_ICON, PlusIcon, RadioactiveDropIcon, RadioactiveIcon, SunriseIcon, SunsetIcon } from "../ui/icons";
 import { clockTime } from "../lib/datetime";
-import { activityLabel } from "../lib/labels";
+import { activityLabel, diaperMeta, feedingMeta, medicationMeta } from "../lib/labels";
+import { useFocusTrap } from "./useFocusTrap";
 import { hm } from "../lib/format";
 import { predictNext, predictSleepEnd, predictionAlive, type ActivityPrediction } from "../lib/predict";
 import { tummyGoalForAge } from "../lib/tummy";
@@ -235,6 +236,18 @@ function RadialDay({
   const list = entries ?? [];
   // Which centre slide is showing — tap cycles; modulo at read time keeps it valid across days.
   const [statIdx, setStatIdx] = useState(0);
+  // Entries behind a folded tick ("2× 🍼") — non-null opens the picker sheet.
+  const [pick, setPick] = useState<TimelineEntry[] | null>(null);
+  const pickRef = useFocusTrap<HTMLDivElement>(pick != null);
+  useEffect(() => setPick(null), [dayStart]); // day navigation invalidates the selection
+  useEffect(() => {
+    if (pick == null) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setPick(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [pick]);
 
   // Bedtime-to-bedtime "baby day": each edge anchors on the night sleep crossing that
   // midnight (fallback 21:00 when none is logged, e.g. tonight's). The arc leaves ARC_GAP°
@@ -384,14 +397,52 @@ function RadialDay({
     onClick?: () => void;
     label?: string;
     labelMs?: number;
+    /** ≥2 = a folded run of same-glyph events; the orbit shows "N×" and tap opens a picker. */
+    count?: number;
+  }
+  // Same-glyph events in a tight run fold into ONE tick — a cluster feed or a burst of
+  // changes reads as a single "N×" mark instead of a smear of nudged ticks.
+  const FOLD_MS = 25 * 60_000; // one tick-width of time: the same threshold that makes a tick
+  interface TickSeed {
+    entry: TimelineEntry;
+    ms: number;
+    deg: number;
+    fold: string;
+    kind: Tick["kind"];
+    Icon: Tick["Icon"];
+  }
+  const seeds: TickSeed[] = [
+    ...[...sleeps, ...bars].filter(isTick).map((e): TickSeed => ({ entry: e, ms: e.startMs, deg: midDeg(e), fold: e.activity, kind: "solid", Icon: ACTIVITY_ICON[e.activity] })),
+    // Orbit glyph mirrors the tick's coding: drop = wet, trefoil = solid, trefoil+drop = both.
+    // The fold key includes the diaper kind so a pipi run never swallows a selles change.
+    ...diapers.map((e): TickSeed => ({ entry: e, ms: e.startMs, deg: angleOf(e.startMs), fold: `diaper-${e.wet}-${e.solid}`, kind: e.wet && e.solid ? "thread" : e.solid ? "solid" : "hollow", Icon: e.wet && e.solid ? RadioactiveDropIcon : e.solid ? RadioactiveIcon : ACTIVITY_ICON.diaper })),
+    ...meds.map((e): TickSeed => ({ entry: e, ms: e.startMs, deg: angleOf(e.startMs), fold: "medication", kind: "solid", Icon: ACTIVITY_ICON.medication })),
+  ].sort((a, b) => a.ms - b.ms);
+  const groups: TickSeed[][] = [];
+  for (const seed of seeds) {
+    const open = groups.find((g) => g[0].fold === seed.fold && seed.ms - g[g.length - 1].ms <= FOLD_MS);
+    if (open) open.push(seed);
+    else groups.push([seed]);
   }
   const ticks: Tick[] = [
-    ...[...sleeps, ...bars].filter(isTick).map((e): Tick => ({ key: `d-${e.path}${e.id}`, deg: midDeg(e), accent: palette.accents[e.activity].accent, kind: "solid", Icon: ACTIVITY_ICON[e.activity], onClick: () => onEdit(e), label: entryLabel(e) })),
-    // Orbit glyph mirrors the tick's coding: drop = wet, trefoil = solid, trefoil+drop = both.
-    ...diapers.map((e): Tick => ({ key: `d-${e.path}${e.id}`, deg: angleOf(e.startMs), accent: palette.accents.diaper.accent, kind: e.wet && e.solid ? "thread" : e.solid ? "solid" : "hollow", Icon: e.wet && e.solid ? RadioactiveDropIcon : e.solid ? RadioactiveIcon : ACTIVITY_ICON.diaper, onClick: () => onEdit(e), label: entryLabel(e) })),
-    ...meds.map((e): Tick => ({ key: `d-${e.path}${e.id}`, deg: angleOf(e.startMs), accent: palette.accents.medication.accent, kind: "solid", Icon: ACTIVITY_ICON.medication, onClick: () => onEdit(e), label: entryLabel(e) })),
+    ...groups.map((g): Tick => {
+      const { entry: e, deg, kind, Icon } = g[0];
+      const accent = palette.accents[e.activity].accent;
+      if (g.length === 1) return { key: `d-${e.path}${e.id}`, deg, accent, kind, Icon, onClick: () => onEdit(e), label: entryLabel(e) };
+      const members = g.map((s) => s.entry);
+      return {
+        key: `d-${e.path}${e.id}`,
+        deg: g.reduce((sum, s) => sum + s.deg, 0) / g.length,
+        accent,
+        kind,
+        Icon,
+        count: g.length,
+        onClick: () => setPick(members),
+        label: `${g.length}× ${activityLabel(e.activity)}`,
+      };
+    }),
     ...predMarks.map((p): Tick => ({ key: `pd-${p.activity}`, deg: angleOf(p.etaMs), accent: palette.accents[p.activity].accent, kind: "hollow", Icon: ACTIVITY_ICON[p.activity], dashed: true, labelMs: p.etaMs })),
-  ].sort((a, b) => a.deg - b.deg);
+  ];
   const ARC_END = ARC_START + ARC_SPAN;
   // ── The band lane ────────────────────────────────────────────────────────────
   // One band, no overlaps. Sleeps (and any full-width pill) are the anchored skeleton of
@@ -483,8 +534,10 @@ function RadialDay({
   }
 
   // A quiet icon orbit just outside the band: one bare glyph per mark (no discs, no leader
-  // lines — radial proximity does the linking), co-nudged so glyphs never collide. Sun marks
-  // live on the same orbit; predicted ("ghost") glyphs render half-faded.
+  // lines — radial proximity does the linking). Every glyph sits EXACTLY at its mark's
+  // placed angle — no independent nudging, so icon and mark can never drift apart; the
+  // folding above is what keeps same-type crowds from colliding. Sun marks live inside;
+  // predicted ("ghost") glyphs render half-faded.
   const ICON_R = R_RING + RING_W / 2 + 13;
   interface OrbitIcon {
     key: string;
@@ -493,21 +546,12 @@ function RadialDay({
     Icon: (p: { size?: number }) => ReactNode;
     ghost?: boolean;
     labelMs?: number;
+    count?: number;
   }
   const icons: OrbitIcon[] = [
     ...[...sleeps, ...bars].filter((e) => !isTick(e)).map((e): OrbitIcon => ({ key: `i-${e.path}${e.id}`, deg: capsuleDeg.get(e) ?? midDeg(e), color: palette.accents[e.activity].accent, Icon: ACTIVITY_ICON[e.activity] })),
-    ...ticks.map((t): OrbitIcon => ({ key: `i-${t.key}`, deg: t.deg, color: t.accent, Icon: t.Icon, ghost: t.dashed, labelMs: t.labelMs })),
-  ].sort((a, b) => a.deg - b.deg);
-  const isep = Math.min((15 / ICON_R) * (180 / Math.PI) + 0.8, ARC_SPAN / Math.max(1, icons.length - 1));
-  for (let i = 1; i < icons.length; i++) {
-    if (icons[i].deg < icons[i - 1].deg + isep) icons[i].deg = icons[i - 1].deg + isep;
-  }
-  if (icons.length > 0) {
-    icons[icons.length - 1].deg = Math.min(icons[icons.length - 1].deg, ARC_END);
-    for (let i = icons.length - 2; i >= 0; i--) {
-      if (icons[i].deg > icons[i + 1].deg - isep) icons[i].deg = icons[i + 1].deg - isep;
-    }
-  }
+    ...ticks.map((t): OrbitIcon => ({ key: `i-${t.key}`, deg: t.deg, color: t.accent, Icon: t.Icon, ghost: t.dashed, labelMs: t.labelMs, count: t.count })),
+  ];
   const tick = (m: Tick) => {
     const p1 = polar(m.deg, R_RING - (RING_W / 2 - 5));
     const p2 = polar(m.deg, R_RING + (RING_W / 2 - 5));
@@ -595,12 +639,18 @@ function RadialDay({
         {/* the icon orbit: one bare glyph per mark, just outside the band */}
         {icons.map((ic) => {
           const c = polar(ic.deg, ICON_R);
+          const cp = polar(ic.deg, ICON_R + 13.5); // "N×" sits just outside its glyph, radially
           const Icon = ic.Icon;
           return (
             <g key={ic.key} style={{ color: ic.color }} opacity={ic.ghost ? 0.55 : 1} aria-hidden>
               <g transform={`translate(${(c.x - 7.5).toFixed(2)}, ${(c.y - 7.5).toFixed(2)})`}>
                 <Icon size={15} />
               </g>
+              {ic.count != null && (
+                <text x={cp.x} y={cp.y} fill="currentColor" fontSize={9.5} fontWeight={800} textAnchor="middle" dominantBaseline="middle">
+                  {ic.count}×
+                </text>
+              )}
               {ic.labelMs != null && timeLabel(`${ic.key}-t`, ic.deg, ic.color, ic.labelMs)}
             </g>
           );
@@ -801,6 +851,56 @@ function RadialDay({
           </div>
         );
       })()}
+      {/* Folded-tick picker: several same-type entries share one "N×" mark — choose which
+          one to edit. Same scrim + bottom-sheet chrome as every other sheet in the app. */}
+      {pick != null && <button tabIndex={-1} style={{ ...s.scrim, cursor: "default" }} onClick={() => setPick(null)} aria-label={t("home.close")} />}
+      <div
+        ref={pickRef}
+        role="dialog"
+        aria-modal={pick != null}
+        aria-label={t("cal.pickEntry")}
+        tabIndex={-1}
+        inert={pick == null || undefined}
+        style={{ ...s.sheet, ...(pick != null ? s.sheetOn : {}) }}
+      >
+        <div style={s.sheetHandle} />
+        <div style={s.sheetTitle}>{t("cal.pickEntry")}</div>
+        {(pick ?? []).map((e) => {
+          const Icon = ACTIVITY_ICON[e.activity];
+          const accent = palette.accents[e.activity].accent;
+          const meta =
+            e.activity === "feeding" ? feedingMeta(e.type, e.method, e.amount)
+            : e.activity === "diaper" ? diaperMeta(e.wet, e.solid)
+            : e.activity === "medication" ? medicationMeta(e.name, e.dosage, e.dosageUnit)
+            : null;
+          return (
+            <div key={`${e.path}${e.id}`} style={s.entry}>
+              <button
+                style={s.entryTap}
+                onClick={() => {
+                  buzz();
+                  setPick(null);
+                  onEdit(e);
+                }}
+              >
+                <span aria-hidden style={{ ...s.entryIco, background: `${accent}26`, color: accent }}>
+                  <Icon size={20} />
+                </span>
+                <span style={s.entryMid}>
+                  <span style={s.entryLabel}>
+                    {activityLabel(e.activity)}
+                    {meta ? <span style={s.entryMeta}> · {meta}</span> : null}
+                  </span>
+                  <span style={s.entryTime}>
+                    {clockTime(e.startMs)}
+                    {e.endMs != null ? ` – ${clockTime(e.endMs)}` : ""}
+                  </span>
+                </span>
+              </button>
+            </div>
+          );
+        })}
+      </div>
     </>
   );
 }

@@ -156,7 +156,8 @@
     "solid_one": "{{count}} caca",
     "solid_other": "{{count}} caca",
     "awake": "despierto",
-    "nextStat": "Siguiente estadística"
+    "nextStat": "Siguiente estadística",
+    "pickEntry": "¿Qué entrada?"
   },
   "sheet": {
     "feedingDetails": "Detalles de la toma",

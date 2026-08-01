@@ -156,7 +156,8 @@
     "solid_one": "{{count}} cacca",
     "solid_other": "{{count}} cacca",
     "awake": "sveglio",
-    "nextStat": "Statistica successiva"
+    "nextStat": "Statistica successiva",
+    "pickEntry": "Quale voce?"
   },
   "sheet": {
     "feedingDetails": "Dettagli poppata",
