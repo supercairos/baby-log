@@ -59,18 +59,36 @@ export const DropIcon = (p: IconProps) => (
     <path d={DROP_PATH} />
   </Svg>
 );
-/** Filled drop — a SOLID-only change on the day dial. */
-export const DropFilledIcon = (p: IconProps) => (
+/** One trefoil blade (annular sector pointing down); the other two are 120° rotations. */
+const RAD_BLADE = "M10 15.46 L7.25 20.23 A9.5 9.5 0 0 0 16.75 20.23 L14 15.46 A4 4 0 0 1 10 15.46 Z";
+/** The ☢ core: filled centre dot + three blades (the symbol demands fill), ringed. */
+const RadTrefoil = () => (
+  <>
+    <g transform="translate(2.4 2.4) scale(0.8)">
+      <circle cx="12" cy="12" r="2.2" fill="currentColor" stroke="none" />
+      <path d={RAD_BLADE} fill="currentColor" stroke="none" />
+      <path d={RAD_BLADE} fill="currentColor" stroke="none" transform="rotate(120 12 12)" />
+      <path d={RAD_BLADE} fill="currentColor" stroke="none" transform="rotate(240 12 12)" />
+    </g>
+    <circle cx="12" cy="12" r="10.4" />
+  </>
+);
+/** Circled radioactive trefoil — a SOLID-only (selles) change. */
+export const RadioactiveIcon = (p: IconProps) => (
   <Svg {...p}>
-    <path d={DROP_PATH} fill="currentColor" />
+    <RadTrefoil />
   </Svg>
 );
-/** Bottom-half-filled drop — a wet AND solid change. CSS clip-path needs no SVG ids, so the
- *  icon stays safe to repeat many times in one document. */
-export const DropHalfIcon = (p: IconProps) => (
+/** Circled trefoil with a small drop tucked bottom-right — a wet AND solid change. The
+ *  drop's inner strokeWidth compensates the group scale to keep its line weight matching. */
+export const RadioactiveDropIcon = (p: IconProps) => (
   <Svg {...p}>
-    <path d={DROP_PATH} />
-    <path d={DROP_PATH} fill="currentColor" stroke="none" style={{ clipPath: "inset(50% 0 0 0)" }} />
+    <g transform="translate(0.35 0.35) scale(0.62)">
+      <RadTrefoil />
+    </g>
+    <g transform="translate(12.2 11.6) scale(0.42)">
+      <path d={DROP_PATH} strokeWidth={4.3} />
+    </g>
   </Svg>
 );
 export const TummyIcon = (p: IconProps) => (
