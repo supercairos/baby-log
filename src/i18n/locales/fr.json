@@ -156,7 +156,8 @@
     "solid_one": "{{count}} selle",
     "solid_other": "{{count}} selles",
     "awake": "éveil",
-    "nextStat": "Statistique suivante"
+    "nextStat": "Statistique suivante",
+    "pickEntry": "Quelle entrée ?"
   },
   "sheet": {
     "feedingDetails": "Détails du repas",

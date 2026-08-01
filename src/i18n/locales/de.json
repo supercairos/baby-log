@@ -156,7 +156,8 @@
     "solid_one": "{{count}} fest",
     "solid_other": "{{count}} fest",
     "awake": "wach",
-    "nextStat": "Nächster Wert"
+    "nextStat": "Nächster Wert",
+    "pickEntry": "Welcher Eintrag?"
   },
   "sheet": {
     "feedingDetails": "Mahlzeit-Details",
