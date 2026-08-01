@@ -293,8 +293,9 @@ function RadialDay({
       ] as const).filter((m) => m.ms >= winStart && m.ms < Math.max(winEnd, dayEnd))
     : [];
 
-  const hours = [0, 6, 12, 18];
-  const hourLabel = (h: number) => `${h % 12 === 0 ? 12 : h % 12}${h < 12 ? "a" : "p"}`;
+  // 24-hour scale, a label every 3 h — matches the clock format used everywhere else.
+  const hours = [0, 3, 6, 9, 12, 15, 18, 21];
+  const hourLabel = (h: number) => `${String(h).padStart(2, "0")}h`;
 
   // Clickable marks act as buttons (keyboard + AT). The visible mark IS the hit target — no
   // hidden enlarged hit zones: neighbouring marks sit close on a busy day, and an invisible
@@ -393,11 +394,14 @@ function RadialDay({
   ].sort((a, b) => a.deg - b.deg);
   const ARC_END = ARC_START + ARC_SPAN;
   // ── The band lane ────────────────────────────────────────────────────────────
-  // Capsules and ticks share the single band, so they resolve collisions TOGETHER: every
-  // mark occupies its true width and movable marks nudge apart minimally — position gives
-  // way, width never lies. Both arc ends clamp (a mark drifting past a tip would float on
-  // the bare page background). Sleeps and full-width pills stay anchored underneath — a
-  // tick or capsule crossing a sleep is real data (a feed during a nap), not a collision.
+  // One band, no overlaps. Sleeps (and any full-width pill) are the anchored skeleton of
+  // the day: they never move and nothing may be drawn across them. They carve the band
+  // into free segments; the movable marks (ticks + capsules) lay out inside the segment
+  // holding their true position — a mark whose instant falls INSIDE a sleep (a feed logged
+  // during a nap) snaps to the nearest sleep edge instead of sitting on top of it. Within
+  // a segment marks keep their true width and nudge apart minimally — position gives way,
+  // width never lies — and an over-full segment compresses instead of spilling onto a
+  // neighbouring sleep or past the arc tips onto the bare page.
   const TICK_HW = 2.75; // half a tick's slot in degrees — matches the old 5.5° separation
   const LANE_GAP = 0.4;
   interface LaneItem {
@@ -407,33 +411,73 @@ function RadialDay({
     capsule?: TimelineEntry;
   }
   const capsules = bars.filter((e) => !isTick(e) && spanPx(e) < RING_W);
-  const lane: LaneItem[] = [
+  const movables: LaneItem[] = [
     ...capsules.map((e): LaneItem => {
       const [a0, a1] = clippedAngles(e);
       return { deg: (a0 + a1) / 2, hw: (a1 - a0) / 2, capsule: e };
     }),
     ...ticks.map((t): LaneItem => ({ deg: t.deg, hw: TICK_HW, tick: t })),
-  ].sort((a, b) => a.deg - b.deg);
-  // On an over-full day the slots compress (marks may kiss) instead of overflowing the arc.
-  const laneSpan = lane.reduce((s, it) => s + 2 * it.hw + LANE_GAP, -LANE_GAP);
-  const squeeze = Math.min(1, ARC_SPAN / Math.max(1, laneSpan));
-  const slot = (a: LaneItem, b: LaneItem) => (a.hw + b.hw + LANE_GAP) * squeeze;
-  for (let i = 1; i < lane.length; i++) {
-    if (lane[i].deg < lane[i - 1].deg + slot(lane[i - 1], lane[i])) lane[i].deg = lane[i - 1].deg + slot(lane[i - 1], lane[i]);
+  ];
+  const fixedSpans = [...sleeps, ...bars]
+    .filter((e) => !isTick(e) && (e.activity === "sleep" || spanPx(e) >= RING_W))
+    .map((e) => clippedAngles(e))
+    .sort((a, b) => a[0] - b[0]);
+  const blocked: [number, number][] = [];
+  for (const [a, b] of fixedSpans) {
+    const last = blocked[blocked.length - 1];
+    if (last && a <= last[1]) last[1] = Math.max(last[1], b);
+    else blocked.push([a, b]);
   }
-  if (lane.length > 0) {
-    lane[lane.length - 1].deg = Math.min(lane[lane.length - 1].deg, ARC_END - lane[lane.length - 1].hw * squeeze);
-    for (let i = lane.length - 2; i >= 0; i--) {
-      if (lane[i].deg > lane[i + 1].deg - slot(lane[i], lane[i + 1])) lane[i].deg = lane[i + 1].deg - slot(lane[i], lane[i + 1]);
+  const segments: [number, number][] = [];
+  let segLo = ARC_START;
+  for (const [a, b] of blocked) {
+    if (a > segLo) segments.push([segLo, a]);
+    segLo = Math.max(segLo, b);
+  }
+  if (segLo < ARC_END) segments.push([segLo, ARC_END]);
+  if (segments.length === 0) segments.push([ARC_START, ARC_END]); // a fully-slept window
+  const buckets: LaneItem[][] = segments.map(() => []);
+  for (const it of movables) {
+    let d = it.deg;
+    for (const [a, b] of blocked) {
+      if (d > a && d < b) {
+        d = d - a < b - d ? a : b; // inside a sleep → nearest edge
+        break;
+      }
     }
-    lane[0].deg = Math.max(lane[0].deg, ARC_START + lane[0].hw * squeeze);
-    for (let i = 1; i < lane.length; i++) {
-      if (lane[i].deg < lane[i - 1].deg + slot(lane[i - 1], lane[i])) lane[i].deg = lane[i - 1].deg + slot(lane[i - 1], lane[i]);
+    let idx = segments.findIndex(([a, b]) => d >= a && d <= b);
+    if (idx === -1) idx = d < segments[0][0] ? 0 : segments.length - 1;
+    it.deg = d;
+    buckets[idx].push(it);
+  }
+  for (let sIdx = 0; sIdx < segments.length; sIdx++) {
+    const items = buckets[sIdx].sort((a, b) => a.deg - b.deg);
+    if (items.length === 0) continue;
+    const [lo, hi] = segments[sIdx];
+    const need = items.reduce((sum, it) => sum + 2 * it.hw, 0) + LANE_GAP * (items.length + 1);
+    const k = Math.min(1, (hi - lo) / need); // over-full → compress slots, never spill
+    // Forward min pass, backward max pass, forward again: with k guaranteeing fit, three
+    // passes settle every mark inside [lo, hi] with its neighbours respected.
+    const fwd = () => {
+      let min = lo + LANE_GAP * k;
+      for (const it of items) {
+        const w = it.hw * k;
+        if (it.deg < min + w) it.deg = min + w;
+        min = it.deg + w + LANE_GAP * k;
+      }
+    };
+    fwd();
+    let max = hi - LANE_GAP * k;
+    for (let i = items.length - 1; i >= 0; i--) {
+      const w = items[i].hw * k;
+      if (items[i].deg > max - w) items[i].deg = max - w;
+      max = items[i].deg - w - LANE_GAP * k;
     }
+    fwd();
   }
   /** Placed band position per capsule; ticks carry theirs on the Tick itself. */
   const capsuleDeg = new Map<TimelineEntry, number>();
-  for (const it of lane) {
+  for (const it of movables) {
     if (it.tick) it.tick.deg = it.deg;
     else if (it.capsule) capsuleDeg.set(it.capsule, it.deg);
   }
@@ -507,7 +551,7 @@ function RadialDay({
             an event at a window edge must visually reach the end of the ring. */}
         <path d={arcPath(ARC_START + CAP_DEG, ARC_START + ARC_SPAN - CAP_DEG, R_RING)} fill="none" stroke={palette.surfaceBorder} strokeWidth={RING_W} strokeLinecap="round" opacity={0.55} />
         {/* hourly graduations hugging the band's inner edge — a quiet clock scale that makes
-            positions readable at a glance. The 6-hour anchors are the text labels themselves,
+            positions readable at a glance. The 3-hour anchors are the text labels themselves,
             so those hours skip their tick. Wall-clock stepping stays truthful across DST. */}
         {(() => {
           const marks: ReactNode[] = [];
@@ -517,7 +561,7 @@ function RadialDay({
             d.setHours(d.getHours() + 1);
             const ms = d.getTime();
             if (ms >= winEnd) break;
-            if (d.getHours() % 6 === 0) continue;
+            if (d.getHours() % 3 === 0) continue;
             const p1 = polar(angleOf(ms), R_RING - RING_W / 2 - 4);
             const p2 = polar(angleOf(ms), R_RING - RING_W / 2 - 8);
             marks.push(<line key={ms} x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke={palette.textFainter} strokeWidth={1.5} strokeLinecap="round" opacity={0.5} />);
