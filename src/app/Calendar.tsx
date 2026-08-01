@@ -8,7 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import { useTranslation } from "react-i18next";
 import type { BabyBuddyClient, TimelineEntry } from "../api";
 import { useStyles, useTheme } from "../theme";
-import { ACTIVITY_ICON, DropFilledIcon, DropHalfIcon, PlusIcon, SunriseIcon, SunsetIcon } from "../ui/icons";
+import { ACTIVITY_ICON, PlusIcon, RadioactiveDropIcon, RadioactiveIcon, SunriseIcon, SunsetIcon } from "../ui/icons";
 import { clockTime } from "../lib/datetime";
 import { activityLabel } from "../lib/labels";
 import { hm } from "../lib/format";
@@ -296,10 +296,9 @@ function RadialDay({
   const hours = [0, 6, 12, 18];
   const hourLabel = (h: number) => `${h % 12 === 0 ? 12 : h % 12}${h < 12 ? "a" : "p"}`;
 
-  // Icon badge sitting on the ring at `deg` — a filled disc with the activity glyph, so every
-  // marker is identifiable at a glance. `dashed` renders the predicted ("ghost") variant.
-  // Clickable badges act as buttons (keyboard + AT) and carry an invisible r=16 hit circle:
-  // the visible 21px disc alone is well under a finger's width.
+  // Clickable marks act as buttons (keyboard + AT). The visible mark IS the hit target — no
+  // hidden enlarged hit zones: neighbouring marks sit close on a busy day, and an invisible
+  // halo makes taps land on the wrong entry.
   const entryLabel = (e: TimelineEntry) => `${activityLabel(e.activity)} ${clockTime(e.startMs)}`;
   const timeLabel = (key: string, deg: number, color: string, ms: number) => {
     const lp = polar(deg, R_RING + RING_W / 2 + 28);
@@ -310,10 +309,13 @@ function RadialDay({
     );
   };
 
-  // Watch-dial vocabulary: EVERY mark spans the full band width. Long events are long fat
-  // pills; anything too short for the fat round caps (a quick feed, an instant) renders as a
-  // short radial tick instead — a watch index. Caps overshoot each arc end by half the width,
-  // so ends are inset to keep the visible pill spanning exactly [start, end].
+  // Watch-dial vocabulary: EVERY mark fills the band's height and its visual length along
+  // the band IS its true [start, end] span. Long events are full-band pills — the round caps
+  // overshoot each end by half the width, so the path is inset to keep the visible pill on
+  // [start, end]. Events too short for those fat caps keep the full band height but shorten
+  // their tip rounding instead (radius = half the span — same rounded-rect family, so the
+  // shapes morph continuously). Only a near-instant span (under ~25 min, unreadable as a
+  // length) renders as a radial tick — a watch index.
   const CAP_DEG = (RING_W / 2 / R_RING) * (180 / Math.PI);
   const clippedAngles = (e: TimelineEntry): [number, number] => [
     angleOf(Math.max(e.startMs, winStart)),
@@ -323,14 +325,25 @@ function RadialDay({
     const [a0, a1] = clippedAngles(e);
     return (a0 + a1) / 2;
   };
-  /** Too short for the fat caps → joins the tick layer instead of the arc layer. */
-  const isTick = (e: TimelineEntry) => {
+  /** Clipped span length in px along the band — the mark's visual length. */
+  const spanPx = (e: TimelineEntry) => {
     const [a0, a1] = clippedAngles(e);
-    return a1 - a0 <= 2 * CAP_DEG + 0.5;
+    return ((a1 - a0) / 180) * Math.PI * R_RING;
   };
+  /** Too short to read as a length → joins the tick layer instead of the arc layer. */
+  const isTick = (e: TimelineEntry) => spanPx(e) < 10;
   const spanArc = (e: TimelineEntry) => {
     const [a0, a1] = clippedAngles(e);
     const accent = palette.accents[e.activity].accent;
+    const len = spanPx(e);
+    const opacity = e.activity === "sleep" ? 0.45 : 0.9;
+    // Short-span capsule: a radial stroke whose round caps reach the band edges — full band
+    // height, width = the true span, tip rounding len/2.
+    const half = Math.max(0, RING_W - len) / 2;
+    const p1 = polar(midDeg(e), R_RING - half);
+    const p2 = polar(midDeg(e), R_RING + half);
+    // Pill inset never crosses the mid-span (degenerate zero-length arcs render nothing).
+    const capIn = Math.min(CAP_DEG, (a1 - a0) / 2 - 0.01);
     return (
       <g
         key={`${e.path}${e.id}`}
@@ -345,7 +358,11 @@ function RadialDay({
           onEdit(e);
         }}
       >
-        <path d={arcPath(a0 + CAP_DEG, a1 - CAP_DEG, R_RING)} fill="none" stroke="currentColor" strokeWidth={RING_W} strokeLinecap="round" opacity={e.activity === "sleep" ? 0.45 : 0.9} />
+        {len < RING_W ? (
+          <line x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke="currentColor" strokeWidth={len} strokeLinecap="round" opacity={opacity} />
+        ) : (
+          <path d={arcPath(a0 + capIn, a1 - capIn, R_RING)} fill="none" stroke="currentColor" strokeWidth={RING_W} strokeLinecap="round" opacity={opacity} />
+        )}
       </g>
     );
   };
@@ -367,8 +384,8 @@ function RadialDay({
   }
   const ticks: Tick[] = [
     ...[...sleeps, ...bars].filter(isTick).map((e): Tick => ({ key: `d-${e.path}${e.id}`, deg: midDeg(e), accent: palette.accents[e.activity].accent, kind: "solid", Icon: ACTIVITY_ICON[e.activity], onClick: () => onEdit(e), label: entryLabel(e) })),
-    // Orbit glyph mirrors the tick's coding: filled drop = solid, outline = wet, half = both.
-    ...diapers.map((e): Tick => ({ key: `d-${e.path}${e.id}`, deg: angleOf(e.startMs), accent: palette.accents.diaper.accent, kind: e.wet && e.solid ? "thread" : e.solid ? "solid" : "hollow", Icon: e.wet && e.solid ? DropHalfIcon : e.solid ? DropFilledIcon : ACTIVITY_ICON.diaper, onClick: () => onEdit(e), label: entryLabel(e) })),
+    // Orbit glyph mirrors the tick's coding: drop = wet, trefoil = solid, trefoil+drop = both.
+    ...diapers.map((e): Tick => ({ key: `d-${e.path}${e.id}`, deg: angleOf(e.startMs), accent: palette.accents.diaper.accent, kind: e.wet && e.solid ? "thread" : e.solid ? "solid" : "hollow", Icon: e.wet && e.solid ? RadioactiveDropIcon : e.solid ? RadioactiveIcon : ACTIVITY_ICON.diaper, onClick: () => onEdit(e), label: entryLabel(e) })),
     ...meds.map((e): Tick => ({ key: `d-${e.path}${e.id}`, deg: angleOf(e.startMs), accent: palette.accents.medication.accent, kind: "solid", Icon: ACTIVITY_ICON.medication, onClick: () => onEdit(e), label: entryLabel(e) })),
     ...predMarks.map((p): Tick => ({ key: `pd-${p.activity}`, deg: angleOf(p.etaMs), accent: palette.accents[p.activity].accent, kind: "hollow", Icon: ACTIVITY_ICON[p.activity], dashed: true, labelMs: p.etaMs })),
   ].sort((a, b) => a.deg - b.deg);
@@ -413,7 +430,6 @@ function RadialDay({
   const tick = (m: Tick) => {
     const p1 = polar(m.deg, R_RING - (RING_W / 2 - 5));
     const p2 = polar(m.deg, R_RING + (RING_W / 2 - 5));
-    const c = polar(m.deg, R_RING);
     const line = (stroke: string, w: number, dashed?: boolean) => (
       <line x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke={stroke} strokeWidth={w} strokeLinecap="round" strokeDasharray={dashed ? "2.5 3.5" : undefined} />
     );
@@ -436,7 +452,6 @@ function RadialDay({
             : undefined
         }
       >
-        {clickable && <circle cx={c.x} cy={c.y} r={17} fill="transparent" pointerEvents="all" />}
         {line("currentColor", 8.5, m.dashed)}
         {m.kind !== "solid" && line(palette.tileBase, 4)}
         {m.kind === "thread" && line("currentColor", 1.6)}
@@ -450,8 +465,10 @@ function RadialDay({
       {/* Canvas extends below the open arc so the window-edge date labels sit UNDER the dial
           (never overlaying the marks near the arc ends). */}
       <svg viewBox="0 0 320 316" style={s.radialSvg} role="img">
-        {/* the single fat ring everything sits on — an open arc, not a full circle */}
-        <path d={arcPath(ARC_START, ARC_START + ARC_SPAN, R_RING)} fill="none" stroke={palette.surfaceBorder} strokeWidth={RING_W} strokeLinecap="round" opacity={0.35} />
+        {/* the single fat ring everything sits on — an open arc, not a full circle. Inset by
+            the round-cap overshoot so its visible tips land exactly on ARC_START/ARC_END —
+            an event at a window edge must visually reach the end of the ring. */}
+        <path d={arcPath(ARC_START + CAP_DEG, ARC_START + ARC_SPAN - CAP_DEG, R_RING)} fill="none" stroke={palette.surfaceBorder} strokeWidth={RING_W} strokeLinecap="round" opacity={0.35} />
         {[...sleeps, ...bars].filter((e) => !isTick(e)).map((e) => spanArc(e))}
         {/* predicted sleep: a dashed ghost arc spanning the expected onset → wake */}
         {predMarks
@@ -654,7 +671,7 @@ function RadialDay({
               ))}
             </div>
             {/* The day's full breakdown — the ring centre keeps only the hero. Wet and solid
-                changes split out, glyph-coded like the dial (outline = pipi, filled = selles). */}
+                changes split out, glyph-coded like the dial (drop = pipi, trefoil = selles). */}
             <div style={s.dayBarLegend}>
               {(
                 [
@@ -664,7 +681,7 @@ function RadialDay({
                   { key: "awake", Icon: null, color: palette.surfaceStrongBorder, text: `${t("cal.awake")} ${hm(awakeMs)}` },
                   { key: "feeding", Icon: ACTIVITY_ICON.feeding, color: palette.accents.feeding.accent, text: `×${feedCount} · ${hm(feedMs)}` },
                   { key: "wet", Icon: ACTIVITY_ICON.diaper, color: palette.accents.diaper.accent, text: `×${wetCount} ${t("diaper.wet").toLocaleLowerCase()}` },
-                  { key: "solid", Icon: DropFilledIcon, color: palette.accents.diaper.accent, text: `×${solidCount} ${t("diaper.solid").toLocaleLowerCase()}` },
+                  { key: "solid", Icon: RadioactiveIcon, color: palette.accents.diaper.accent, text: `×${solidCount} ${t("diaper.solid").toLocaleLowerCase()}` },
                 ] as const
               ).map(({ key, Icon, color, text }) => (
                 <span key={key} style={s.dayBarLegendItem}>
