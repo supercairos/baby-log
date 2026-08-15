@@ -968,10 +968,18 @@ export function Home({
       else if (activity === "feeding") submit(createFeedingMutation(childId, startIso, endIso, { ...feedingFieldsFor({ type: draft.type, method: draft.method, amount: draft.amount }), notes }));
       else if (activity === "sleep") submit(createSleepMutation(childId, startIso, endIso, { notes }));
       else if (activity === "pumping") {
-        // A backdated bottle still needs somewhere to live, or it can never appear in the
-        // stash — default it to the fridge, dated from when the session ended.
-        const stash = draft.stash ?? newStash("fridge", draft.endMs ?? draft.startMs, draft.notes.trim());
-        submit(createPumpingMutation(childId, startIso, endIso, { amount: draft.amount ?? 0, notes: encodeStashNotes({ ...stash, note: draft.notes.trim() }) }));
+        // The sheet's chips carry only the CHOICE (their `at` is a placeholder). The real
+        // timestamp is derived here from when the session ended, so a bottle backdated to
+        // this morning and frozen straight away gets its window from 09:00 — not from
+        // whenever the entry happened to be typed in.
+        const dumped = draft.stash?.state === "discarded";
+        const stash = newStash(draft.stash?.loc ?? "fridge", draft.endMs ?? draft.startMs, draft.notes.trim());
+        submit(
+          createPumpingMutation(childId, startIso, endIso, {
+            amount: draft.amount ?? 0,
+            notes: encodeStashNotes(dumped ? { ...stash, state: "discarded" } : stash),
+          }),
+        );
       }
       // Explicit, not a fallthrough: an `else` here is how a newly added activity silently
       // gets logged as tummy time.

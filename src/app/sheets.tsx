@@ -529,6 +529,40 @@ export function EntrySheet({
             />
             <span style={s.sliderValue}>{draft.amount != null ? `${draft.amount} ml` : "—"}</span>
           </div>
+
+          {/* Where it went — asked only when ADDING. Without it a backdated session was
+              forced to the fridge, and the only way to correct it was the inventory's move
+              action, which restarts the clock from the correction rather than from when the
+              milk actually went in. Editing an existing bottle's location stays on the
+              inventory, where "move" has a defined meaning; here it would be ambiguous
+              between correcting a record and moving a bottle. */}
+          {target.isNew && (
+            <>
+              <div style={s.sheetGroup}>{t("sheet.storeIn")}</div>
+              <div style={s.chips}>
+                {PUMP_DESTINATIONS.map((d) => {
+                  const on = draft.stash?.state !== "discarded" && (draft.stash?.loc ?? "fridge") === d;
+                  return (
+                    <button
+                      key={d}
+                      aria-pressed={on}
+                      onClick={() => { buzz(); setDraft((prev) => ({ ...prev, stash: { loc: d, at: 0, state: "stored", note: "" } })); }}
+                      style={{ ...s.chip, ...(on ? chipOn(pump) : {}) }}
+                    >
+                      {t(`stash.loc.${d}`)}
+                    </button>
+                  );
+                })}
+                <button
+                  aria-pressed={draft.stash?.state === "discarded"}
+                  onClick={() => { buzz(); setDraft((prev) => ({ ...prev, stash: { loc: prev.stash?.loc ?? "fridge", at: 0, state: "discarded", note: "" } })); }}
+                  style={{ ...s.chip, color: palette.danger, ...(draft.stash?.state === "discarded" ? chipOn(palette.danger) : {}) }}
+                >
+                  {t("stash.dump")}
+                </button>
+              </div>
+            </>
+          )}
         </>
       )}
 
