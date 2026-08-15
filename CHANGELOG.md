@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.22.0](https://github.com/supercairos/baby-log/compare/baby-log-v1.21.0...baby-log-v1.22.0) (2026-08-15)
+
+
+### Features
+
+* choose where a backdated pumping session went ([739cdfb](https://github.com/supercairos/baby-log/commit/739cdfb9404fb70579437f2d57f1bbfeaf8d6cb0))
+* pump-to-discard, and keep spent bottles on the inventory ([f753837](https://github.com/supercairos/baby-log/commit/f753837b8e390595ca98c30cc785bba490bd8343))
+* pumping timers with a milk stash ([1a6494e](https://github.com/supercairos/baby-log/commit/1a6494ee2aa9131c21064a128b9781e4e35715ba))
+* pumping timers with a milk stash ([e05ee44](https://github.com/supercairos/baby-log/commit/e05ee44f904af196235d153dfc213d7b4c39415c))
+* warn on the home screen when milk is about to turn ([959e79b](https://github.com/supercairos/baby-log/commit/959e79bc4db326ac09ae4eb8e1c59271b3bce460))
+
+
+### Bug Fixes
+
+* address code review on the pumping feature ([abd1845](https://github.com/supercairos/baby-log/commit/abd1845fcf7909f89aaf9f1a48cf09407abe1d69))
+* address the second code review ([a3a3d09](https://github.com/supercairos/baby-log/commit/a3a3d09df8cd37b61f1ae5c2558493e91f21ff9b))
+
 ## [1.21.0](https://github.com/supercairos/baby-log/compare/baby-log-v1.20.0...baby-log-v1.21.0) (2026-08-01)
 
 
