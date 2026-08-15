@@ -30,6 +30,7 @@ import {
   expiresAt,
   isExpired,
   isExpiringSoon,
+  isSpent,
   moveStash,
   toBottle,
   type StashBottle,
@@ -130,6 +131,7 @@ export function StashPage({ client, childId }: { client: BabyBuddyClient; childI
   const { pumpings, refresh } = usePumpings(client, childId);
   const accent = palette.accents.pumping.accent;
   const [showFrozen, setShowFrozen] = useState(false);
+  const [showSpent, setShowSpent] = useState(false);
   /**
    * Writes go through the outbox, so the next server fetch can still show the old note for a
    * moment. Overlay the changes we've queued on top — same idea as the running-timers view
@@ -164,6 +166,16 @@ export function StashPage({ client, childId }: { client: BabyBuddyClient; childI
         .sort((a, b) => expiresAt(a.stash) - expiresAt(b.stash)),
     [bottles, now],
   );
+  /** Used or thrown away. Kept on screen — struck through — rather than deleted: the session
+   *  happened, it counts toward supply, and a row that simply vanishes gives no way to tell
+   *  a mis-tap from a real one. Newest first, since this is history. */
+  const spent = useMemo(
+    () =>
+      bottles
+        .filter((b): b is TrackedBottle => b.stash != null && isSpent(b.stash))
+        .sort((a, b) => b.pumpedMs - a.pumpedMs),
+    [bottles],
+  );
 
   const apply = (bottle: TrackedBottle, next: StashInfo) => {
     buzz();
@@ -196,31 +208,44 @@ export function StashPage({ client, childId }: { client: BabyBuddyClient; childI
   const row = (b: TrackedBottle) => {
     const f = freshness(b.stash, now);
     const lapsed = isExpired(b.stash, now);
+    const gone = isSpent(b.stash);
     const LocIcon = STASH_ICON[b.stash.loc];
     // `s.entry` is a flex ROW (icon beside text) — stack it so the actions get their own
     // full-width line instead of being laid out as another column beside the icon.
     return (
-      <div key={b.id} style={{ ...s.entry, flexDirection: "column", alignItems: "stretch", gap: 10 }}>
+      <div key={b.id} style={{ ...s.entry, flexDirection: "column", alignItems: "stretch", gap: 10, ...(gone ? { opacity: 0.55 } : {}) }}>
         <div style={{ ...s.entryTap, cursor: "default" }}>
           <span style={{ ...s.entryIco, color: accent, background: `${accent}1a` }}>
             <LocIcon size={20} />
           </span>
           <div style={s.entryMid}>
-            <div style={s.entryLabel}>
+            {/* Struck through, not removed — the volume is still part of the day's total. */}
+            <div style={{ ...s.entryLabel, ...(gone ? { textDecoration: "line-through" } : {}) }}>
               {b.amount} ml
-              <span style={s.entryMeta}> · {t(`stash.loc.${b.stash.loc}`)}</span>
+              <span style={s.entryMeta}> · {t(gone ? `stash.${b.stash.state}` : `stash.loc.${b.stash.loc}`)}</span>
             </div>
             {/* Date, not just the clock: the freezer section holds bottles months apart, and
                 two of them pumped at 09:52 would otherwise be indistinguishable. */}
             <div style={s.entryTime}>{shortDateTime(b.pumpedMs)}</div>
           </div>
-          {/* Wraps rather than truncates — the expiry is the point of this screen. */}
-          <span style={{ ...s.entryTime, color: f.color, fontWeight: 700, textAlign: "right" }}>{f.text}</span>
+          {/* Wraps rather than truncates — the expiry is the point of this screen. A spent
+              bottle has no deadline left to report, and a countdown beside "used" would
+              read as though it were still on offer. */}
+          {!gone && <span style={{ ...s.entryTime, color: f.color, fontWeight: 700, textAlign: "right" }}>{f.text}</span>}
         </div>
         {/* Past its window there is exactly one honest action. Offering "used" or a move on
             lapsed milk would be the app endorsing feeding it. */}
         <div style={s.chips}>
-          {!lapsed && (
+          {/* Spent rows keep one action: undo. The bookkeeping tap is easy to mis-hit, and
+              nothing else in the app can put the state back. `at` is untouched, so the
+              expiry recomputes from when it really went in — a bottle restored too late
+              reappears among the lapsed ones rather than looking fresh. */}
+          {gone && (
+            <button onClick={() => apply(b, { ...b.stash, state: "stored" })} style={s.chip}>
+              {t("stash.restore")}
+            </button>
+          )}
+          {!gone && !lapsed && (
             <>
               <button onClick={() => apply(b, { ...b.stash, state: "used" })} style={{ ...s.chip, ...chipOn(palette.ok) }}>
                 {t("stash.markUsed")}
@@ -246,9 +271,11 @@ export function StashPage({ client, childId }: { client: BabyBuddyClient; childI
               )}
             </>
           )}
-          <button onClick={() => apply(b, { ...b.stash, state: "discarded" })} style={{ ...s.chip, color: palette.danger }}>
-            {t("stash.discard")}
-          </button>
+          {!gone && (
+            <button onClick={() => apply(b, { ...b.stash, state: "discarded" })} style={{ ...s.chip, color: palette.danger }}>
+              {t("stash.discard")}
+            </button>
+          )}
         </div>
       </div>
     );
@@ -259,7 +286,7 @@ export function StashPage({ client, childId }: { client: BabyBuddyClient; childI
     <section style={s.cal}>
       <div style={s.sheetGroup}>{t("stash.total", { count: available.length, volume: volume(totalMl) })}</div>
 
-      {available.length === 0 && expired.length === 0 && <div style={s.empty}>{t("stash.empty")}</div>}
+      {available.length === 0 && expired.length === 0 && spent.length === 0 && <div style={s.empty}>{t("stash.empty")}</div>}
 
       {/* Lapsed milk first, and loudly. It's still sitting in the fridge — dropping it off the
           list would leave the app's last word on it a reassuring countdown. */}
@@ -282,6 +309,17 @@ export function StashPage({ client, childId }: { client: BabyBuddyClient; childI
             {t("stash.freezerSummary", { count: frozen.length, volume: volume(frozen.reduce((sum, b) => sum + b.amount, 0)) })}
           </button>
           {showFrozen && frozen.map(row)}
+        </>
+      )}
+
+      {/* Used and dumped bottles, kept as history rather than deleted — collapsed so they
+          don't bury the part of the list you actually choose from. */}
+      {spent.length > 0 && (
+        <>
+          <button onClick={() => { buzz(); setShowSpent((v) => !v); }} style={{ ...s.chip, width: "100%", marginTop: 10 }}>
+            {t("stash.spentSummary", { count: spent.length, volume: volume(spent.reduce((sum, b) => sum + b.amount, 0)) })}
+          </button>
+          {showSpent && spent.map(row)}
         </>
       )}
 

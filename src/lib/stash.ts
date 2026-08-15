@@ -124,6 +124,15 @@ export function isAvailable(info: StashInfo, now: number): boolean {
   return info.state === "stored" && now < expiresAt(info);
 }
 
+/**
+ * Used or thrown away — the bottle is gone, but the SESSION still happened. Pumping to
+ * discard (after a drink, or a medication that isn't feed-safe) is an ordinary reason to
+ * express, and the volume still counts toward supply, so these entries are never deleted.
+ */
+export function isSpent(info: StashInfo): boolean {
+  return info.state !== "stored";
+}
+
 /** A Pumping entry paired with its decoded stash state (`null` when untracked). */
 export interface StashBottle {
   id: number;

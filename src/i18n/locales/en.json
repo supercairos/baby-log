@@ -125,7 +125,8 @@
     "medNameRequired": "Enter the medication name",
     "syncFailed": "A write couldn't be synced",
     "pumpSaved": "{{amount}} ml pumped · {{duration}}",
-    "pumpAmountRequired": "Set the pumped amount"
+    "pumpAmountRequired": "Set the pumped amount",
+    "pumpDumped": "{{amount}} ml discarded · {{duration}}"
   },
   "timeline": {
     "addEntry": "Add entry",
@@ -274,6 +275,10 @@
     "expiresOn": "until {{date}}",
     "moveToFridge": "To fridge",
     "expiredGroup_one": "Past its window · {{volume}}",
-    "expiredGroup_other": "Past their window · {{count}} · {{volume}}"
+    "expiredGroup_other": "Past their window · {{count}} · {{volume}}",
+    "dump": "Discard",
+    "restore": "Restore",
+    "spentSummary_one": "History · {{count}} · {{volume}}",
+    "spentSummary_other": "History · {{count}} · {{volume}}"
   }
 }

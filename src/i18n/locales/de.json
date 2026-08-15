@@ -125,7 +125,8 @@
     "medNameRequired": "Namen des Medikaments eingeben",
     "syncFailed": "Ein Eintrag konnte nicht synchronisiert werden",
     "pumpSaved": "{{amount}} ml abgepumpt · {{duration}}",
-    "pumpAmountRequired": "Abgepumpte Menge angeben"
+    "pumpAmountRequired": "Abgepumpte Menge angeben",
+    "pumpDumped": "{{amount}} ml verworfen · {{duration}}"
   },
   "timeline": {
     "addEntry": "Eintrag hinzufügen",
@@ -274,6 +275,10 @@
     "expiresOn": "bis {{date}}",
     "moveToFridge": "In den Kühlschrank",
     "expiredGroup_one": "Über der Frist · {{volume}}",
-    "expiredGroup_other": "Über der Frist · {{count}} · {{volume}}"
+    "expiredGroup_other": "Über der Frist · {{count}} · {{volume}}",
+    "dump": "Verwerfen",
+    "restore": "Zurücksetzen",
+    "spentSummary_one": "Verlauf · {{count}} · {{volume}}",
+    "spentSummary_other": "Verlauf · {{count}} · {{volume}}"
   }
 }

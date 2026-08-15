@@ -128,7 +128,7 @@ type Sheet =
   | { type: "pumping"; localId: string; startedMs: number }
   | null;
 type FeedSel = { type: FeedingType | null; method: FeedingMethod | null; amount?: number | null };
-type PumpSel = { amount: number | null; loc: StashLocation };
+type PumpSel = { amount: number | null; loc: StashLocation; dump: boolean };
 
 /** Breastfeeding alternates sides: propose the breast NOT used last time. "Both breasts"
  *  stays both; bottle/solid/none pass through unchanged. */
@@ -164,7 +164,7 @@ export function Home({
   const [editing, setEditing] = useState<EditTarget | null>(null);
   const [draft, setDraft] = useState<EditDraft | null>(null);
   const [lastFeed, setLastFeed] = useState<Record<number, FeedSel>>({});
-  const [pumpSel, setPumpSel] = useState<PumpSel>({ amount: null, loc: "fridge" });
+  const [pumpSel, setPumpSel] = useState<PumpSel>({ amount: null, loc: "fridge", dump: false });
   /** Last recorded pumping amount per child — pre-highlights a chip in the stop sheet. */
   const [lastPump, setLastPump] = useState<Record<number, number>>({});
   const [notify, setNotify] = useState(() => localStorage.getItem("baby-log:notify") === "on");
@@ -619,7 +619,7 @@ export function Home({
         // Pumping needs an amount the server won't accept a session without, and it only
         // exists now the session is over — so ask, then write. The timer stays running until
         // `confirmPumping`; nothing is logged if the sheet is dismissed.
-        setPumpSel({ amount: lastPump[childId] ?? null, loc: "fridge" });
+        setPumpSel({ amount: lastPump[childId] ?? null, loc: "fridge", dump: false });
         setSheet({ type: "pumping", localId, startedMs: rt.startedMs });
         return;
       }
@@ -751,14 +751,18 @@ export function Home({
     buzz();
     try {
       const endedMs = nowMs();
-      const notes = encodeStashNotes(newStash(pumpSel.loc, endedMs));
+      // A dumped session is recorded as spent from the outset, so it never shows up as milk
+      // anyone could feed — but the entry (and its volume) is still logged, because pumping
+      // to throw away is still pumping and still counts toward supply.
+      const stash = newStash(pumpSel.loc, endedMs);
+      const notes = encodeStashNotes(pumpSel.dump ? { ...stash, state: "discarded" } : stash);
       submit(consumeTimerMutation("pumping", sheet.localId, childId, { amount, notes }));
       setLastPump((p) => ({ ...p, [childId]: amount }));
       localStorage.setItem(`baby-log:lastpump:${childId}`, String(amount));
       setSheet(null);
       show(
-        t("toast.pumpSaved", { amount, duration: hm(endedMs - sheet.startedMs) }),
-        accentOf("pumping"),
+        t(pumpSel.dump ? "toast.pumpDumped" : "toast.pumpSaved", { amount, duration: hm(endedMs - sheet.startedMs) }),
+        pumpSel.dump ? palette.danger : accentOf("pumping"),
       );
     } finally {
       pending.current.delete(guard);
@@ -1465,7 +1469,9 @@ export function Home({
         lastAmount={childId != null ? (lastPump[childId] ?? null) : null}
         loc={pumpSel.loc}
         onAmount={(amount) => { buzz(); setPumpSel((p) => ({ ...p, amount })); }}
-        onLoc={(loc) => { buzz(); setPumpSel((p) => ({ ...p, loc })); }}
+        onLoc={(loc) => { buzz(); setPumpSel((p) => ({ ...p, loc, dump: false })); }}
+        dump={pumpSel.dump}
+        onDump={() => { buzz(); setPumpSel((p) => ({ ...p, dump: true })); }}
         onDone={() => void confirmPumping()}
       />
       <EntrySheet target={editing} draft={draft} setDraft={(u) => setDraft((d) => (d ? u(d) : d))} recentMeds={recentMeds} onPickKind={pickKind} onBack={backToKindPicker} onSave={saveEdit} onDelete={deleteEditing} />

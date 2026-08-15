@@ -94,6 +94,15 @@ Parser:
   the timestamp a location change needs.
 - **Expiry is derived, never stored** — keep only `loc` + `at`, recompute on render. Exactly
   the rule timers follow with `startedAt`, and it survives reload/multi-device for free.
+- **Pumping to throw away** (after a drink, or a medication that isn't feed-safe) is an
+  ordinary reason to express, so the stop sheet's destination row carries a "discard" chip
+  beside the locations: the session and its volume are still logged — they count toward
+  supply — but the milk is marked spent immediately and never enters the stash.
+- **Bottles are never deleted, only re-stated.** Used / discarded / expired entries stay on
+  the inventory (struck through, collapsed into a history group) rather than vanishing: the
+  session happened, and a row that silently disappears gives no way to tell a mis-tap from a
+  real one. A spent row keeps one action — restore — which puts the state back WITHOUT
+  touching `at`, so a bottle restored too late reappears as lapsed rather than looking fresh.
 - Windows are **AFSSA 2005** (room 4 h / fridge 48 h / freezer 4 months / thawed 24 h), the
   conservative end of French guidance — CoFAM 2024 allows 8 days and 12 months, ABM 2017 sits
   between. `STORAGE_WINDOW_MS` in `lib/stash.ts` is the one place to change them. Applies to

@@ -125,7 +125,8 @@
     "medNameRequired": "Saisissez le nom du médicament",
     "syncFailed": "Une écriture n'a pas pu être synchronisée",
     "pumpSaved": "{{amount}} ml tirés · {{duration}}",
-    "pumpAmountRequired": "Indiquez la quantité tirée"
+    "pumpAmountRequired": "Indiquez la quantité tirée",
+    "pumpDumped": "{{amount}} ml jetés · {{duration}}"
   },
   "timeline": {
     "addEntry": "Ajouter une entrée",
@@ -274,6 +275,10 @@
     "expiresOn": "jusqu'au {{date}}",
     "moveToFridge": "Au frigo",
     "expiredGroup_one": "Hors délai · {{volume}}",
-    "expiredGroup_other": "Hors délai · {{count}} · {{volume}}"
+    "expiredGroup_other": "Hors délai · {{count}} · {{volume}}",
+    "dump": "Jeter",
+    "restore": "Restaurer",
+    "spentSummary_one": "Historique · {{count}} · {{volume}}",
+    "spentSummary_other": "Historique · {{count}} · {{volume}}"
   }
 }

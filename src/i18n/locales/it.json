@@ -125,7 +125,8 @@
     "medNameRequired": "Inserisci il nome del farmaco",
     "syncFailed": "Non è stato possibile sincronizzare una voce",
     "pumpSaved": "{{amount}} ml estratti · {{duration}}",
-    "pumpAmountRequired": "Indica la quantità estratta"
+    "pumpAmountRequired": "Indica la quantità estratta",
+    "pumpDumped": "{{amount}} ml eliminati · {{duration}}"
   },
   "timeline": {
     "addEntry": "Aggiungi voce",
@@ -274,6 +275,10 @@
     "expiresOn": "fino al {{date}}",
     "moveToFridge": "In frigo",
     "expiredGroup_one": "Fuori tempo · {{volume}}",
-    "expiredGroup_other": "Fuori tempo · {{count}} · {{volume}}"
+    "expiredGroup_other": "Fuori tempo · {{count}} · {{volume}}",
+    "dump": "Elimina",
+    "restore": "Ripristina",
+    "spentSummary_one": "Cronologia · {{count}} · {{volume}}",
+    "spentSummary_other": "Cronologia · {{count}} · {{volume}}"
   }
 }

@@ -245,8 +245,10 @@ export function PumpingSheet({
   amount,
   lastAmount,
   loc,
+  dump,
   onAmount,
   onLoc,
+  onDump,
   onDone,
 }: {
   open: boolean;
@@ -255,13 +257,18 @@ export function PumpingSheet({
   /** Previous session's amount — pre-selected, and guaranteed present in the chip row. */
   lastAmount: number | null;
   loc: StashLocation;
+  /** True when this session is being thrown away rather than stored. */
+  dump: boolean;
   onAmount: (ml: number | null) => void;
   onLoc: (loc: StashLocation) => void;
+  onDump: () => void;
   onDone: () => void;
 }) {
   const { s, chipOn } = useStyles();
   const { t } = useTranslation();
-  const pump = useTheme().palette.accents.pumping.accent;
+  const { palette } = useTheme();
+  const pump = palette.accents.pumping.accent;
+  const danger = palette.danger;
 
   return (
     <SheetShell open={open} label={t("sheet.pumpingAmount")}>
@@ -300,13 +307,28 @@ export function PumpingSheet({
       <div style={s.sheetGroup}>{t("sheet.storeIn")}</div>
       <div style={s.chips}>
         {PUMP_DESTINATIONS.map((d) => (
-          <button key={d} aria-pressed={loc === d} onClick={() => onLoc(d)} style={{ ...s.chip, ...(loc === d ? chipOn(pump) : {}) }}>
+          <button
+            key={d}
+            aria-pressed={!dump && loc === d}
+            onClick={() => onLoc(d)}
+            style={{ ...s.chip, ...(!dump && loc === d ? chipOn(pump) : {}) }}
+          >
             {t(`stash.loc.${d}`)}
           </button>
         ))}
+        {/* Pumping to throw away — after a drink, or a medication that isn't feed-safe — is
+            an ordinary reason to express. The session is still logged (it counts toward
+            supply), the milk just never enters the stash. */}
+        <button
+          aria-pressed={dump}
+          onClick={onDump}
+          style={{ ...s.chip, color: danger, ...(dump ? chipOn(danger) : {}) }}
+        >
+          {t("stash.dump")}
+        </button>
       </div>
 
-      <button onClick={onDone} disabled={amount == null} style={{ ...s.cta, ...(amount == null ? s.ctaOff : { background: pump }) }}>
+      <button onClick={onDone} disabled={amount == null} style={{ ...s.cta, ...(amount == null ? s.ctaOff : { background: dump ? danger : pump }) }}>
         {t("common.done")}
       </button>
     </SheetShell>
