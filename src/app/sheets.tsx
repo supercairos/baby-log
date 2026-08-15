@@ -20,6 +20,7 @@ import { ACTIVITY_ICON, BackIcon, TrashIcon } from "../ui/icons";
 import { buzz } from "./hooks";
 import { useFocusTrap } from "./useFocusTrap";
 import type { EditDraft, EditTarget, RecentMed } from "./types";
+import type { StashLocation } from "../lib/stash";
 
 /** Preset minimum-gap options (hours) offered for a medication's next dose. */
 const MED_INTERVAL_HOURS = [4, 6, 8, 12, 24] as const;
@@ -217,6 +218,123 @@ export function FeedingSheet({
   );
 }
 
+// ── Pumping ─────────────────────────────────────────────────────────────────
+/**
+ * Quick-pick amounts. Fixed so their positions become muscle memory, with the last recorded
+ * amount spliced in when it isn't already one of them — the pre-highlighted chip must always
+ * be on screen, otherwise the "one tap to confirm" path silently disappears.
+ */
+const PUMP_PRESETS = [60, 90, 120, 150];
+function pumpPresets(last: number | null): number[] {
+  if (last == null || PUMP_PRESETS.includes(last)) return PUMP_PRESETS;
+  return [...PUMP_PRESETS, last].sort((a, b) => a - b);
+}
+
+/** Where fresh milk goes. "thawed" is deliberately absent — it's a later transition, not a
+ *  destination for milk that was just expressed. */
+const PUMP_DESTINATIONS: StashLocation[] = ["fridge", "freezer", "room"];
+
+/**
+ * Shown when a pumping timer STOPS, never when it starts: `POST /api/pumping/` requires an
+ * amount, and the parent can only read that off the bottle once they're done. Dismissing the
+ * sheet cancels the stop — the timer keeps running, nothing is logged.
+ */
+export function PumpingSheet({
+  open,
+  elapsedMs,
+  amount,
+  lastAmount,
+  loc,
+  dump,
+  onAmount,
+  onLoc,
+  onDump,
+  onDone,
+}: {
+  open: boolean;
+  elapsedMs: number | null;
+  amount: number | null;
+  /** Previous session's amount — pre-selected, and guaranteed present in the chip row. */
+  lastAmount: number | null;
+  loc: StashLocation;
+  /** True when this session is being thrown away rather than stored. */
+  dump: boolean;
+  onAmount: (ml: number | null) => void;
+  onLoc: (loc: StashLocation) => void;
+  onDump: () => void;
+  onDone: () => void;
+}) {
+  const { s, chipOn } = useStyles();
+  const { t } = useTranslation();
+  const { palette } = useTheme();
+  const pump = palette.accents.pumping.accent;
+  const danger = palette.danger;
+
+  return (
+    <SheetShell open={open} label={t("sheet.pumpingAmount")}>
+      <div style={s.sheetHandle} />
+      <div style={s.sheetTitle}>{t("activity.pumping")}</div>
+      {/* `sheetRunning` is tinted with the feeding accent (its only other user) — re-tint it,
+          since one activity owning one colour is what makes the tiles readable at a glance. */}
+      {elapsedMs != null && (
+        <div style={{ ...s.sheetRunning, background: `${pump}1f`, border: `1px solid ${pump}47`, color: pump }}>{fmt(elapsedMs)}</div>
+      )}
+
+      <div style={s.sheetGroup}>{t("sheet.amount")}</div>
+      <div style={s.chips}>
+        {pumpPresets(lastAmount).map((ml) => (
+          <button key={ml} aria-pressed={amount === ml} onClick={() => onAmount(ml)} style={{ ...s.chip, ...(amount === ml ? chipOn(pump) : {}) }}>
+            {ml} ml
+          </button>
+        ))}
+      </div>
+      {/* The slider stays for anything the chips don't cover — same ladder as bottle feeds. */}
+      <div style={s.sliderRow}>
+        <input
+          type="range"
+          min={0}
+          max={ML_STEPS.length}
+          step={1}
+          value={mlToIdx(amount)}
+          aria-label={t("sheet.amount")}
+          onChange={(e) => onAmount(idxToMl(Number(e.target.value)))}
+          style={{ ...s.slider, accentColor: pump }}
+        />
+        <span style={s.sliderValue}>{amount != null ? `${amount} ml` : "—"}</span>
+      </div>
+
+      {/* Chosen now because it's what starts the expiry clock — asking later means guessing. */}
+      <div style={s.sheetGroup}>{t("sheet.storeIn")}</div>
+      <div style={s.chips}>
+        {PUMP_DESTINATIONS.map((d) => (
+          <button
+            key={d}
+            aria-pressed={!dump && loc === d}
+            onClick={() => onLoc(d)}
+            style={{ ...s.chip, ...(!dump && loc === d ? chipOn(pump) : {}) }}
+          >
+            {t(`stash.loc.${d}`)}
+          </button>
+        ))}
+        {/* Pumping to throw away — after a drink, or a medication that isn't feed-safe — is
+            an ordinary reason to express. The session is still logged (it counts toward
+            supply), the milk just never enters the stash. */}
+        <button
+          aria-pressed={dump}
+          onClick={onDump}
+          style={{ ...s.chip, color: danger, ...(dump ? chipOn(danger) : {}) }}
+        >
+          {t("stash.dump")}
+        </button>
+      </div>
+
+      <button onClick={onDone} disabled={amount == null} style={{ ...s.cta, ...(amount == null ? s.ctaOff : { background: dump ? danger : pump }) }}>
+        {t("common.done")}
+      </button>
+    </SheetShell>
+  );
+}
+
 // ── Diaper ──────────────────────────────────────────────────────────────────
 export function DiaperSheet({ open, onLog }: { open: boolean; onLog: (preset: { wet: boolean; solid: boolean; label: string }) => void }) {
   const { s } = useStyles();
@@ -269,6 +387,7 @@ export function EntrySheet({
   const { palette } = useTheme();
   const feed = palette.accents.feeding.accent;
   const med = palette.accents.medication.accent;
+  const pump = palette.accents.pumping.accent;
   const open = !!(target && draft);
 
   if (!target || !draft) return <SheetShell open={false} label={t("sheet.entry")}>{null}</SheetShell>;
@@ -386,6 +505,61 @@ export function EntrySheet({
                   style={{ ...s.slider, accentColor: feed }}
                 />
                 <span style={s.sliderValue}>{draft.amount != null ? `${draft.amount} ml` : "—"}</span>
+              </div>
+            </>
+          )}
+        </>
+      )}
+
+      {/* Pumping's amount is the entry — the server won't take the row without it, and
+          without this field a mistyped volume would be uncorrectable anywhere in the app. */}
+      {target.activity === "pumping" && (
+        <>
+          <div style={s.sheetGroup}>{t("sheet.amount")}</div>
+          <div style={s.sliderRow}>
+            <input
+              type="range"
+              min={0}
+              max={ML_STEPS.length}
+              step={1}
+              value={mlToIdx(draft.amount)}
+              aria-label={t("sheet.amount")}
+              onChange={(e) => setDraft((d) => ({ ...d, amount: idxToMl(Number(e.target.value)) }))}
+              style={{ ...s.slider, accentColor: pump }}
+            />
+            <span style={s.sliderValue}>{draft.amount != null ? `${draft.amount} ml` : "—"}</span>
+          </div>
+
+          {/* Where it went — asked only when ADDING. Without it a backdated session was
+              forced to the fridge, and the only way to correct it was the inventory's move
+              action, which restarts the clock from the correction rather than from when the
+              milk actually went in. Editing an existing bottle's location stays on the
+              inventory, where "move" has a defined meaning; here it would be ambiguous
+              between correcting a record and moving a bottle. */}
+          {target.isNew && (
+            <>
+              <div style={s.sheetGroup}>{t("sheet.storeIn")}</div>
+              <div style={s.chips}>
+                {PUMP_DESTINATIONS.map((d) => {
+                  const on = draft.stash?.state !== "discarded" && (draft.stash?.loc ?? "fridge") === d;
+                  return (
+                    <button
+                      key={d}
+                      aria-pressed={on}
+                      onClick={() => { buzz(); setDraft((prev) => ({ ...prev, stash: { loc: d, at: 0, state: "stored", note: "" } })); }}
+                      style={{ ...s.chip, ...(on ? chipOn(pump) : {}) }}
+                    >
+                      {t(`stash.loc.${d}`)}
+                    </button>
+                  );
+                })}
+                <button
+                  aria-pressed={draft.stash?.state === "discarded"}
+                  onClick={() => { buzz(); setDraft((prev) => ({ ...prev, stash: { loc: prev.stash?.loc ?? "fridge", at: 0, state: "discarded", note: "" } })); }}
+                  style={{ ...s.chip, color: palette.danger, ...(draft.stash?.state === "discarded" ? chipOn(palette.danger) : {}) }}
+                >
+                  {t("stash.dump")}
+                </button>
               </div>
             </>
           )}

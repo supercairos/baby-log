@@ -28,7 +28,8 @@
     "sleep": "Schlaf",
     "diaper": "Windel",
     "tummy": "Bauchzeit",
-    "medication": "Medikament"
+    "medication": "Medikament",
+    "pumping": "Abpumpen"
   },
   "medUnit": {
     "mg": "mg",
@@ -85,7 +86,12 @@
     "doseLastAgo": "letzte Dosis vor {{ago}}",
     "lastFeeding": "Letzte Mahlzeit",
     "overdueBy": "{{late}} überfällig",
-    "overdueByLabel": "überfällig seit"
+    "overdueByLabel": "überfällig seit",
+    "milkSoon_one": "Milch verbrauchen",
+    "milkSoon_other": "Milch verbrauchen ({{count}})",
+    "milkSoonBy": "{{volume}} · vor {{time}}",
+    "milkExpired_one": "Milch über der Frist",
+    "milkExpired_other": "Milch über der Frist ({{count}})"
   },
   "nav": {
     "home": "Start",
@@ -119,7 +125,10 @@
     "timeFuture": "Die Zeit darf nicht in der Zukunft liegen",
     "pickDiaper": "Wähle nass, Stuhl oder beides",
     "medNameRequired": "Namen des Medikaments eingeben",
-    "syncFailed": "Ein Eintrag konnte nicht synchronisiert werden"
+    "syncFailed": "Ein Eintrag konnte nicht synchronisiert werden",
+    "pumpSaved": "{{amount}} ml abgepumpt · {{duration}}",
+    "pumpAmountRequired": "Abgepumpte Menge angeben",
+    "pumpDumped": "{{amount}} ml verworfen · {{duration}}"
   },
   "timeline": {
     "addEntry": "Eintrag hinzufügen",
@@ -189,7 +198,9 @@
     "recentDoses": "Kürzlich",
     "nextDoseAfter": "Nächste Dosis nach",
     "hoursShort": "{{h}} h",
-    "lastBreast": "Letztes Mal: {{side}}"
+    "lastBreast": "Letztes Mal: {{side}}",
+    "pumpingAmount": "Abgepumpte Menge",
+    "storeIn": "Lagern im"
   },
   "login": {
     "connectManually": "Manuell verbinden",
@@ -240,5 +251,36 @@
   },
   "update": {
     "available": "Update verfügbar — zum Aktualisieren tippen"
+  },
+  "stash": {
+    "loc": {
+      "fridge": "Kühlschrank",
+      "freezer": "Gefrierschrank",
+      "room": "Raumtemp.",
+      "thawed": "Aufgetaut"
+    },
+    "title": "Milchvorrat",
+    "empty": "Derzeit nichts gelagert.",
+    "dayTitle": "An diesem Tag abgepumpt",
+    "expired": "über der Frist",
+    "used": "verbraucht",
+    "discarded": "verworfen",
+    "markUsed": "Verbraucht",
+    "discard": "Verwerfen",
+    "moveToFreezer": "Ins Gefrierfach",
+    "thaw": "Auftauen",
+    "source": "AFSSA 2005 · reif geborenes Baby zu Hause. Zeiten sind nicht kumulierbar.",
+    "total_one": "{{count}} Fläschchen · {{volume}}",
+    "total_other": "{{count}} Fläschchen · {{volume}}",
+    "freezerSummary_one": "Gefrierschrank · {{count}} Fläschchen · {{volume}}",
+    "freezerSummary_other": "Gefrierschrank · {{count}} Fläschchen · {{volume}}",
+    "expiresOn": "bis {{date}}",
+    "moveToFridge": "In den Kühlschrank",
+    "expiredGroup_one": "Über der Frist · {{volume}}",
+    "expiredGroup_other": "Über der Frist · {{count}} · {{volume}}",
+    "dump": "Verwerfen",
+    "restore": "Zurücksetzen",
+    "spentSummary_one": "Verlauf · {{count}} · {{volume}}",
+    "spentSummary_other": "Verlauf · {{count}} · {{volume}}"
   }
 }

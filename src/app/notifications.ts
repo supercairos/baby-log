@@ -24,7 +24,20 @@ const ICON: Record<TimerActivityKey, string> = {
   feeding: `${import.meta.env.BASE_URL}notif-feeding.png`,
   sleep: `${import.meta.env.BASE_URL}notif-sleep.png`,
   tummy: `${import.meta.env.BASE_URL}notif-tummy.png`,
+  pumping: `${import.meta.env.BASE_URL}notif-pumping.png`,
 };
+
+/**
+ * Pumping gets no "Stop" button: the server REQUIRES an amount to log a pumping session
+ * (verified — a POST without it 400s), and that number doesn't exist until the session
+ * ends, so there is nothing the action could submit. Tapping the body opens the app where it
+ * last was; the pump is then stopped from its running card. Because there's no in-tray
+ * escape, the service worker also skips its sticky re-show for pumping — otherwise the
+ * notification could not be dismissed at all.
+ */
+function stopActionFor(activity: TimerActivityKey): { action: string; title: string }[] {
+  return activity === "pumping" ? [] : [{ action: "stop", title: i18n.t("notif.stop") }];
+}
 
 export function notificationsSupported(): boolean {
   return typeof window !== "undefined" && "Notification" in window && "serviceWorker" in navigator;
@@ -82,7 +95,7 @@ export async function syncTimerNotifications(
       // here for timers not already on screen, so each running timer alerts exactly once.
       renotify: false,
       requireInteraction: true, // stays in the tray after the app closes
-      actions: [{ action: "stop", title: i18n.t("notif.stop") }],
+      actions: stopActionFor(rt.activity),
       data: {
         kind: "timer" as const,
         activity: rt.activity,

@@ -42,6 +42,8 @@ interface SwNotification {
   readonly body: string;
   readonly icon: string;
   readonly badge: string;
+  /** Absent where the platform ignores actions (iOS/WebKit). */
+  readonly actions?: ReadonlyArray<{ action: string; title: string }>;
   close(): void;
 }
 interface NotificationClickEventLike extends ExtendableEventLike {
@@ -165,14 +167,28 @@ sw.addEventListener("message", (event) => {
 // purpose (the Stop action) are parked here so the close handler lets them go.
 const reshowSuppressed = new Set<string>();
 
+/**
+ * Pumping can't be stopped from the notification: `POST /api/pumping/` REQUIRES `amount`,
+ * and the amount doesn't exist until the session ends, so there is nothing to submit here.
+ * Its notification carries no Stop action (see notifications.ts) — this guard is the
+ * belt-and-braces half, covering a stale notification left in the tray by an older build.
+ * Such a tap falls through to `focusApp`, which opens/focuses the app WHEREVER it last was;
+ * the parent then stops the pump from its running card. Routing straight to the amount sheet
+ * would need a deep link the SW doesn't have.
+ */
+function canStopFromNotification(data: TimerNotifData): boolean {
+  return data.activity !== "pumping";
+}
+
 sw.addEventListener("notificationclick", (event) => {
   const data = event.notification.data as TimerNotifData | null;
-  if (event.action === "stop" && data?.kind === "timer") {
-    reshowSuppressed.add(event.notification.tag); // we're stopping it — don't bring it back
-  }
+  const stopping = event.action === "stop" && data?.kind === "timer" && canStopFromNotification(data);
+  // Only suppress the sticky re-show when we're really about to stop it. A pumping tap
+  // leaves the timer running, so its notification must come back.
+  if (stopping) reshowSuppressed.add(event.notification.tag);
   event.notification.close();
-  if (event.action === "stop" && data?.kind === "timer") {
-    event.waitUntil(stopTimerFromNotification(data));
+  if (stopping) {
+    event.waitUntil(stopTimerFromNotification(data as TimerNotifData));
   } else {
     event.waitUntil(focusApp()); // tapping the body opens/focuses the app
   }
@@ -188,6 +204,13 @@ sw.addEventListener("notificationclose", (event) => {
 async function reshowIfStillRunning(n: SwNotification): Promise<void> {
   if (reshowSuppressed.delete(n.tag)) return; // closed by the Stop action — let it go
   const data = n.data as TimerNotifData;
+  // Never re-show a notification the user has no way to act on. Sticky is only fair when
+  // the notification itself offers an escape: without a Stop button, swipe-it-and-it-returns
+  // is a nag with no way out of the tray. That covers pumping (which deliberately has no
+  // Stop — it needs an amount) AND any platform that doesn't surface `actions` back to us,
+  // where copying them below would otherwise yield an empty array.
+  const actions = [...(n.actions ?? [])];
+  if (actions.length === 0) return;
   if (!(await timerStillRunning(data))) return; // timer ended → no need to nag
   await sw.registration.showNotification(n.title, {
     tag: n.tag,
@@ -197,7 +220,9 @@ async function reshowIfStillRunning(n: SwNotification): Promise<void> {
     requireInteraction: true,
     renotify: false,
     silent: true, // it was just dismissed — bring it back quietly, don't buzz again
-    actions: [{ action: "stop", title: "Stop" }],
+    // Carried over verbatim (checked non-empty above). That keeps the button in the user's
+    // language — the SW has no i18n of its own — without re-deriving it here.
+    actions,
     data,
   });
 }
@@ -213,6 +238,7 @@ async function timerStillRunning(data: TimerNotifData): Promise<boolean> {
       (m.kind === "consume-feeding" ||
         m.kind === "consume-sleep" ||
         m.kind === "consume-tummy" ||
+        m.kind === "consume-pumping" ||
         m.kind === "discard-timer") &&
       m.localId === data.localId
     );
@@ -222,6 +248,11 @@ async function timerStillRunning(data: TimerNotifData): Promise<boolean> {
 
 /** Stop a running timer straight from its notification — enqueue the consume + flush. */
 async function stopTimerFromNotification(d: TimerNotifData): Promise<void> {
+  // Bail BEFORE minting a mapping. `canStopFromNotification` already gates the only call
+  // site, but if that gate were ever loosened, returning further down would leave a timer
+  // mapping in IndexedDB with no mutation to consume it — which `timerStillRunning` then
+  // reports as a live timer forever.
+  if (!canStopFromNotification(d)) return;
   const conn = await loadConnection();
   if (!conn) return;
   // Resolve a localId the consume can reference (mint one for a server-only timer).

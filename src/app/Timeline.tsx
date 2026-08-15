@@ -12,7 +12,8 @@ import { useStyles, useTheme } from "../theme";
 import { ACTIVITY_ICON, ClockIcon, PlusIcon } from "../ui/icons";
 import { hm } from "../lib/format";
 import { clockTime, dayLabel } from "../lib/datetime";
-import { activityLabel, diaperMeta, feedingMeta, medicationMeta } from "../lib/labels";
+import { activityLabel, diaperMeta, feedingMeta, medicationMeta, pumpingMeta } from "../lib/labels";
+import { decodeStashNotes } from "../lib/stash";
 import i18n, { currentLocale } from "../i18n";
 
 /** The structured fields line + the free-text note (rendered on its own line below). */
@@ -28,6 +29,13 @@ function entryParts(e: TimelineEntry): { meta: string; note: string | null } {
       return { meta: "", note: e.milestone }; // tummy's free text lives in `milestone`
     case "medication":
       return { meta: medicationMeta(e.name, e.dosage, e.dosageUnit), note: e.notes };
+    case "pumping": {
+      // `notes` is shared: the stash prefix is machine state, the remainder is the parent's
+      // own text. Only the latter belongs in the note line — decoding strips the prefix, and
+      // an entry written elsewhere (no prefix) falls back to showing the note verbatim.
+      const stash = decodeStashNotes(e.notes);
+      return { meta: pumpingMeta(e.amount, stash), note: stash ? stash.note || null : e.notes };
+    }
   }
 }
 

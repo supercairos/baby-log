@@ -150,6 +150,38 @@ export function makeStyles(p: Palette): Styles {
     tileLabel: { color: p.text, fontSize: dark ? 19 : 20, marginTop: 2, fontFamily: p.serif, fontWeight: 600 },
     tileHint: { fontSize: 12.5, fontWeight: 700, transition: "color .25s ease" },
 
+    // ── Split tile ──────────────────────────────────────────────────────────────
+    // The 4th grid cell holds two half-height tiles instead of one full one. Heights are
+    // pinned so the pair matches a full tile exactly: 62 + 14 (the grid's own gap) + 62 = 138.
+    // Too short for the full tile's vertical stack, so these lay out horizontally — icon
+    // left, label over hint on the right. The hint stays: it's the only thing distinguishing
+    // "tap to start" from "tap to stop", and it matters most for pumping, where stopping
+    // opens the amount sheet rather than logging outright.
+    tileSplit: { display: "flex", flexDirection: "column", gap: 14 },
+    tileHalf: {
+      display: "flex",
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      padding: "10px 14px",
+      // flex:1 lets the pair track the neighbouring full tile if its label ever wraps taller,
+      // while minHeight holds the 62px floor when it doesn't.
+      flex: 1,
+      minHeight: 62,
+      borderRadius: dark ? 18 : 16,
+      background: p.surface,
+      border: `1px solid ${p.surfaceBorder}`,
+      textAlign: "left",
+      transition: "transform .14s ease, box-shadow .25s ease, background .25s ease",
+      boxShadow: p.cardShadow,
+      backdropFilter: dark ? "blur(6px)" : undefined,
+      WebkitBackdropFilter: dark ? "blur(6px)" : undefined,
+    },
+    tileHalfIcon: { display: "grid", placeItems: "center", width: 34, height: 34, borderRadius: 12, flex: "0 0 auto", background: p.inner, transition: "background .25s ease" },
+    tileHalfText: { display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 1, minWidth: 0 },
+    tileHalfLabel: { color: p.text, fontSize: 15, fontFamily: p.serif, fontWeight: 600, lineHeight: 1.2 },
+    tileHalfHint: { fontSize: 11, fontWeight: 700, lineHeight: 1.2, transition: "color .25s ease" },
+
     toast: {
       position: "fixed",
       left: "50%",

@@ -23,7 +23,9 @@ export type TimelineEntry =
   | (TimelineEntryBase & { activity: "sleep"; nap: boolean | null; notes: string | null })
   | (TimelineEntryBase & { activity: "tummy"; milestone: string | null })
   | (TimelineEntryBase & { activity: "diaper"; wet: boolean; solid: boolean; notes: string | null })
-  | (TimelineEntryBase & { activity: "medication"; name: string; dosage: number | null; dosageUnit: MedicationUnit | null; nextDoseInterval: string | null; notes: string | null });
+  | (TimelineEntryBase & { activity: "medication"; name: string; dosage: number | null; dosageUnit: MedicationUnit | null; nextDoseInterval: string | null; notes: string | null })
+  // `notes` also carries the milk-stash state behind a machine prefix — see lib/stash.
+  | (TimelineEntryBase & { activity: "pumping"; amount: number; notes: string | null });
 
 const parse = (v: string | null | undefined): number => (v ? Date.parse(v) : 0);
 
@@ -33,10 +35,11 @@ type Lists = {
   tummy: components["schemas"]["TummyTime"][];
   changes: components["schemas"]["DiaperChange"][];
   medication: components["schemas"]["Medication"][];
+  pumping: components["schemas"]["Pumping"][];
 };
 
 /** Merge the endpoint result sets into one newest-first stream of typed timeline entries. */
-function mergeEntries({ feedings, sleep, tummy, changes, medication }: Lists): TimelineEntry[] {
+function mergeEntries({ feedings, sleep, tummy, changes, medication, pumping }: Lists): TimelineEntry[] {
   const out: TimelineEntry[] = [];
   for (const f of feedings) {
     if (f.id == null) continue;
@@ -58,6 +61,10 @@ function mergeEntries({ feedings, sleep, tummy, changes, medication }: Lists): T
     if (md.id == null) continue;
     out.push({ id: md.id, activity: "medication", path: "/api/medication/", startMs: parse(md.time), endMs: null, name: md.name, dosage: md.dosage ?? null, dosageUnit: md.dosage_unit ?? null, nextDoseInterval: md.next_dose_interval ?? null, notes: md.notes ?? null });
   }
+  for (const pm of pumping) {
+    if (pm.id == null) continue;
+    out.push({ id: pm.id, activity: "pumping", path: "/api/pumping/", startMs: parse(pm.start), endMs: pm.end ? parse(pm.end) : null, amount: pm.amount ?? 0, notes: pm.notes ?? null });
+  }
   return out.sort((a, b) => b.startMs - a.startMs);
 }
 
@@ -77,18 +84,20 @@ export async function listRecentEntries(
   const child = String(childId);
   // Unwrapped one by one — mapping the heterogeneous tuple through the generic `unwrap`
   // collapses every element type to unknown.
-  const [feedingsRes, sleepRes, tummyRes, changesRes, medicationRes] = await Promise.all([
+  const [feedingsRes, sleepRes, tummyRes, changesRes, medicationRes, pumpingRes] = await Promise.all([
     client.GET("/api/feedings/", { params: { query: { child, limit: limitPer, offset, ordering: "-start" } } }),
     client.GET("/api/sleep/", { params: { query: { child, limit: limitPer, offset, ordering: "-start" } } }),
     client.GET("/api/tummy-times/", { params: { query: { child, limit: limitPer, offset, ordering: "-start" } } }),
     client.GET("/api/changes/", { params: { query: { child, limit: limitPer, offset, ordering: "-time" } } }),
     client.GET("/api/medication/", { params: { query: { child, limit: limitPer, offset, ordering: "-time" } } }),
+    client.GET("/api/pumping/", { params: { query: { child, limit: limitPer, offset, ordering: "-start" } } }),
   ]);
   const feedings = unwrap(feedingsRes);
   const sleep = unwrap(sleepRes);
   const tummy = unwrap(tummyRes);
   const changes = unwrap(changesRes);
   const medication = unwrap(medicationRes);
+  const pumping = unwrap(pumpingRes);
   return {
     entries: mergeEntries({
       feedings: feedings.results ?? [],
@@ -96,9 +105,10 @@ export async function listRecentEntries(
       tummy: tummy.results ?? [],
       changes: changes.results ?? [],
       medication: medication.results ?? [],
+      pumping: pumping.results ?? [],
     }),
     // DRF `count` is the endpoint's TOTAL — rows exist past this window on any endpoint.
-    hasMore: [feedings, sleep, tummy, changes, medication].some((p) => (p.count ?? 0) > offset + limitPer),
+    hasMore: [feedings, sleep, tummy, changes, medication, pumping].some((p) => (p.count ?? 0) > offset + limitPer),
   };
 }
 
@@ -121,12 +131,13 @@ export async function listEntriesInRange(
   // against the full `time` DATETIME — a bare date parses as midnight, so a same-day window
   // (`date_min = date_max = <day>`) matches nothing. Pass the exact window as ISO datetimes.
   const instant = { child, date_min: new Date(fromMs).toISOString(), date_max: new Date(toMs).toISOString(), limit: 500, ordering: "-time" };
-  const [feedings, sleep, tummy, changes, medication] = await Promise.all([
+  const [feedings, sleep, tummy, changes, medication, pumping] = await Promise.all([
     client.GET("/api/feedings/", { params: { query: timed } }),
     client.GET("/api/sleep/", { params: { query: timed } }),
     client.GET("/api/tummy-times/", { params: { query: timed } }),
     client.GET("/api/changes/", { params: { query: instant } }),
     client.GET("/api/medication/", { params: { query: instant } }),
+    client.GET("/api/pumping/", { params: { query: timed } }),
   ]);
   return mergeEntries({
     feedings: unwrap(feedings).results ?? [],
@@ -134,5 +145,6 @@ export async function listEntriesInRange(
     tummy: unwrap(tummy).results ?? [],
     changes: unwrap(changes).results ?? [],
     medication: unwrap(medication).results ?? [],
+    pumping: unwrap(pumping).results ?? [],
   });
 }

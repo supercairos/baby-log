@@ -71,8 +71,42 @@ Parser:
   `method` (left breast / right breast / both breasts / bottle).
 - Diaper (`/api/changes/`): booleans `wet` and `solid` (can be both). Instant, no duration.
 - Bottle feeds support an `amount` (ml) field — NOT yet in the mockup; next field to add.
+- Pumping (`/api/pumping/`): timed like sleep, and it accepts `timer` so it consumes a timer the
+  same way. But `amount` is **REQUIRED** (verified live: a POST without it returns 400
+  `{"amount":["This field is required."]}`) — and unlike a feeding's type/method, that number
+  doesn't exist until the session ends. So pumping is the one activity whose details are asked
+  for at the STOP, not the start: tapping the tile starts it immediately (like sleep), and
+  stopping opens a sheet with amount chips + slider. Three consequences: its notification
+  carries no "Stop" action (nothing to submit without an amount) and therefore also skips the
+  sticky re-show — without an in-tray escape a re-shown notification can't be dismissed at
+  all; tapping it just opens the app where it last was, and the pump is stopped from its
+  running card; and dismissing the stop sheet cancels the stop and leaves the timer running
+  rather than logging a guess.
 - One unified timeline = several endpoints fetched in parallel and merged/sorted by timestamp.
   There is no single "entries" endpoint.
+
+### Milk stash (pumped-bottle storage)
+- Baby Buddy has no storage model, so where a bottle is kept rides in the Pumping entry's
+  `notes` behind a machine-readable prefix, human text preserved after it:
+  `[stash loc=fridge at=<iso> state=stored] the parent's own note`. Same trick as the
+  "|"-encoded feeding side in `Timer.name` — the server stays the single source of truth and
+  every caregiver's device sees the same state. `tags` was rejected for this: it can't carry
+  the timestamp a location change needs.
+- **Expiry is derived, never stored** — keep only `loc` + `at`, recompute on render. Exactly
+  the rule timers follow with `startedAt`, and it survives reload/multi-device for free.
+- **Pumping to throw away** (after a drink, or a medication that isn't feed-safe) is an
+  ordinary reason to express, so the stop sheet's destination row carries a "discard" chip
+  beside the locations: the session and its volume are still logged — they count toward
+  supply — but the milk is marked spent immediately and never enters the stash.
+- **Bottles are never deleted, only re-stated.** Used / discarded / expired entries stay on
+  the inventory (struck through, collapsed into a history group) rather than vanishing: the
+  session happened, and a row that silently disappears gives no way to tell a mis-tap from a
+  real one. A spent row keeps one action — restore — which puts the state back WITHOUT
+  touching `at`, so a bottle restored too late reappears as lapsed rather than looking fresh.
+- Windows are **AFSSA 2005** (room 4 h / fridge 48 h / freezer 4 months / thawed 24 h), the
+  conservative end of French guidance — CoFAM 2024 allows 8 days and 12 months, ABM 2017 sits
+  between. `STORAGE_WINDOW_MS` in `lib/stash.ts` is the one place to change them. Applies to
+  full-term babies at home; durations are NOT cumulative.
 
 ---
 
@@ -105,6 +139,10 @@ Parser:
   at top. Big tap targets, dark-by-default (nursery at 3am). Haptics + top toast on action,
   no confirm dialogs (fix mistakes later via timeline edit).
 - **Color = identity**: each activity owns one accent in one fixed position (muscle memory).
+  The home grid is 2×2: feeding / sleep / diaper each own a full tile and never move, and the
+  fourth cell is SPLIT between the two lower-frequency timed activities (tummy + pumping) as
+  half-height rows — icon left, label over hint right. Adding a sixth activity should reuse
+  that split rather than shifting the first three.
 - **Details before start** (changed 2026-07 from the mockups' start-immediately design, on
   explicit user request): tapping the Feeding tile opens the details sheet with the last choice
   pre-selected — the timer does NOT start yet. The "Done"/"Terminé" CTA starts the timer with the

@@ -30,6 +30,7 @@ export type Sleep = components["schemas"]["Sleep"];
 export type TummyTime = components["schemas"]["TummyTime"];
 export type DiaperChange = components["schemas"]["DiaperChange"];
 export type Medication = components["schemas"]["Medication"];
+export type Pumping = components["schemas"]["Pumping"];
 
 /** ISO-8601 UTC datetime string (we store UTC, render local). */
 export type IsoDateTime = string;
@@ -54,6 +55,17 @@ export interface DiaperFields {
   time?: IsoDateTime;
   color?: DiaperChange["color"];
   amount?: number | null;
+  notes?: string | null;
+}
+export interface PumpingFields {
+  /**
+   * Millilitres expressed. REQUIRED by the server even when consuming a timer — verified
+   * live: `POST /api/pumping/` without it returns 400 `{"amount":["This field is required."]}`.
+   * This is why stopping a pumping timer opens the amount sheet instead of logging straight
+   * away: unlike a feeding's type/method, the value doesn't exist until the session ends.
+   */
+  amount: number;
+  /** Carries the milk-stash state (location + when) behind a machine prefix — see lib/stash. */
   notes?: string | null;
 }
 export interface MedicationFields {
@@ -105,6 +117,16 @@ export async function consumeTummyTimer(
   fields: TummyFields = {},
 ): Promise<TummyTime> {
   const res = await client.POST("/api/tummy-times/", { body: { timer: timerId, ...fields } });
+  return finishConsume(res);
+}
+
+/** `fields.amount` is mandatory here — see `PumpingFields`. */
+export async function consumePumpingTimer(
+  client: BabyBuddyClient,
+  timerId: number,
+  fields: PumpingFields,
+): Promise<Pumping> {
+  const res = await client.POST("/api/pumping/", { body: { timer: timerId, ...fields } });
   return finishConsume(res);
 }
 
@@ -167,6 +189,19 @@ export async function createTummyTime(
   return unwrap(res);
 }
 
+export async function createPumping(
+  client: BabyBuddyClient,
+  childId: number,
+  start: IsoDateTime,
+  end: IsoDateTime,
+  fields: PumpingFields,
+): Promise<Pumping> {
+  const res = await client.POST("/api/pumping/", {
+    body: { child: childId, start, end, ...fields },
+  });
+  return unwrap(res);
+}
+
 // ── Edit / delete existing entries ───────────────────────────────────────────
 
 /**
@@ -179,7 +214,8 @@ export type EntryPatch =
   | { path: "/api/sleep/"; body: { start?: IsoDateTime; end?: IsoDateTime; nap?: boolean | null; notes?: string | null } }
   | { path: "/api/tummy-times/"; body: { start?: IsoDateTime; end?: IsoDateTime; milestone?: string } }
   | { path: "/api/changes/"; body: { child: number; wet: boolean; solid: boolean; time?: IsoDateTime; color?: DiaperChange["color"]; amount?: number | null; notes?: string | null } }
-  | { path: "/api/medication/"; body: { child: number; name: string; dosage?: number | null; dosage_unit?: MedicationUnit; next_dose_interval?: string | null; time?: IsoDateTime; notes?: string | null } };
+  | { path: "/api/medication/"; body: { child: number; name: string; dosage?: number | null; dosage_unit?: MedicationUnit; next_dose_interval?: string | null; time?: IsoDateTime; notes?: string | null } }
+  | { path: "/api/pumping/"; body: { amount: number; start?: IsoDateTime; end?: IsoDateTime; notes?: string | null } };
 
 export async function updateEntry(client: BabyBuddyClient, id: number, patch: EntryPatch): Promise<void> {
   const params = { path: { id: String(id) } };
@@ -199,6 +235,9 @@ export async function updateEntry(client: BabyBuddyClient, id: number, patch: En
     case "/api/medication/":
       unwrap(await client.PATCH("/api/medication/{id}/", { params, body: patch.body }));
       return;
+    case "/api/pumping/":
+      unwrap(await client.PATCH("/api/pumping/{id}/", { params, body: patch.body }));
+      return;
   }
 }
 
@@ -213,11 +252,52 @@ export async function deleteEntry(client: BabyBuddyClient, path: EntryPath, id: 
           ? await client.DELETE("/api/tummy-times/{id}/", { params })
           : path === "/api/changes/"
             ? await client.DELETE("/api/changes/{id}/", { params })
-            : await client.DELETE("/api/medication/{id}/", { params });
+            : path === "/api/medication/"
+              ? await client.DELETE("/api/medication/{id}/", { params })
+              : await client.DELETE("/api/pumping/{id}/", { params });
   if (!res.response.ok && res.response.status !== 404) unwrap(res); // 404 = already deleted
 }
 
 // ── Read helpers ──────────────────────────────────────────────────────────────
+
+/**
+ * Every pumping session started since `sinceIso` — the raw material for the milk stash.
+ * Reaches back far enough to cover the longest storage window (frozen milk keeps months),
+ * so this is deliberately its own query rather than a slice of the timeline: the calendar's
+ * range fetch pulls five other endpoints we don't need here.
+ */
+export async function listPumpings(
+  client: BabyBuddyClient,
+  childId: number,
+  sinceIso: IsoDateTime,
+  pageSize = 300,
+): Promise<Pumping[]> {
+  // Paginated, not a single capped page. The lookback spans the freezer window (~4 months),
+  // and an exclusive pumper logs 8+ sessions a day — well past any one page. Truncating
+  // would silently drop the OLDEST bottles, which are exactly the frozen ones this window
+  // exists to track, and they'd vanish from the inventory with nothing to say they had.
+  const out: Pumping[] = [];
+  for (let offset = 0; ; offset += pageSize) {
+    const res = await client.GET("/api/pumping/", {
+      params: { query: { child: String(childId), start_min: sinceIso, limit: pageSize, offset, ordering: "-start" } },
+    });
+    const page = unwrap(res);
+    out.push(...(page.results ?? []));
+    if (!page.next || (page.results?.length ?? 0) === 0) return out;
+  }
+}
+
+/**
+ * The child's last pumped amount, to pre-highlight a chip in the stop sheet. Server-derived
+ * so it's right on a caregiver's second device too (localStorage is only the instant-paint
+ * fallback). `null` when nothing has been pumped yet.
+ */
+export async function getLastPumpingAmount(client: BabyBuddyClient, childId: number): Promise<number | null> {
+  const res = await client.GET("/api/pumping/", {
+    params: { query: { child: String(childId), limit: 1, ordering: "-start" } },
+  });
+  return unwrap(res).results?.[0]?.amount ?? null;
+}
 
 /** The child's last feeding `{type, method, amount}`, to pre-select the next feeding's details. */
 export async function getLastFeedingChoice(

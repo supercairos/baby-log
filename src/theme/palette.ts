@@ -152,6 +152,9 @@ export const darkPalette: Palette = {
     diaper: { accent: "#a4c8a0", glow: "rgba(164,200,160,.30)" },
     tummy: { accent: "#d9a0b4", glow: "rgba(217,160,180,.30)" },
     medication: { accent: "#b3a4e0", glow: "rgba(179,164,224,.30)" },
+    // Warm gold — milk. Picked to sit next to tummy's rose in the split tile without the two
+    // reading as the same accent at 3am, and to stay clear of feeding's honey orange.
+    pumping: { accent: "#dcc57e", glow: "rgba(220,197,126,.30)" },
   },
 };
 
@@ -212,6 +215,9 @@ export const lightPalette: Palette = {
     diaper: { accent: "#5d7a3a", glow: "rgba(93,122,58,.20)" },
     tummy: { accent: "#9a4a6b", glow: "rgba(154,74,107,.20)" },
     medication: { accent: "#5b53a6", glow: "rgba(91,83,166,.20)" },
+    // Deep ochre — the light-theme counterpart of the dark palette's gold. This is also the
+    // background of public/notif-pumping.png; keep the two in step.
+    pumping: { accent: "#8a6d1c", glow: "rgba(138,109,28,.20)" },
   },
 };
 
