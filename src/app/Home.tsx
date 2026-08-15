@@ -29,6 +29,7 @@ import {
   enqueueMutation,
   flushOutbox,
   getLastFeedingChoice,
+  getLastPumpingAmount,
   logDiaperMutation,
   logMedicationMutation,
   mergeTimerMapping,
@@ -70,6 +71,7 @@ import { clockTime, formatAge, greeting } from "../lib/datetime";
 import { predictNext, predictSleepEnd, predictionAlive, type ActivityPrediction } from "../lib/predict";
 import { lastNight } from "../lib/night";
 import { tummyProgress } from "../lib/tummy";
+import { encodeStashNotes, newStash, type StashLocation } from "../lib/stash";
 import { activityLabel, diaperMeta, feedingMeta } from "../lib/labels";
 import {
   buzz,
@@ -81,20 +83,26 @@ import {
   useToast,
   type RunningTimer,
 } from "./hooks";
-import { DiaperSheet, EntrySheet, FeedingSheet } from "./sheets";
+import { DiaperSheet, EntrySheet, FeedingSheet, PumpingSheet } from "./sheets";
 import { Calendar } from "./Calendar";
+import { StashPage } from "./Stash";
 import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { useFocusTrap } from "./useFocusTrap";
 import type { EditDraft, EditTarget, RecentMed } from "./types";
 import type { ActivityKey } from "../api";
 
-const TILE_ORDER: ActivityKey[] = ["feeding", "sleep", "diaper", "tummy"];
+// The first three own a full tile each, in fixed positions — that placement is muscle
+// memory, so it must not shift. The fourth cell is split between the two lower-frequency
+// timed activities (see `SPLIT_TILES` and the grid below).
+const TILE_ORDER: ActivityKey[] = ["feeding", "sleep", "diaper"];
+const SPLIT_TILES: ActivityKey[] = ["tummy", "pumping"];
 // A probably-forgotten timer, per activity: a feed rarely runs 2h and tummy time 1h; sleep
 // can legitimately run all night, so its threshold stays much higher.
 const STALE_AFTER_MS: Record<TimerActivityKey, number> = {
   feeding: 2 * 3600_000,
   sleep: 14 * 3600_000,
   tummy: 1 * 3600_000,
+  pumping: 2 * 3600_000, // a session is 15–30 min; 2h means the phone was put down
 };
 // How long a deleted entry's mutation is held back so the toast's Undo can cancel it.
 const UNDO_DELETE_MS = 5000;
@@ -108,8 +116,17 @@ const actionKeyFor = (kind: string): string =>
 // CTA starts it); a real localId = refine mode over an already-running timer. `lastMethod`
 // (pre-start only) is the previous feed's method, snapshotted at open so the "last time:
 // left" hint doesn't chase the user's taps.
-type Sheet = { type: "feeding"; localId: string | null; lastMethod?: FeedingMethod | null } | { type: "diaper" } | null;
+// Pumping sheet: opened by STOPPING a running pump, never by starting one. The server
+// requires an amount to log a pumping session and that number doesn't exist until the
+// session is over, so the timer keeps running until the CTA is tapped — closing the sheet
+// cancels the stop and leaves the pump running rather than losing it.
+type Sheet =
+  | { type: "feeding"; localId: string | null; lastMethod?: FeedingMethod | null }
+  | { type: "diaper" }
+  | { type: "pumping"; localId: string; startedMs: number }
+  | null;
 type FeedSel = { type: FeedingType | null; method: FeedingMethod | null; amount?: number | null };
+type PumpSel = { amount: number | null; loc: StashLocation };
 
 /** Breastfeeding alternates sides: propose the breast NOT used last time. "Both breasts"
  *  stays both; bottle/solid/none pass through unchanged. */
@@ -145,6 +162,9 @@ export function Home({
   const [editing, setEditing] = useState<EditTarget | null>(null);
   const [draft, setDraft] = useState<EditDraft | null>(null);
   const [lastFeed, setLastFeed] = useState<Record<number, FeedSel>>({});
+  const [pumpSel, setPumpSel] = useState<PumpSel>({ amount: null, loc: "fridge" });
+  /** Last recorded pumping amount per child — pre-highlights a chip in the stop sheet. */
+  const [lastPump, setLastPump] = useState<Record<number, number>>({});
   const [notify, setNotify] = useState(() => localStorage.getItem("baby-log:notify") === "on");
   const [napAlert, setNapAlert] = useState(() => localStorage.getItem("baby-log:napalert") === "on");
   // Predictions are opt-in (default OFF): some parents find guessed etas more stressful than
@@ -166,6 +186,17 @@ export function Home({
   const pendingDeletes = useRef<Map<string, { timeout: number; run: () => void }>>(new Map());
 
   const accentOf = (a: ActivityKey) => palette.accents[a].accent;
+  // Sub-label under each tile. Shared by the full and half tiles so the two shapes can never
+  // drift apart. Pumping falls through to "tap to start" — like sleep, it starts on the tap
+  // with nothing to choose first; the amount is asked for at the STOP.
+  const tileHint = (key: ActivityKey, on: boolean) =>
+    on
+      ? t("home.tapToStop")
+      : key === "diaper"
+        ? t("home.tapToLog")
+        : key === "feeding"
+          ? t("home.pickAndStart")
+          : t("home.tapToStart");
   const child = children?.find((c) => c.id === childId) ?? null;
   const childFirstName = child?.first_name ?? null; // shown in timer notifications
   const instanceHost = (() => {
@@ -487,6 +518,22 @@ export function Home({
       .catch(() => {});
   }, [client, childId]);
 
+  // Same two-step for the last pumped amount: localStorage paints instantly, the server
+  // then corrects it so the other caregiver's phone pre-selects the right chip too.
+  useEffect(() => {
+    if (childId == null) return;
+    const cached = Number(localStorage.getItem(`baby-log:lastpump:${childId}`));
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (Number.isFinite(cached) && cached > 0) setLastPump((p) => ({ ...p, [childId]: cached }));
+    getLastPumpingAmount(client, childId)
+      .then((amount) => {
+        if (amount == null) return;
+        setLastPump((p) => ({ ...p, [childId]: amount }));
+        localStorage.setItem(`baby-log:lastpump:${childId}`, String(amount));
+      })
+      .catch(() => {});
+  }, [client, childId]);
+
   // ── write pipeline ──
   const submit = (m: Mutation) => {
     refreshRunning();
@@ -553,8 +600,15 @@ export function Home({
         localStorage.setItem(`baby-log:lastfeed:${childId}`, JSON.stringify(next));
       } else if (rt.activity === "sleep") {
         submit(consumeTimerMutation("sleep", localId, childId));
-      } else {
+      } else if (rt.activity === "tummy") {
         submit(consumeTimerMutation("tummy", localId, childId));
+      } else {
+        // Pumping needs an amount the server won't accept a session without, and it only
+        // exists now the session is over — so ask, then write. The timer stays running until
+        // `confirmPumping`; nothing is logged if the sheet is dismissed.
+        setPumpSel({ amount: lastPump[childId] ?? null, loc: "fridge" });
+        setSheet({ type: "pumping", localId, startedMs: rt.startedMs });
+        return;
       }
       if (sheet?.type === "feeding") setSheet(null);
       show(t("toast.saved", { activity: activityLabel(rt.activity), duration: hm(durationMs) }), accentOf(rt.activity));
@@ -663,6 +717,36 @@ export function Home({
     try {
       await start("feeding", feedSel);
       setSheet(null);
+    } finally {
+      pending.current.delete(guard);
+    }
+  };
+
+  /**
+   * Pumping sheet CTA — this is where the pump actually stops. Writes the amount the parent
+   * just read off the bottle, plus where they're putting it, and only then consumes the
+   * timer. The stash state rides in `notes` (see lib/stash); expiry is derived from it on
+   * render, never stored.
+   */
+  const confirmPumping = async () => {
+    if (sheet?.type !== "pumping" || childId == null) return;
+    const amount = pumpSel.amount;
+    if (amount == null) return; // the CTA is disabled in this state
+    const guard = `stop:${sheet.localId}`;
+    if (pending.current.has(guard)) return;
+    pending.current.add(guard);
+    buzz();
+    try {
+      const endedMs = nowMs();
+      const notes = encodeStashNotes(newStash(pumpSel.loc, endedMs));
+      submit(consumeTimerMutation("pumping", sheet.localId, childId, { amount, notes }));
+      setLastPump((p) => ({ ...p, [childId]: amount }));
+      localStorage.setItem(`baby-log:lastpump:${childId}`, String(amount));
+      setSheet(null);
+      show(
+        t("toast.pumpSaved", { amount, duration: hm(endedMs - sheet.startedMs) }),
+        accentOf("pumping"),
+      );
     } finally {
       pending.current.delete(guard);
     }
@@ -869,6 +953,9 @@ export function Home({
   const sheetOpen = sheet !== null || editing !== null;
   const runningFeeding = running.find((r) => r.activity === "feeding");
   const feedingElapsed = sheet?.type === "feeding" && runningFeeding ? now - runningFeeding.startedMs : null;
+  // The pumping sheet carries its own start: the timer is still running behind it, and it
+  // must keep ticking while the parent picks an amount.
+  const pumpingElapsed = sheet?.type === "pumping" ? now - sheet.startedMs : null;
 
   const themeLabel = t(pref === "system" ? "nav.themeSystem" : pref === "dark" ? "nav.themeDark" : "nav.themeLight");
 
@@ -1132,7 +1219,7 @@ export function Home({
             ) : null}
           </section>
 
-          {/* Activity grid */}
+          {/* Activity grid — three full tiles, then a split cell holding two half tiles. */}
           <section style={s.grid}>
             {TILE_ORDER.map((key, i) => {
               const v = palette.accents[key];
@@ -1149,18 +1236,37 @@ export function Home({
                     <Icon size={32} />
                   </span>
                   <span style={s.tileLabel}>{activityLabel(key)}</span>
-                  <span style={{ ...s.tileHint, color: on ? v.accent : palette.textFaint }}>
-                    {on
-                      ? t("home.tapToStop")
-                      : key === "diaper"
-                        ? t("home.tapToLog")
-                        : key === "feeding"
-                          ? t("home.pickAndStart")
-                          : t("home.tapToStart")}
-                  </span>
+                  <span style={{ ...s.tileHint, color: on ? v.accent : palette.textFaint }}>{tileHint(key, on)}</span>
                 </button>
               );
             })}
+            <div style={s.tileSplit}>
+              {SPLIT_TILES.map((key, i) => {
+                const v = palette.accents[key];
+                const Icon = ACTIVITY_ICON[key];
+                const on = running.some((r) => r.activity === key);
+                return (
+                  <button
+                    key={key}
+                    className="tile-in"
+                    onClick={() => void onActivity(key)}
+                    style={{
+                      ...s.tileHalf,
+                      animationDelay: `${0.05 + (TILE_ORDER.length + i) * 0.06}s`,
+                      ...(on ? activeTile(v) : {}),
+                    }}
+                  >
+                    <span style={{ ...s.tileHalfIcon, color: v.accent, ...(on ? { background: `${v.accent}1f` } : {}) }}>
+                      <Icon size={18} />
+                    </span>
+                    <span style={s.tileHalfText}>
+                      <span style={s.tileHalfLabel}>{activityLabel(key)}</span>
+                      <span style={{ ...s.tileHalfHint, color: on ? v.accent : palette.textFaint }}>{tileHint(key, on)}</span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </section>
             </>
           }
@@ -1188,6 +1294,15 @@ export function Home({
             </>
           }
         />
+        <Route
+          path="/stash"
+          element={
+            <>
+              {renderHeader(t("stash.title"))}
+              <StashPage client={client} childId={childId} />
+            </>
+          }
+        />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       </div>
@@ -1212,6 +1327,7 @@ export function Home({
         {([
           { to: "/", key: "nav.home", Icon: HomeIcon },
           { to: "/timeline", key: "nav.timeline", Icon: TimelineIcon },
+          { to: "/stash", key: "stash.title", Icon: ACTIVITY_ICON.pumping },
         ] as const).map((item) => (
           <button key={item.to} onClick={() => { buzz(); navigate(item.to); setMenu(false); }} style={{ ...s.navItem, ...(pathname === item.to ? s.navItemOn : {}) }}>
             <item.Icon size={20} />
@@ -1281,6 +1397,16 @@ export function Home({
         onDone={() => void confirmFeeding()}
       />
       <DiaperSheet open={sheet?.type === "diaper"} onLog={logDiaper} />
+      <PumpingSheet
+        open={sheet?.type === "pumping"}
+        elapsedMs={pumpingElapsed}
+        amount={pumpSel.amount}
+        lastAmount={childId != null ? (lastPump[childId] ?? null) : null}
+        loc={pumpSel.loc}
+        onAmount={(amount) => { buzz(); setPumpSel((p) => ({ ...p, amount })); }}
+        onLoc={(loc) => { buzz(); setPumpSel((p) => ({ ...p, loc })); }}
+        onDone={() => void confirmPumping()}
+      />
       <EntrySheet target={editing} draft={draft} setDraft={(u) => setDraft((d) => (d ? u(d) : d))} recentMeds={recentMeds} onPickKind={pickKind} onBack={backToKindPicker} onSave={saveEdit} onDelete={deleteEditing} />
 
       {/* Toast — the only action feedback (no confirm dialogs), so announce it. The container

@@ -206,6 +206,49 @@ export const GlobeIcon = (p: IconProps) => (
   </Svg>
 );
 
+// ── Milk-storage glyphs ──────────────────────────────────────────────────────
+// One per storage location, so a stash row says WHERE at a glance — that's the fact the
+// screen exists to answer, and it beats reading four near-identical bottle rows.
+export const FridgeIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="5" y="2.5" width="14" height="19" rx="2.5" />
+    <path d="M5 10h14M8.5 6v2M8.5 13v2.5" />
+  </Svg>
+);
+export const SnowflakeIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M12 2.5v19M3.8 7.2l16.4 9.6M20.2 7.2 3.8 16.8" />
+    <path d="M12 6.4 9.9 4.5M12 6.4l2.1-1.9M12 17.6l-2.1 1.9M12 17.6l2.1 1.9" />
+  </Svg>
+);
+/** Room temperature — a thermometer, not a house: the window is about warmth, not place. */
+export const ThermometerIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M14 14.8V5a2 2 0 1 0-4 0v9.8a4 4 0 1 0 4 0Z" />
+    <path d="M12 9.5v5.5" />
+  </Svg>
+);
+/** Thawed — the drop sits over a puddle line, so it doesn't read as the diaper glyph. */
+export const ThawIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M12 2.5s5.2 5.6 5.2 8.9A5.2 5.2 0 0 1 6.8 11.4C6.8 8.1 12 2.5 12 2.5Z" />
+    <path d="M6.5 20.5h11" />
+  </Svg>
+);
+
+/**
+ * Breast pump — a flange funnelling into a collection bottle. Deliberately unlike
+ * `BottleIcon` (which is capped by a teat): at tile size the two sit next to each other on
+ * the home grid, so the silhouettes have to differ at a glance, not on inspection.
+ */
+export const PumpIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M7 3h10l-3 6h-4L7 3Z" />
+    <path d="M9 9h6a1.5 1.5 0 0 1 1.5 1.5v9A1.5 1.5 0 0 1 15 21H9a1.5 1.5 0 0 1-1.5-1.5v-9A1.5 1.5 0 0 1 9 9Z" />
+    <path d="M7.5 16h9" />
+  </Svg>
+);
+
 // eslint-disable-next-line react-refresh/only-export-components -- icon map co-located with its glyphs
 export const ACTIVITY_ICON: Record<ActivityKey, (p: IconProps) => React.ReactElement> = {
   feeding: BottleIcon,
@@ -213,4 +256,5 @@ export const ACTIVITY_ICON: Record<ActivityKey, (p: IconProps) => React.ReactEle
   diaper: DropIcon,
   tummy: TummyIcon,
   medication: PillIcon,
+  pumping: PumpIcon,
 };

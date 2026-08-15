@@ -42,6 +42,8 @@ interface SwNotification {
   readonly body: string;
   readonly icon: string;
   readonly badge: string;
+  /** Absent where the platform ignores actions (iOS/WebKit). */
+  readonly actions?: ReadonlyArray<{ action: string; title: string }>;
   close(): void;
 }
 interface NotificationClickEventLike extends ExtendableEventLike {
@@ -165,14 +167,26 @@ sw.addEventListener("message", (event) => {
 // purpose (the Stop action) are parked here so the close handler lets them go.
 const reshowSuppressed = new Set<string>();
 
+/**
+ * Pumping can't be stopped from the notification: `POST /api/pumping/` REQUIRES `amount`,
+ * and the amount doesn't exist until the session ends, so there is nothing to submit here.
+ * Its notification carries no Stop action (see notifications.ts) — this guard is the
+ * belt-and-braces half, covering a stale notification left in the tray by an older build.
+ * Such a tap falls through to "open the app", which lands on the amount sheet.
+ */
+function canStopFromNotification(data: TimerNotifData): boolean {
+  return data.activity !== "pumping";
+}
+
 sw.addEventListener("notificationclick", (event) => {
   const data = event.notification.data as TimerNotifData | null;
-  if (event.action === "stop" && data?.kind === "timer") {
-    reshowSuppressed.add(event.notification.tag); // we're stopping it — don't bring it back
-  }
+  const stopping = event.action === "stop" && data?.kind === "timer" && canStopFromNotification(data);
+  // Only suppress the sticky re-show when we're really about to stop it. A pumping tap
+  // leaves the timer running, so its notification must come back.
+  if (stopping) reshowSuppressed.add(event.notification.tag);
   event.notification.close();
-  if (event.action === "stop" && data?.kind === "timer") {
-    event.waitUntil(stopTimerFromNotification(data));
+  if (stopping) {
+    event.waitUntil(stopTimerFromNotification(data as TimerNotifData));
   } else {
     event.waitUntil(focusApp()); // tapping the body opens/focuses the app
   }
@@ -197,7 +211,10 @@ async function reshowIfStillRunning(n: SwNotification): Promise<void> {
     requireInteraction: true,
     renotify: false,
     silent: true, // it was just dismissed — bring it back quietly, don't buzz again
-    actions: [{ action: "stop", title: "Stop" }],
+    // Carry the original notification's actions over verbatim. That keeps the button in the
+    // user's language (the SW has no i18n of its own) and preserves "no Stop for pumping"
+    // without having to re-derive either here.
+    actions: [...(n.actions ?? [])],
     data,
   });
 }
@@ -213,6 +230,7 @@ async function timerStillRunning(data: TimerNotifData): Promise<boolean> {
       (m.kind === "consume-feeding" ||
         m.kind === "consume-sleep" ||
         m.kind === "consume-tummy" ||
+        m.kind === "consume-pumping" ||
         m.kind === "discard-timer") &&
       m.localId === data.localId
     );
@@ -240,8 +258,10 @@ async function stopTimerFromNotification(d: TimerNotifData): Promise<void> {
     await enqueue(consumeTimerMutation("feeding", localId, d.childId, { type, method, amount }));
   } else if (d.activity === "sleep") {
     await enqueue(consumeTimerMutation("sleep", localId, d.childId));
-  } else {
+  } else if (d.activity === "tummy") {
     await enqueue(consumeTimerMutation("tummy", localId, d.childId));
+  } else {
+    return; // pumping — filtered out by canStopFromNotification; never guess an amount
   }
   await flushOutbox(createBabyBuddyClient(conn)).catch(() => {}); // offline → Background Sync retries
   // Nudge any open tab to refresh its view.

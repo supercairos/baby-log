@@ -28,7 +28,8 @@
     "sleep": "Sueño",
     "diaper": "Pañal",
     "tummy": "Boca abajo",
-    "medication": "Medicamento"
+    "medication": "Medicamento",
+    "pumping": "Extracción"
   },
   "medUnit": {
     "mg": "mg",
@@ -119,7 +120,8 @@
     "timeFuture": "La hora no puede estar en el futuro",
     "pickDiaper": "Elige pis, caca o ambos",
     "medNameRequired": "Introduce el nombre del medicamento",
-    "syncFailed": "No se pudo sincronizar un registro"
+    "syncFailed": "No se pudo sincronizar un registro",
+    "pumpSaved": "{{amount}} ml extraídos · {{duration}}"
   },
   "timeline": {
     "addEntry": "Añadir entrada",
@@ -189,7 +191,9 @@
     "recentDoses": "Recientes",
     "nextDoseAfter": "Próxima dosis tras",
     "hoursShort": "{{h}} h",
-    "lastBreast": "Última vez: {{side}}"
+    "lastBreast": "Última vez: {{side}}",
+    "pumpingAmount": "Cantidad extraída",
+    "storeIn": "Guardar en"
   },
   "login": {
     "connectManually": "Conexión manual",
@@ -240,5 +244,29 @@
   },
   "update": {
     "available": "Actualización disponible — toca para recargar"
+  },
+  "stash": {
+    "loc": {
+      "fridge": "Nevera",
+      "freezer": "Congelador",
+      "room": "Ambiente",
+      "thawed": "Descongelado"
+    },
+    "title": "Reserva de leche",
+    "empty": "Nada almacenado ahora mismo.",
+    "dayTitle": "Extraído este día",
+    "expired": "fuera de plazo",
+    "used": "usado",
+    "discarded": "desechado",
+    "markUsed": "Usado",
+    "discard": "Desechar",
+    "moveToFreezer": "Al congelador",
+    "thaw": "Descongelar",
+    "source": "Recomendación AFSSA 2005 · bebé a término en casa. Duraciones no acumulables.",
+    "total_one": "{{count}} biberón · {{volume}}",
+    "total_other": "{{count}} biberones · {{volume}}",
+    "freezerSummary_one": "Congelador · {{count}} biberón · {{volume}}",
+    "freezerSummary_other": "Congelador · {{count}} biberones · {{volume}}",
+    "expiresOn": "hasta {{date}}"
   }
 }

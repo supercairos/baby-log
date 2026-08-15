@@ -28,7 +28,8 @@
     "sleep": "Sonno",
     "diaper": "Pannolino",
     "tummy": "Pancia in giù",
-    "medication": "Farmaco"
+    "medication": "Farmaco",
+    "pumping": "Tiralatte"
   },
   "medUnit": {
     "mg": "mg",
@@ -119,7 +120,8 @@
     "timeFuture": "L'orario non può essere nel futuro",
     "pickDiaper": "Scegli pipì, feci o entrambi",
     "medNameRequired": "Inserisci il nome del farmaco",
-    "syncFailed": "Non è stato possibile sincronizzare una voce"
+    "syncFailed": "Non è stato possibile sincronizzare una voce",
+    "pumpSaved": "{{amount}} ml estratti · {{duration}}"
   },
   "timeline": {
     "addEntry": "Aggiungi voce",
@@ -189,7 +191,9 @@
     "recentDoses": "Recenti",
     "nextDoseAfter": "Prossima dose dopo",
     "hoursShort": "{{h}} h",
-    "lastBreast": "Ultima volta: {{side}}"
+    "lastBreast": "Ultima volta: {{side}}",
+    "pumpingAmount": "Quantità estratta",
+    "storeIn": "Conservare in"
   },
   "login": {
     "connectManually": "Connessione manuale",
@@ -240,5 +244,29 @@
   },
   "update": {
     "available": "Aggiornamento disponibile — tocca per ricaricare"
+  },
+  "stash": {
+    "loc": {
+      "fridge": "Frigorifero",
+      "freezer": "Congelatore",
+      "room": "Ambiente",
+      "thawed": "Scongelato"
+    },
+    "title": "Scorta di latte",
+    "empty": "Nulla in conservazione.",
+    "dayTitle": "Estratto in giornata",
+    "expired": "fuori tempo",
+    "used": "usato",
+    "discarded": "eliminato",
+    "markUsed": "Usato",
+    "discard": "Elimina",
+    "moveToFreezer": "In congelatore",
+    "thaw": "Scongela",
+    "source": "Indicazioni AFSSA 2005 · neonato a termine a casa. Durate non cumulabili.",
+    "total_one": "{{count}} biberon · {{volume}}",
+    "total_other": "{{count}} biberon · {{volume}}",
+    "freezerSummary_one": "Congelatore · {{count}} biberon · {{volume}}",
+    "freezerSummary_other": "Congelatore · {{count}} biberon · {{volume}}",
+    "expiresOn": "fino al {{date}}"
   }
 }

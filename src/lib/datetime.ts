@@ -54,6 +54,21 @@ export function formatAge(birthDate: string, now: Date = new Date()): string {
   return unit(totalDays, "day");
 }
 
+/**
+ * Short absolute date + time, e.g. "17/08 09:52" — for a deadline you plan around. A milk
+ * expiry is deliberately shown as the moment it lapses rather than a countdown: "keeps 2 d"
+ * has to be re-read against the current time before it means anything, whereas a date can be
+ * compared straight against the next feed.
+ */
+export function shortDateTime(epochMs: number): string {
+  return new Date(epochMs).toLocaleString(currentLocale(), {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 export function dayLabel(epochMs: number): string {
   const d = new Date(epochMs);
   d.setHours(0, 0, 0, 0);

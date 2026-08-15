@@ -18,6 +18,7 @@ import { tummyGoalForAge } from "../lib/tummy";
 import { sunTimes } from "../lib/sun";
 import { useEntriesInRange, useGeo, useNow, buzz } from "./hooks";
 import { EntryRow, Timeline } from "./Timeline";
+import { PumpDayList } from "./Stash";
 
 type CalMode = "day" | "week" | "list" | "summary";
 const MODES: CalMode[] = ["list", "day", "week", "summary"];
@@ -282,6 +283,13 @@ function RadialDay({
   // Wet/solid overlap ("les deux" counts in both), matching the Résumé's split.
   const wetCount = diapers.filter((e) => e.wet).length;
   const solidCount = diapers.filter((e) => e.solid).length;
+  // Pumping is deliberately absent from the ring: it's the parent's activity, not something
+  // that happened to the baby. It still earns a stat and the list below — the day's total
+  // volume is the number a pumping parent actually tracks.
+  const pumps = list.filter(
+    (e): e is Extract<TimelineEntry, { activity: "pumping" }> => e.activity === "pumping" && e.startMs >= winStart && e.startMs < winEnd,
+  );
+  const pumpMl = pumps.reduce((sum, e) => sum + e.amount, 0);
   // Awake = the elapsed window minus everything logged (never counts future time today).
   const barEnd = Math.min(Math.max(now, winStart + 60_000), winEnd);
   const awakeMs = Math.max(0, barEnd - winStart - sleepMs - tummyMs - feedMs);
@@ -805,6 +813,11 @@ function RadialDay({
             { key: "wet", cap: t("diaper.wet"), capColor: palette.accents.diaper.accent, big: `×${wetCount}` },
             { key: "solid", cap: t("diaper.solid"), capColor: palette.accents.diaper.accent, big: `×${solidCount}` },
             { key: "tummy", cap: activityLabel("tummy"), capColor: palette.accents.tummy.accent, big: hm(tummyMs) },
+            // Only when there IS pumping — a permanent "0 ml" slide would lengthen the tap
+            // cycle for every family that doesn't express.
+            ...(pumpMl > 0
+              ? [{ key: "pumping", cap: activityLabel("pumping"), capColor: palette.accents.pumping.accent, big: `${pumpMl} ml`, sub: `×${pumps.length}` }]
+              : []),
             { key: "awake", cap: t("cal.awake"), capColor: palette.textMuted, big: hm(awakeMs) },
           ];
           const total = slides.length + (soonest ? 1 : 0);
@@ -905,6 +918,8 @@ function RadialDay({
           </div>
         );
       })()}
+      {/* The day's pumping sessions. Deliberately a list, not marks on the ring above. */}
+      <PumpDayList entries={pumps} />
       {/* Folded-tick picker: several same-type entries share one "N×" mark — choose which
           one to edit. Same scrim + bottom-sheet chrome as every other sheet in the app. */}
       {pick != null && <button tabIndex={-1} style={{ ...s.scrim, cursor: "default" }} onClick={() => setPick(null)} aria-label={t("home.close")} />}
@@ -1105,7 +1120,7 @@ interface LaidOut {
  * block to ≥6px tall, so short/instant events reserve 6px worth of time at the current zoom.
  * Anything more (the old flat 20 min) split lanes for blocks that visibly don't touch.
  */
-const LANE_ORDER: Record<TimelineEntry["activity"], number> = { sleep: 0, tummy: 1, feeding: 2, medication: 3, diaper: 4 };
+const LANE_ORDER: Record<TimelineEntry["activity"], number> = { sleep: 0, tummy: 1, feeding: 2, medication: 3, diaper: 4, pumping: 5 };
 /** Vertical position of an instant in a wall-clock-labelled grid: local h:mm × px/hour. This
  *  keeps blocks aligned with the hour lines even on 23/25-hour DST days. */
 function wallClockY(ms: number, hourPx: number): number {

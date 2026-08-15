@@ -28,7 +28,8 @@
     "sleep": "Sleep",
     "diaper": "Diaper",
     "tummy": "Tummy time",
-    "medication": "Medication"
+    "medication": "Medication",
+    "pumping": "Pumping"
   },
   "medUnit": {
     "mg": "mg",
@@ -119,7 +120,8 @@
     "timeFuture": "Time can't be in the future",
     "pickDiaper": "Pick wet, solid, or both",
     "medNameRequired": "Enter the medication name",
-    "syncFailed": "A write couldn't be synced"
+    "syncFailed": "A write couldn't be synced",
+    "pumpSaved": "{{amount}} ml pumped · {{duration}}"
   },
   "timeline": {
     "addEntry": "Add entry",
@@ -189,7 +191,9 @@
     "recentDoses": "Recent",
     "nextDoseAfter": "Next dose after",
     "hoursShort": "{{h}}h",
-    "lastBreast": "Last time: {{side}}"
+    "lastBreast": "Last time: {{side}}",
+    "pumpingAmount": "Pumped amount",
+    "storeIn": "Store in"
   },
   "login": {
     "connectManually": "Connect manually",
@@ -240,5 +244,29 @@
   },
   "update": {
     "available": "Update available — tap to refresh"
+  },
+  "stash": {
+    "loc": {
+      "fridge": "Fridge",
+      "freezer": "Freezer",
+      "room": "Room temp",
+      "thawed": "Thawed"
+    },
+    "title": "Milk stash",
+    "empty": "Nothing stored right now.",
+    "dayTitle": "Pumped this day",
+    "expired": "past its window",
+    "used": "used",
+    "discarded": "discarded",
+    "markUsed": "Used",
+    "discard": "Discard",
+    "moveToFreezer": "To freezer",
+    "thaw": "Thaw",
+    "source": "AFSSA 2005 guidance · full-term baby at home. Durations are not cumulative.",
+    "total_one": "{{count}} bottle · {{volume}}",
+    "total_other": "{{count}} bottles · {{volume}}",
+    "freezerSummary_one": "Freezer · {{count}} bottle · {{volume}}",
+    "freezerSummary_other": "Freezer · {{count}} bottles · {{volume}}",
+    "expiresOn": "until {{date}}"
   }
 }

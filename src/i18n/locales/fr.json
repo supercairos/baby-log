@@ -28,7 +28,8 @@
     "sleep": "Sommeil",
     "diaper": "Change",
     "tummy": "Sur le ventre",
-    "medication": "Médicament"
+    "medication": "Médicament",
+    "pumping": "Tire-lait"
   },
   "medUnit": {
     "mg": "mg",
@@ -119,7 +120,8 @@
     "timeFuture": "L'heure ne peut pas être dans le futur",
     "pickDiaper": "Choisissez pipi, selles, ou les deux",
     "medNameRequired": "Saisissez le nom du médicament",
-    "syncFailed": "Une écriture n'a pas pu être synchronisée"
+    "syncFailed": "Une écriture n'a pas pu être synchronisée",
+    "pumpSaved": "{{amount}} ml tirés · {{duration}}"
   },
   "timeline": {
     "addEntry": "Ajouter une entrée",
@@ -189,7 +191,9 @@
     "recentDoses": "Récents",
     "nextDoseAfter": "Prochaine dose après",
     "hoursShort": "{{h}} h",
-    "lastBreast": "Dernière fois : {{side}}"
+    "lastBreast": "Dernière fois : {{side}}",
+    "pumpingAmount": "Quantité tirée",
+    "storeIn": "Conserver au"
   },
   "login": {
     "connectManually": "Connexion manuelle",
@@ -240,5 +244,29 @@
   },
   "update": {
     "available": "Mise à jour disponible — appuyez pour actualiser"
+  },
+  "stash": {
+    "loc": {
+      "fridge": "Frigo",
+      "freezer": "Congélateur",
+      "room": "Ambiante",
+      "thawed": "Décongelé"
+    },
+    "title": "Réserve de lait",
+    "empty": "Rien en conservation.",
+    "dayTitle": "Tiré ce jour",
+    "expired": "hors délai",
+    "used": "utilisé",
+    "discarded": "jeté",
+    "markUsed": "Utilisé",
+    "discard": "Jeter",
+    "moveToFreezer": "Au congél.",
+    "thaw": "Décongeler",
+    "source": "Repères AFSSA 2005 · bébé né à terme, à domicile. Durées non cumulables.",
+    "total_one": "{{count}} biberon · {{volume}}",
+    "total_other": "{{count}} biberons · {{volume}}",
+    "freezerSummary_one": "Congélateur · {{count}} biberon · {{volume}}",
+    "freezerSummary_other": "Congélateur · {{count}} biberons · {{volume}}",
+    "expiresOn": "jusqu'au {{date}}"
   }
 }

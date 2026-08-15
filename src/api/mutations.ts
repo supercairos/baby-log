@@ -22,6 +22,7 @@ import type {
   TummyFields,
   DiaperFields,
   MedicationFields,
+  PumpingFields,
   EntryPatch,
 } from "./entries";
 import { enqueue } from "./outbox";
@@ -75,6 +76,13 @@ export type Mutation =
       endedAt: IsoDateTime;
       fields: TummyFields;
     })
+  | (MutationBase & {
+      kind: "consume-pumping";
+      localId: LocalId;
+      childId: number;
+      endedAt: IsoDateTime;
+      fields: PumpingFields;
+    })
   | (MutationBase & { kind: "discard-timer"; localId: LocalId })
   | (MutationBase & { kind: "log-diaper"; childId: number; fields: DiaperFields })
   | (MutationBase & { kind: "log-medication"; childId: number; fields: MedicationFields })
@@ -98,6 +106,13 @@ export type Mutation =
       start: IsoDateTime;
       end: IsoDateTime;
       fields: TummyFields;
+    })
+  | (MutationBase & {
+      kind: "create-pumping";
+      childId: number;
+      start: IsoDateTime;
+      end: IsoDateTime;
+      fields: PumpingFields;
     })
   | (MutationBase & { kind: "update-entry"; serverId: number; patch: EntryPatch })
   | (MutationBase & { kind: "delete-entry"; serverId: number; path: EntryPath });
@@ -132,17 +147,19 @@ export function patchTimerMutation(localId: LocalId): Mutation {
 
 /**
  * Stop a timed activity (consume its timer into an entry). Overloaded per activity so the
- * compiler enforces the right fields — crucially, FEEDING requires `type`+`method` (the
- * server rejects a feeding without them, even when consuming a timer).
+ * compiler enforces the right fields — crucially, FEEDING requires `type`+`method` and
+ * PUMPING requires `amount` (the server rejects either without them, even when consuming a
+ * timer), so for those two `fields` is not optional.
  */
 export function consumeTimerMutation(activity: "feeding", localId: LocalId, childId: number, fields: FeedingFields, endedAt?: IsoDateTime): Mutation;
 export function consumeTimerMutation(activity: "sleep", localId: LocalId, childId: number, fields?: SleepFields, endedAt?: IsoDateTime): Mutation;
 export function consumeTimerMutation(activity: "tummy", localId: LocalId, childId: number, fields?: TummyFields, endedAt?: IsoDateTime): Mutation;
+export function consumeTimerMutation(activity: "pumping", localId: LocalId, childId: number, fields: PumpingFields, endedAt?: IsoDateTime): Mutation;
 export function consumeTimerMutation(
   activity: TimerActivityKey,
   localId: LocalId,
   childId: number,
-  fields: FeedingFields | SleepFields | TummyFields = {},
+  fields: FeedingFields | SleepFields | TummyFields | PumpingFields = {} as SleepFields,
   endedAt: IsoDateTime = nowIso(),
 ): Mutation {
   const base = { mutationId: newId(), at: endedAt, localId, childId, endedAt };
@@ -154,6 +171,8 @@ export function consumeTimerMutation(
       return { ...base, kind: "consume-sleep", fields: fields as SleepFields };
     case "tummy":
       return { ...base, kind: "consume-tummy", fields: fields as TummyFields };
+    case "pumping":
+      return { ...base, kind: "consume-pumping", fields: fields as PumpingFields };
   }
 }
 
@@ -181,6 +200,10 @@ export function createSleepMutation(childId: number, start: IsoDateTime, end: Is
 
 export function createTummyMutation(childId: number, start: IsoDateTime, end: IsoDateTime, fields: TummyFields = {}): Mutation {
   return { kind: "create-tummy", mutationId: newId(), at: nowIso(), childId, start, end, fields };
+}
+
+export function createPumpingMutation(childId: number, start: IsoDateTime, end: IsoDateTime, fields: PumpingFields): Mutation {
+  return { kind: "create-pumping", mutationId: newId(), at: nowIso(), childId, start, end, fields };
 }
 
 export function updateEntryMutation(serverId: number, patch: EntryPatch): Mutation {
@@ -215,6 +238,8 @@ export function mutationLabel(m: Mutation): string {
       return "Log sleep";
     case "consume-tummy":
       return "Log tummy time";
+    case "consume-pumping":
+      return "Log pumping";
     case "discard-timer":
       return "Discard timer";
     case "log-diaper":
@@ -227,6 +252,8 @@ export function mutationLabel(m: Mutation): string {
       return "Add sleep";
     case "create-tummy":
       return "Add tummy time";
+    case "create-pumping":
+      return "Add pumping";
     case "update-entry":
       return "Edit entry";
     case "delete-entry":

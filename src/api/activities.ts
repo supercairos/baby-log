@@ -21,9 +21,9 @@ export type FeedingMethod = components["schemas"]["Feeding"]["method"];
 export type MedicationUnit = NonNullable<components["schemas"]["Medication"]["dosage_unit"]>;
 
 /** All activities. Medication is instant like diaper (a `time`, no duration). */
-export type ActivityKey = "feeding" | "sleep" | "diaper" | "tummy" | "medication";
+export type ActivityKey = "feeding" | "sleep" | "diaper" | "tummy" | "medication" | "pumping";
 /** Activities that run as a timer (everything except instant diaper changes / medication). */
-export type TimerActivityKey = "feeding" | "sleep" | "tummy";
+export type TimerActivityKey = "feeding" | "sleep" | "tummy" | "pumping";
 
 /** Entry endpoint each activity consumes a timer into / creates an entry on. */
 export type EntryPath =
@@ -31,7 +31,8 @@ export type EntryPath =
   | "/api/sleep/"
   | "/api/tummy-times/"
   | "/api/changes/"
-  | "/api/medication/";
+  | "/api/medication/"
+  | "/api/pumping/";
 
 export interface ActivityDef {
   key: ActivityKey;
@@ -49,12 +50,14 @@ export const TIMER_NAMES: Record<TimerActivityKey, string> = {
   feeding: "Feeding",
   sleep: "Sleep",
   tummy: "Tummy time",
+  pumping: "Pumping",
 };
 
 export const ACTIVITIES: Record<ActivityKey, ActivityDef> = {
   feeding: { key: "feeding", label: "Feeding", timerName: TIMER_NAMES.feeding, entryPath: "/api/feedings/", timed: true },
   sleep: { key: "sleep", label: "Sleep", timerName: TIMER_NAMES.sleep, entryPath: "/api/sleep/", timed: true },
   tummy: { key: "tummy", label: "Tummy time", timerName: TIMER_NAMES.tummy, entryPath: "/api/tummy-times/", timed: true },
+  pumping: { key: "pumping", label: "Pumping", timerName: TIMER_NAMES.pumping, entryPath: "/api/pumping/", timed: true },
   diaper: { key: "diaper", label: "Diaper", entryPath: "/api/changes/", timed: false },
   medication: { key: "medication", label: "Medication", entryPath: "/api/medication/", timed: false },
 };
@@ -75,6 +78,14 @@ const TIMER_NAME_ALIASES: Record<string, TimerActivityKey> = {
   "tummy-time": "tummy",
   tummytime: "tummy",
   tummy: "tummy",
+  // Pumping. The French names are here because the Home Assistant buttons are configured in
+  // French — the timer name is the contract between them and this client.
+  pumping: "pumping",
+  pump: "pumping",
+  expressing: "pumping",
+  "tire-lait": "pumping",
+  tirelait: "pumping",
+  tirage: "pumping",
 };
 
 function normalizeName(name: string | null | undefined): string {

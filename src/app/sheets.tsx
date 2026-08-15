@@ -20,6 +20,7 @@ import { ACTIVITY_ICON, BackIcon, TrashIcon } from "../ui/icons";
 import { buzz } from "./hooks";
 import { useFocusTrap } from "./useFocusTrap";
 import type { EditDraft, EditTarget, RecentMed } from "./types";
+import type { StashLocation } from "../lib/stash";
 
 /** Preset minimum-gap options (hours) offered for a medication's next dose. */
 const MED_INTERVAL_HOURS = [4, 6, 8, 12, 24] as const;
@@ -212,6 +213,101 @@ export function FeedingSheet({
       {/* Pre-start the CTA STARTS the timer — say so; "Done" would read as "already logged". */}
       <button onClick={onDone} style={s.cta}>
         {t(started ? "common.done" : "sheet.startTimer")}
+      </button>
+    </SheetShell>
+  );
+}
+
+// ── Pumping ─────────────────────────────────────────────────────────────────
+/**
+ * Quick-pick amounts. Fixed so their positions become muscle memory, with the last recorded
+ * amount spliced in when it isn't already one of them — the pre-highlighted chip must always
+ * be on screen, otherwise the "one tap to confirm" path silently disappears.
+ */
+const PUMP_PRESETS = [60, 90, 120, 150];
+function pumpPresets(last: number | null): number[] {
+  if (last == null || PUMP_PRESETS.includes(last)) return PUMP_PRESETS;
+  return [...PUMP_PRESETS, last].sort((a, b) => a - b);
+}
+
+/** Where fresh milk goes. "thawed" is deliberately absent — it's a later transition, not a
+ *  destination for milk that was just expressed. */
+const PUMP_DESTINATIONS: StashLocation[] = ["fridge", "freezer", "room"];
+
+/**
+ * Shown when a pumping timer STOPS, never when it starts: `POST /api/pumping/` requires an
+ * amount, and the parent can only read that off the bottle once they're done. Dismissing the
+ * sheet cancels the stop — the timer keeps running, nothing is logged.
+ */
+export function PumpingSheet({
+  open,
+  elapsedMs,
+  amount,
+  lastAmount,
+  loc,
+  onAmount,
+  onLoc,
+  onDone,
+}: {
+  open: boolean;
+  elapsedMs: number | null;
+  amount: number | null;
+  /** Previous session's amount — pre-selected, and guaranteed present in the chip row. */
+  lastAmount: number | null;
+  loc: StashLocation;
+  onAmount: (ml: number | null) => void;
+  onLoc: (loc: StashLocation) => void;
+  onDone: () => void;
+}) {
+  const { s, chipOn } = useStyles();
+  const { t } = useTranslation();
+  const pump = useTheme().palette.accents.pumping.accent;
+
+  return (
+    <SheetShell open={open} label={t("sheet.pumpingAmount")}>
+      <div style={s.sheetHandle} />
+      <div style={s.sheetTitle}>{t("activity.pumping")}</div>
+      {/* `sheetRunning` is tinted with the feeding accent (its only other user) — re-tint it,
+          since one activity owning one colour is what makes the tiles readable at a glance. */}
+      {elapsedMs != null && (
+        <div style={{ ...s.sheetRunning, background: `${pump}1f`, border: `1px solid ${pump}47`, color: pump }}>{fmt(elapsedMs)}</div>
+      )}
+
+      <div style={s.sheetGroup}>{t("sheet.amount")}</div>
+      <div style={s.chips}>
+        {pumpPresets(lastAmount).map((ml) => (
+          <button key={ml} aria-pressed={amount === ml} onClick={() => onAmount(ml)} style={{ ...s.chip, ...(amount === ml ? chipOn(pump) : {}) }}>
+            {ml} ml
+          </button>
+        ))}
+      </div>
+      {/* The slider stays for anything the chips don't cover — same ladder as bottle feeds. */}
+      <div style={s.sliderRow}>
+        <input
+          type="range"
+          min={0}
+          max={ML_STEPS.length}
+          step={1}
+          value={mlToIdx(amount)}
+          aria-label={t("sheet.amount")}
+          onChange={(e) => onAmount(idxToMl(Number(e.target.value)))}
+          style={{ ...s.slider, accentColor: pump }}
+        />
+        <span style={s.sliderValue}>{amount != null ? `${amount} ml` : "—"}</span>
+      </div>
+
+      {/* Chosen now because it's what starts the expiry clock — asking later means guessing. */}
+      <div style={s.sheetGroup}>{t("sheet.storeIn")}</div>
+      <div style={s.chips}>
+        {PUMP_DESTINATIONS.map((d) => (
+          <button key={d} aria-pressed={loc === d} onClick={() => onLoc(d)} style={{ ...s.chip, ...(loc === d ? chipOn(pump) : {}) }}>
+            {t(`stash.loc.${d}`)}
+          </button>
+        ))}
+      </div>
+
+      <button onClick={onDone} disabled={amount == null} style={{ ...s.cta, ...(amount == null ? s.ctaOff : { background: pump }) }}>
+        {t("common.done")}
       </button>
     </SheetShell>
   );

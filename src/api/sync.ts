@@ -48,9 +48,11 @@ import {
   consumeFeedingTimer,
   consumeSleepTimer,
   consumeTummyTimer,
+  consumePumpingTimer,
   createFeeding,
   createSleep,
   createTummyTime,
+  createPumping,
   logDiaperChange,
   createMedication,
   updateEntry,
@@ -116,7 +118,12 @@ function coalesceDecisions(records: OutboxRecord[]): Map<LocalId, "consume" | "d
   for (const { mutation: m } of records) {
     if (m.kind === "start-timer") starts.add(m.localId);
     else if (m.kind === "discard-timer") stops.set(m.localId, "discard");
-    else if (m.kind === "consume-feeding" || m.kind === "consume-sleep" || m.kind === "consume-tummy") {
+    else if (
+      m.kind === "consume-feeding" ||
+      m.kind === "consume-sleep" ||
+      m.kind === "consume-tummy" ||
+      m.kind === "consume-pumping"
+    ) {
       if (!stops.has(m.localId)) stops.set(m.localId, "consume");
     }
   }
@@ -283,6 +290,15 @@ async function executeRecord(
         (childId, start, end) => createTummyTime(client, childId, start, end, m.fields),
       );
 
+    case "consume-pumping":
+      return resolveStop(
+        m.localId,
+        m.childId,
+        m.endedAt,
+        (id) => consumePumpingTimer(client, id, m.fields),
+        (childId, start, end) => createPumping(client, childId, start, end, m.fields),
+      );
+
     case "discard-timer": {
       const mapping = await getTimerMapping(m.localId);
       if (mapping?.serverId != null) await discardTimer(client, mapping.serverId);
@@ -306,6 +322,9 @@ async function executeRecord(
       return;
     case "create-tummy":
       await createTummyTime(client, m.childId, m.start, m.end, m.fields);
+      return;
+    case "create-pumping":
+      await createPumping(client, m.childId, m.start, m.end, m.fields);
       return;
 
     case "update-entry":

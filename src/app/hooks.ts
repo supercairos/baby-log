@@ -25,10 +25,13 @@ import {
   listActiveTimers,
   listChildren,
   listEntriesInRange,
+  listPumpings,
   listRecentEntries,
   loadConnection,
   saveConnection,
 } from "../api";
+import { nowMs } from "../lib/format";
+import { STASH_LOOKBACK_DAYS } from "../lib/stash";
 
 // ── ticking clock ─────────────────────────────────────────────────────────────
 export function useNow(intervalMs = 1000): number {
@@ -165,7 +168,13 @@ async function computeRunning(client: BabyBuddyClient, childId: number): Promise
   for (const r of records) {
     if (r.dead) continue; // a dead (permanently-failed) stop never runs — it must not hide its timer
     const m = r.mutation;
-    if (m.kind === "consume-feeding" || m.kind === "consume-sleep" || m.kind === "consume-tummy" || m.kind === "discard-timer") {
+    if (
+      m.kind === "consume-feeding" ||
+      m.kind === "consume-sleep" ||
+      m.kind === "consume-tummy" ||
+      m.kind === "consume-pumping" ||
+      m.kind === "discard-timer"
+    ) {
       pendingStops.add(m.localId);
     }
   }
@@ -359,6 +368,24 @@ export function useEntriesInRange(
     placeholderData: (prev) => prev,
   });
   return { entries: childId == null ? null : (data ?? null), loading: isFetching };
+}
+
+/**
+ * Pumping sessions recent enough to still be in storage — the milk stash. The lookback is
+ * the longest window we can grant (frozen), padded, so nothing that could still be drinkable
+ * falls outside the query. Bucketed to the day so the key doesn't change every render.
+ */
+export function usePumpings(client: BabyBuddyClient, childId: number | null, enabled = true) {
+  const sinceDay = Math.floor(nowMs() / 86_400_000) - STASH_LOOKBACK_DAYS;
+  const { data, isFetching, refetch } = useQuery({
+    queryKey: ["pumpings", childId, sinceDay],
+    enabled: childId != null && enabled,
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
+    queryFn: () => listPumpings(client, childId as number, new Date(sinceDay * 86_400_000).toISOString()),
+    placeholderData: (prev) => prev,
+  });
+  return { pumpings: childId == null ? null : (data ?? null), loading: isFetching, refresh: () => void refetch() };
 }
 
 /**
