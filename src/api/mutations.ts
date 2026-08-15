@@ -159,18 +159,22 @@ export function consumeTimerMutation(
   activity: TimerActivityKey,
   localId: LocalId,
   childId: number,
-  fields: FeedingFields | SleepFields | TummyFields | PumpingFields = {} as SleepFields,
+  fields?: FeedingFields | SleepFields | TummyFields | PumpingFields,
   endedAt: IsoDateTime = nowIso(),
 ): Mutation {
   const base = { mutationId: newId(), at: endedAt, localId, childId, endedAt };
   switch (activity) {
     // The overloads guarantee `fields` matches `activity`, so these casts are sound.
+    // Sleep and tummy default to `{}`; feeding and pumping have REQUIRED fields, so they get
+    // no default — an omitted `amount` would 400 and dead-letter minutes later, and a cast
+    // that pretends `{}` is a PumpingFields would hide exactly the constraint the overloads
+    // exist to enforce.
     case "feeding":
       return { ...base, kind: "consume-feeding", fields: fields as FeedingFields };
     case "sleep":
-      return { ...base, kind: "consume-sleep", fields: fields as SleepFields };
+      return { ...base, kind: "consume-sleep", fields: (fields ?? {}) as SleepFields };
     case "tummy":
-      return { ...base, kind: "consume-tummy", fields: fields as TummyFields };
+      return { ...base, kind: "consume-tummy", fields: (fields ?? {}) as TummyFields };
     case "pumping":
       return { ...base, kind: "consume-pumping", fields: fields as PumpingFields };
   }

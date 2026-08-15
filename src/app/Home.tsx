@@ -23,6 +23,7 @@ import {
   createFeedingMutation,
   createSleepMutation,
   createTummyMutation,
+  createPumpingMutation,
   deleteEntryMutation,
   discardTimerMutation,
   patchTimerMutation,
@@ -71,7 +72,7 @@ import { clockTime, formatAge, greeting } from "../lib/datetime";
 import { predictNext, predictSleepEnd, predictionAlive, type ActivityPrediction } from "../lib/predict";
 import { lastNight } from "../lib/night";
 import { tummyProgress } from "../lib/tummy";
-import { encodeStashNotes, expiresAt, expiringSoon, newStash, toBottle, type StashBottle, type StashLocation } from "../lib/stash";
+import { decodeStashNotes, encodeStashNotes, expiresAt, expiringSoon, newStash, toBottle, type StashBottle, type StashLocation } from "../lib/stash";
 import { activityLabel, diaperMeta, feedingMeta } from "../lib/labels";
 import {
   buzz,
@@ -810,11 +811,15 @@ export function Home({
   // ── timeline edit / add ──
   const openEdit = (e: TimelineEntry) => {
     buzz();
+    // Pumping's `notes` is two things in one column: the machine stash prefix and the
+    // parent's text. Split them here so the textarea only ever shows what a human wrote —
+    // `buildPatch` re-attaches the prefix on save.
+    const stash = e.activity === "pumping" ? decodeStashNotes(e.notes) : null;
     setEditing({ isNew: false, activity: e.activity, serverId: e.id, path: e.path });
     setDraft({
       type: e.activity === "feeding" ? e.type : null,
       method: e.activity === "feeding" ? e.method : null,
-      amount: e.activity === "feeding" ? e.amount : null,
+      amount: e.activity === "feeding" ? e.amount : e.activity === "pumping" ? e.amount : null,
       wet: e.activity === "diaper" ? e.wet : false,
       solid: e.activity === "diaper" ? e.solid : false,
       medName: e.activity === "medication" ? e.name : "",
@@ -824,14 +829,15 @@ export function Home({
       startMs: e.startMs,
       endMs: e.endMs,
       // Tummy-time has no `notes` column — its free text lives in `milestone`.
-      notes: (e.activity === "tummy" ? e.milestone : e.notes) ?? "",
+      notes: (e.activity === "tummy" ? e.milestone : stash ? stash.note : e.notes) ?? "",
+      stash,
     });
   };
 
   const openAdd = () => {
     buzz();
     setEditing({ isNew: true, activity: null });
-    setDraft({ type: null, method: null, amount: null, wet: false, solid: false, medName: "", dosage: null, dosageUnit: null, nextDoseMs: null, startMs: nowMs(), endMs: null, notes: "" });
+    setDraft({ type: null, method: null, amount: null, wet: false, solid: false, medName: "", dosage: null, dosageUnit: null, nextDoseMs: null, startMs: nowMs(), endMs: null, notes: "", stash: null });
   };
 
   /** Back from a picked kind to the activity picker (adding only — an existing entry's kind
@@ -881,6 +887,19 @@ export function Home({
         return childId == null ? null : { path: "/api/changes/", body: { child: childId, wet: d.wet, solid: d.solid, time: startIso, notes } };
       case "/api/medication/":
         return childId == null ? null : { path: "/api/medication/", body: { child: childId, name: d.medName.trim(), dosage: d.dosage, dosage_unit: d.dosageUnit ?? undefined, next_dose_interval: d.nextDoseMs != null ? toDurationField(d.nextDoseMs) : null, time: startIso, notes } };
+      case "/api/pumping/":
+        // Re-attach the stash prefix around the edited human note, so correcting a typo
+        // can't wipe out where the bottle is (and with it the derived expiry). An entry that
+        // never had a prefix — written by Baby Buddy's own UI — keeps a plain note.
+        return {
+          path: "/api/pumping/",
+          body: {
+            amount: d.amount ?? 0,
+            start: startIso,
+            end: endIso,
+            notes: d.stash ? encodeStashNotes({ ...d.stash, note: d.notes.trim() }) : notes,
+          },
+        };
       default:
         return null;
     }
@@ -909,6 +928,12 @@ export function Home({
       show(t("toast.medNameRequired"), palette.danger);
       return;
     }
+    // The server rejects a pumping entry without an amount — catch it here rather than
+    // letting the write dead-letter minutes later with nothing on screen to explain it.
+    if (editing.activity === "pumping" && (draft.amount == null || draft.amount <= 0)) {
+      show(t("toast.pumpAmountRequired"), palette.danger);
+      return;
+    }
     buzz();
     const { activity } = editing;
     if (editing.isNew) {
@@ -919,7 +944,15 @@ export function Home({
       else if (activity === "medication") submit(logMedicationMutation(childId, { name: draft.medName.trim(), dosage: draft.dosage, dosage_unit: draft.dosageUnit ?? undefined, next_dose_interval: draft.nextDoseMs != null ? toDurationField(draft.nextDoseMs) : null, time: startIso, notes }));
       else if (activity === "feeding") submit(createFeedingMutation(childId, startIso, endIso, { ...feedingFieldsFor({ type: draft.type, method: draft.method, amount: draft.amount }), notes }));
       else if (activity === "sleep") submit(createSleepMutation(childId, startIso, endIso, { notes }));
-      else submit(createTummyMutation(childId, startIso, endIso, draft.notes.trim() ? { milestone: draft.notes } : {}));
+      else if (activity === "pumping") {
+        // A backdated bottle still needs somewhere to live, or it can never appear in the
+        // stash — default it to the fridge, dated from when the session ended.
+        const stash = draft.stash ?? newStash("fridge", draft.endMs ?? draft.startMs, draft.notes.trim());
+        submit(createPumpingMutation(childId, startIso, endIso, { amount: draft.amount ?? 0, notes: encodeStashNotes({ ...stash, note: draft.notes.trim() }) }));
+      }
+      // Explicit, not a fallthrough: an `else` here is how a newly added activity silently
+      // gets logged as tummy time.
+      else if (activity === "tummy") submit(createTummyMutation(childId, startIso, endIso, draft.notes.trim() ? { milestone: draft.notes } : {}));
     } else if (editing.serverId != null) {
       const patch = buildPatch(editing, draft);
       if (patch) submit(updateEntryMutation(editing.serverId, patch));

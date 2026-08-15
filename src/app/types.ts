@@ -1,4 +1,5 @@
 import type { ActivityKey, EntryPath, FeedingType, FeedingMethod, MedicationUnit } from "../api";
+import type { StashInfo } from "../lib/stash";
 
 /** Working copy of an entry in the add/edit sheet (epoch-ms times). */
 export interface EditDraft {
@@ -19,8 +20,13 @@ export interface EditDraft {
   startMs: number;
   endMs: number | null;
   /** Free-text note. Maps to `notes` for feeding/sleep/diaper, and to `milestone` for tummy
-   *  (the only free-text column tummy-time has server-side). */
+   *  (the only free-text column tummy-time has server-side). For PUMPING this is the human
+   *  half only — the machine stash prefix is split off into `stash` on open and re-attached
+   *  on save, so editing a note can never destroy where the bottle is. */
   notes: string;
+  /** Pumping only: the decoded stash state, carried through the edit untouched. `null` for
+   *  every other activity and for a pumping entry written by another client. */
+  stash: StashInfo | null;
 }
 
 /** A recently-used medication, for one-tap "repeat last dose" chips (derived from the timeline). */

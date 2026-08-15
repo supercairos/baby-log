@@ -15,6 +15,7 @@ import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   enqueueMutation,
+  flushOutbox,
   updateEntryMutation,
   type BabyBuddyClient,
   type TimelineEntry,
@@ -23,18 +24,23 @@ import { useStyles, useTheme } from "../theme";
 import { ACTIVITY_ICON, FridgeIcon, SnowflakeIcon, ThawIcon, ThermometerIcon, type IconProps } from "../ui/icons";
 import { clockTime, shortDateTime } from "../lib/datetime";
 import {
+  availableBottles,
   decodeStashNotes,
   encodeStashNotes,
   expiresAt,
-  isAvailable,
+  isExpired,
+  isExpiringSoon,
   moveStash,
   toBottle,
-  EXPIRING_SOON_MS,
   type StashBottle,
   type StashInfo,
   type StashLocation,
+  type TrackedBottle,
 } from "../lib/stash";
 import { buzz, usePumpings, useNow } from "./hooks";
+
+/** A timeline entry already narrowed to pumping — what Calendar hands the day list. */
+export type PumpingEntry = Extract<TimelineEntry, { activity: "pumping" }>;
 
 /** Millilitres for display: litres once it stops being a sensible number of ml. */
 function volume(ml: number): string {
@@ -56,15 +62,17 @@ function useFreshness() {
   return (stash: StashInfo, now: number) => {
     const at = expiresAt(stash);
     if (at <= now) return { text: t("stash.expired"), color: palette.danger };
-    // Same threshold that raises the Home warning, so a bottle flagged there is visibly
-    // flagged here too — one rule, not two that can drift apart.
-    const color = at - now <= EXPIRING_SOON_MS ? palette.accents.feeding.accent : palette.textFaint;
+    // Same rule that raises the Home warning, so a bottle flagged there is visibly flagged
+    // here too — one predicate, not two that can drift apart.
+    const color = isExpiringSoon(stash, now) ? palette.accents.feeding.accent : palette.textFaint;
     return { text: t("stash.expiresOn", { date: shortDateTime(at) }), color };
   };
 }
 
 // ── Day list (under the dial) ────────────────────────────────────────────────
-export function PumpDayList({ entries }: { entries: TimelineEntry[] }) {
+/** `entries` arrives already narrowed to the day's pumping sessions (Calendar does the
+ *  windowing), so this neither re-filters nor re-narrows. */
+export function PumpDayList({ entries }: { entries: PumpingEntry[] }) {
   const { s } = useStyles();
   const { palette } = useTheme();
   const { t } = useTranslation();
@@ -73,9 +81,8 @@ export function PumpDayList({ entries }: { entries: TimelineEntry[] }) {
   const accent = palette.accents.pumping.accent;
   const Icon = ACTIVITY_ICON.pumping;
 
-  const pumps = entries
-    .filter((e): e is Extract<TimelineEntry, { activity: "pumping" }> => e.activity === "pumping")
-    .sort((a, b) => a.startMs - b.startMs);
+  // Newest first, like every other list in the app (the journal, the timeline merge).
+  const pumps = [...entries].sort((a, b) => b.startMs - a.startMs);
   if (pumps.length === 0) return null;
 
   const total = pumps.reduce((sum, e) => sum + e.amount, 0);
@@ -127,38 +134,68 @@ export function StashPage({ client, childId }: { client: BabyBuddyClient; childI
    * Writes go through the outbox, so the next server fetch can still show the old note for a
    * moment. Overlay the changes we've queued on top — same idea as the running-timers view
    * merging its outbox state, so a tap never appears to do nothing.
+   *
+   * The overlay RETIRES as soon as the server agrees. Left in place it would mask reality
+   * forever: a write that dead-letters, or the other caregiver marking the same bottle used,
+   * would keep showing our local guess — and for a moved bottle that means displaying a
+   * fabricated expiry date for milk someone is going to feed a baby.
    */
   const [pending, setPending] = useState<Record<number, StashInfo>>({});
 
   const bottles = useMemo(() => {
-    const list = (pumpings ?? []).map(toBottle).filter((b): b is StashBottle => b != null);
-    return list.map((b) => (pending[b.id] ? { ...b, stash: pending[b.id] } : b));
+    const raw = (pumpings ?? []).map(toBottle).filter((b): b is StashBottle => b != null);
+    return raw.map((b) => {
+      const want = pending[b.id];
+      // The overlay applies only while the server still disagrees, so a fetch that has
+      // caught up wins on its own without anything having to clear state.
+      return want && b.notes !== encodeStashNotes(want) ? { ...b, stash: want } : b;
+    });
   }, [pumpings, pending]);
 
-  const available = useMemo(
+  const available = useMemo(() => availableBottles(bottles, now), [bottles, now]);
+  const fresh = available.filter((b) => b.stash.loc !== "freezer");
+  const frozen = available.filter((b) => b.stash.loc === "freezer");
+  /** Past its window but still kept — the bottle is physically in the fridge and needs
+   *  binning, so hiding it is the one thing this screen must not do. */
+  const expired = useMemo(
     () =>
       bottles
-        .filter((b): b is StashBottle & { stash: StashInfo } => b.stash != null && isAvailable(b.stash, now))
+        .filter((b): b is TrackedBottle => b.stash != null && isExpired(b.stash, now))
         .sort((a, b) => expiresAt(a.stash) - expiresAt(b.stash)),
     [bottles, now],
   );
-  const fresh = available.filter((b) => b.stash.loc !== "freezer");
-  const frozen = available.filter((b) => b.stash.loc === "freezer");
 
-  const apply = (bottle: StashBottle & { stash: StashInfo }, next: StashInfo) => {
+  const apply = (bottle: TrackedBottle, next: StashInfo) => {
     buzz();
     setPending((p) => ({ ...p, [bottle.id]: next }));
     void enqueueMutation(
       // `amount` rides along because the server requires it on every write to a pumping row,
       // PATCH included — sending only `notes` would be rejected.
       updateEntryMutation(bottle.id, { path: "/api/pumping/", body: { amount: bottle.amount, notes: encodeStashNotes(next) } }),
-    ).then(() => refresh());
+    )
+      // Push it now rather than waiting on the 45 s auto-flush: Background Sync is
+      // unavailable on iOS, so `requestOutboxSync` returns false there and nothing else
+      // would drain the queue while the user is still looking at the screen.
+      .then(() => flushOutbox(client).catch(() => {}))
+      .then(() => refresh())
+      // Retire the overlay once the round-trip is done, whatever the outcome. If the write
+      // landed the refetch already shows it; if it dead-lettered, the screen must fall back
+      // to what the server actually holds rather than keep displaying a fabricated expiry.
+      .finally(() =>
+        setPending((p) => {
+          if (!(bottle.id in p)) return p;
+          const rest = { ...p };
+          delete rest[bottle.id];
+          return rest;
+        }),
+      );
   };
 
   /** Identity line (icon · amount · where · when · freshness), then the actions on their own
    *  full-width row — inline chips would squeeze the reading line on a narrow phone. */
-  const row = (b: StashBottle & { stash: StashInfo }) => {
+  const row = (b: TrackedBottle) => {
     const f = freshness(b.stash, now);
+    const lapsed = isExpired(b.stash, now);
     const LocIcon = STASH_ICON[b.stash.loc];
     // `s.entry` is a flex ROW (icon beside text) — stack it so the actions get their own
     // full-width line instead of being laid out as another column beside the icon.
@@ -173,33 +210,41 @@ export function StashPage({ client, childId }: { client: BabyBuddyClient; childI
               {b.amount} ml
               <span style={s.entryMeta}> · {t(`stash.loc.${b.stash.loc}`)}</span>
             </div>
-            <div style={s.entryTime}>{clockTime(b.pumpedMs)}</div>
+            {/* Date, not just the clock: the freezer section holds bottles months apart, and
+                two of them pumped at 09:52 would otherwise be indistinguishable. */}
+            <div style={s.entryTime}>{shortDateTime(b.pumpedMs)}</div>
           </div>
           {/* Wraps rather than truncates — the expiry is the point of this screen. */}
           <span style={{ ...s.entryTime, color: f.color, fontWeight: 700, textAlign: "right" }}>{f.text}</span>
         </div>
+        {/* Past its window there is exactly one honest action. Offering "used" or a move on
+            lapsed milk would be the app endorsing feeding it. */}
         <div style={s.chips}>
-          <button onClick={() => apply(b, { ...b.stash, state: "used" })} style={{ ...s.chip, ...chipOn(palette.ok) }}>
-            {t("stash.markUsed")}
-          </button>
-          {/* One forward chain: room → fridge → freezer → thawed. Milk left out and then put
-              away is an ordinary move, and without this the only options for it were "use" or
-              "bin". Nothing offers a way back — refreezing and re-chilling thawed milk are
-              exactly what the guidance rules out. */}
-          {b.stash.loc === "room" && (
-            <button onClick={() => apply(b, moveStash(b.stash, "fridge", now))} style={s.chip}>
-              {t("stash.moveToFridge")}
-            </button>
-          )}
-          {b.stash.loc === "fridge" && (
-            <button onClick={() => apply(b, moveStash(b.stash, "freezer", now))} style={s.chip}>
-              {t("stash.moveToFreezer")}
-            </button>
-          )}
-          {b.stash.loc === "freezer" && (
-            <button onClick={() => apply(b, moveStash(b.stash, "thawed", now))} style={s.chip}>
-              {t("stash.thaw")}
-            </button>
+          {!lapsed && (
+            <>
+              <button onClick={() => apply(b, { ...b.stash, state: "used" })} style={{ ...s.chip, ...chipOn(palette.ok) }}>
+                {t("stash.markUsed")}
+              </button>
+              {/* One forward chain: room → fridge → freezer → thawed. Milk left out and then
+                  put away is an ordinary move, and without this the only options for it were
+                  "use" or "bin". Nothing offers a way back — refreezing and re-chilling
+                  thawed milk are exactly what the guidance rules out. */}
+              {b.stash.loc === "room" && (
+                <button onClick={() => apply(b, moveStash(b.stash, "fridge", now))} style={s.chip}>
+                  {t("stash.moveToFridge")}
+                </button>
+              )}
+              {b.stash.loc === "fridge" && (
+                <button onClick={() => apply(b, moveStash(b.stash, "freezer", now))} style={s.chip}>
+                  {t("stash.moveToFreezer")}
+                </button>
+              )}
+              {b.stash.loc === "freezer" && (
+                <button onClick={() => apply(b, moveStash(b.stash, "thawed", now))} style={s.chip}>
+                  {t("stash.thaw")}
+                </button>
+              )}
+            </>
           )}
           <button onClick={() => apply(b, { ...b.stash, state: "discarded" })} style={{ ...s.chip, color: palette.danger }}>
             {t("stash.discard")}
@@ -214,7 +259,19 @@ export function StashPage({ client, childId }: { client: BabyBuddyClient; childI
     <section style={s.cal}>
       <div style={s.sheetGroup}>{t("stash.total", { count: available.length, volume: volume(totalMl) })}</div>
 
-      {available.length === 0 && <div style={s.empty}>{t("stash.empty")}</div>}
+      {available.length === 0 && expired.length === 0 && <div style={s.empty}>{t("stash.empty")}</div>}
+
+      {/* Lapsed milk first, and loudly. It's still sitting in the fridge — dropping it off the
+          list would leave the app's last word on it a reassuring countdown. */}
+      {expired.length > 0 && (
+        <>
+          <div style={{ ...s.sheetGroup, color: palette.danger }}>
+            {t("stash.expiredGroup", { count: expired.length, volume: volume(expired.reduce((sum, b) => sum + b.amount, 0)) })}
+          </div>
+          {expired.map(row)}
+        </>
+      )}
+
       {fresh.map(row)}
 
       {/* Frozen milk keeps for months, so it would bury the fridge — the part you actually

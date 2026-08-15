@@ -172,7 +172,9 @@ const reshowSuppressed = new Set<string>();
  * and the amount doesn't exist until the session ends, so there is nothing to submit here.
  * Its notification carries no Stop action (see notifications.ts) — this guard is the
  * belt-and-braces half, covering a stale notification left in the tray by an older build.
- * Such a tap falls through to "open the app", which lands on the amount sheet.
+ * Such a tap falls through to `focusApp`, which opens/focuses the app WHEREVER it last was;
+ * the parent then stops the pump from its running card. Routing straight to the amount sheet
+ * would need a deep link the SW doesn't have.
  */
 function canStopFromNotification(data: TimerNotifData): boolean {
   return data.activity !== "pumping";
@@ -202,6 +204,10 @@ sw.addEventListener("notificationclose", (event) => {
 async function reshowIfStillRunning(n: SwNotification): Promise<void> {
   if (reshowSuppressed.delete(n.tag)) return; // closed by the Stop action — let it go
   const data = n.data as TimerNotifData;
+  // Pumping has no Stop action (it needs an amount), so re-showing it would make an
+  // un-dismissable notification with no way out of the tray at all: swipe, it returns,
+  // repeat. Sticky only makes sense when the notification itself offers an escape.
+  if (data.activity === "pumping") return;
   if (!(await timerStillRunning(data))) return; // timer ended → no need to nag
   await sw.registration.showNotification(n.title, {
     tag: n.tag,
@@ -240,6 +246,11 @@ async function timerStillRunning(data: TimerNotifData): Promise<boolean> {
 
 /** Stop a running timer straight from its notification — enqueue the consume + flush. */
 async function stopTimerFromNotification(d: TimerNotifData): Promise<void> {
+  // Bail BEFORE minting a mapping. `canStopFromNotification` already gates the only call
+  // site, but if that gate were ever loosened, returning further down would leave a timer
+  // mapping in IndexedDB with no mutation to consume it — which `timerStillRunning` then
+  // reports as a live timer forever.
+  if (!canStopFromNotification(d)) return;
   const conn = await loadConnection();
   if (!conn) return;
   // Resolve a localId the consume can reference (mint one for a server-only timer).
@@ -258,10 +269,8 @@ async function stopTimerFromNotification(d: TimerNotifData): Promise<void> {
     await enqueue(consumeTimerMutation("feeding", localId, d.childId, { type, method, amount }));
   } else if (d.activity === "sleep") {
     await enqueue(consumeTimerMutation("sleep", localId, d.childId));
-  } else if (d.activity === "tummy") {
-    await enqueue(consumeTimerMutation("tummy", localId, d.childId));
   } else {
-    return; // pumping — filtered out by canStopFromNotification; never guess an amount
+    await enqueue(consumeTimerMutation("tummy", localId, d.childId));
   }
   await flushOutbox(createBabyBuddyClient(conn)).catch(() => {}); // offline → Background Sync retries
   // Nudge any open tab to refresh its view.

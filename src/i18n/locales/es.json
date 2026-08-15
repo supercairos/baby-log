@@ -124,7 +124,8 @@
     "pickDiaper": "Elige pis, caca o ambos",
     "medNameRequired": "Introduce el nombre del medicamento",
     "syncFailed": "No se pudo sincronizar un registro",
-    "pumpSaved": "{{amount}} ml extraídos · {{duration}}"
+    "pumpSaved": "{{amount}} ml extraídos · {{duration}}",
+    "pumpAmountRequired": "Indica la cantidad extraída"
   },
   "timeline": {
     "addEntry": "Añadir entrada",
@@ -271,6 +272,8 @@
     "freezerSummary_one": "Congelador · {{count}} biberón · {{volume}}",
     "freezerSummary_other": "Congelador · {{count}} biberones · {{volume}}",
     "expiresOn": "hasta {{date}}",
-    "moveToFridge": "A la nevera"
+    "moveToFridge": "A la nevera",
+    "expiredGroup_one": "Fuera de plazo · {{volume}}",
+    "expiredGroup_other": "Fuera de plazo · {{count}} · {{volume}}"
   }
 }

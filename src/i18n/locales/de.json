@@ -124,7 +124,8 @@
     "pickDiaper": "Wähle nass, Stuhl oder beides",
     "medNameRequired": "Namen des Medikaments eingeben",
     "syncFailed": "Ein Eintrag konnte nicht synchronisiert werden",
-    "pumpSaved": "{{amount}} ml abgepumpt · {{duration}}"
+    "pumpSaved": "{{amount}} ml abgepumpt · {{duration}}",
+    "pumpAmountRequired": "Abgepumpte Menge angeben"
   },
   "timeline": {
     "addEntry": "Eintrag hinzufügen",
@@ -271,6 +272,8 @@
     "freezerSummary_one": "Gefrierschrank · {{count}} Fläschchen · {{volume}}",
     "freezerSummary_other": "Gefrierschrank · {{count}} Fläschchen · {{volume}}",
     "expiresOn": "bis {{date}}",
-    "moveToFridge": "In den Kühlschrank"
+    "moveToFridge": "In den Kühlschrank",
+    "expiredGroup_one": "Über der Frist · {{volume}}",
+    "expiredGroup_other": "Über der Frist · {{count}} · {{volume}}"
   }
 }

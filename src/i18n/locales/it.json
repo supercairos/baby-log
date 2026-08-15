@@ -124,7 +124,8 @@
     "pickDiaper": "Scegli pipì, feci o entrambi",
     "medNameRequired": "Inserisci il nome del farmaco",
     "syncFailed": "Non è stato possibile sincronizzare una voce",
-    "pumpSaved": "{{amount}} ml estratti · {{duration}}"
+    "pumpSaved": "{{amount}} ml estratti · {{duration}}",
+    "pumpAmountRequired": "Indica la quantità estratta"
   },
   "timeline": {
     "addEntry": "Aggiungi voce",
@@ -271,6 +272,8 @@
     "freezerSummary_one": "Congelatore · {{count}} biberon · {{volume}}",
     "freezerSummary_other": "Congelatore · {{count}} biberon · {{volume}}",
     "expiresOn": "fino al {{date}}",
-    "moveToFridge": "In frigo"
+    "moveToFridge": "In frigo",
+    "expiredGroup_one": "Fuori tempo · {{volume}}",
+    "expiredGroup_other": "Fuori tempo · {{count}} · {{volume}}"
   }
 }

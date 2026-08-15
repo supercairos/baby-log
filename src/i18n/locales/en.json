@@ -124,7 +124,8 @@
     "pickDiaper": "Pick wet, solid, or both",
     "medNameRequired": "Enter the medication name",
     "syncFailed": "A write couldn't be synced",
-    "pumpSaved": "{{amount}} ml pumped · {{duration}}"
+    "pumpSaved": "{{amount}} ml pumped · {{duration}}",
+    "pumpAmountRequired": "Set the pumped amount"
   },
   "timeline": {
     "addEntry": "Add entry",
@@ -271,6 +272,8 @@
     "freezerSummary_one": "Freezer · {{count}} bottle · {{volume}}",
     "freezerSummary_other": "Freezer · {{count}} bottles · {{volume}}",
     "expiresOn": "until {{date}}",
-    "moveToFridge": "To fridge"
+    "moveToFridge": "To fridge",
+    "expiredGroup_one": "Past its window · {{volume}}",
+    "expiredGroup_other": "Past their window · {{count}} · {{volume}}"
   }
 }

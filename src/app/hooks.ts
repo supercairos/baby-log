@@ -380,12 +380,18 @@ export function usePumpings(client: BabyBuddyClient, childId: number | null, ena
   const { data, isFetching, refetch } = useQuery({
     queryKey: ["pumpings", childId, sinceDay],
     enabled: childId != null && enabled,
-    refetchInterval: 60_000,
+    // Poll only once this family actually expresses. Home mounts this hook unconditionally to
+    // raise the "milk to use" warning, and most families never pump — without this they'd
+    // re-fetch a permanently empty list every minute, forever, on the app's busiest screen.
+    // The first (and for them only) fetch still runs, so a first pump starts the polling.
+    refetchInterval: (q) => ((q.state.data?.length ?? 0) > 0 ? 60_000 : false),
     refetchOnWindowFocus: true,
     queryFn: () => listPumpings(client, childId as number, new Date(sinceDay * 86_400_000).toISOString()),
     placeholderData: (prev) => prev,
   });
-  return { pumpings: childId == null ? null : (data ?? null), loading: isFetching, refresh: () => void refetch() };
+  // `refresh` resolves once the refetch has landed, so a caller holding an optimistic
+  // overlay knows when it's safe to stand down.
+  return { pumpings: childId == null ? null : (data ?? null), loading: isFetching, refresh: () => refetch() };
 }
 
 /**

@@ -124,7 +124,8 @@
     "pickDiaper": "Choisissez pipi, selles, ou les deux",
     "medNameRequired": "Saisissez le nom du médicament",
     "syncFailed": "Une écriture n'a pas pu être synchronisée",
-    "pumpSaved": "{{amount}} ml tirés · {{duration}}"
+    "pumpSaved": "{{amount}} ml tirés · {{duration}}",
+    "pumpAmountRequired": "Indiquez la quantité tirée"
   },
   "timeline": {
     "addEntry": "Ajouter une entrée",
@@ -271,6 +272,8 @@
     "freezerSummary_one": "Congélateur · {{count}} biberon · {{volume}}",
     "freezerSummary_other": "Congélateur · {{count}} biberons · {{volume}}",
     "expiresOn": "jusqu'au {{date}}",
-    "moveToFridge": "Au frigo"
+    "moveToFridge": "Au frigo",
+    "expiredGroup_one": "Hors délai · {{volume}}",
+    "expiredGroup_other": "Hors délai · {{count}} · {{volume}}"
   }
 }

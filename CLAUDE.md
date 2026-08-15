@@ -76,9 +76,12 @@ Parser:
   `{"amount":["This field is required."]}`) — and unlike a feeding's type/method, that number
   doesn't exist until the session ends. So pumping is the one activity whose details are asked
   for at the STOP, not the start: tapping the tile starts it immediately (like sleep), and
-  stopping opens a sheet with amount chips + slider. Two consequences: its notification carries
-  no "Stop" action (nothing to submit without an amount), and dismissing the stop sheet cancels
-  the stop and leaves the timer running rather than logging a guess.
+  stopping opens a sheet with amount chips + slider. Three consequences: its notification
+  carries no "Stop" action (nothing to submit without an amount) and therefore also skips the
+  sticky re-show — without an in-tray escape a re-shown notification can't be dismissed at
+  all; tapping it just opens the app where it last was, and the pump is stopped from its
+  running card; and dismissing the stop sheet cancels the stop and leaves the timer running
+  rather than logging a guess.
 - One unified timeline = several endpoints fetched in parallel and merged/sorted by timestamp.
   There is no single "entries" endpoint.
 

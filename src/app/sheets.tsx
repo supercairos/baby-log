@@ -365,6 +365,7 @@ export function EntrySheet({
   const { palette } = useTheme();
   const feed = palette.accents.feeding.accent;
   const med = palette.accents.medication.accent;
+  const pump = palette.accents.pumping.accent;
   const open = !!(target && draft);
 
   if (!target || !draft) return <SheetShell open={false} label={t("sheet.entry")}>{null}</SheetShell>;
@@ -485,6 +486,27 @@ export function EntrySheet({
               </div>
             </>
           )}
+        </>
+      )}
+
+      {/* Pumping's amount is the entry — the server won't take the row without it, and
+          without this field a mistyped volume would be uncorrectable anywhere in the app. */}
+      {target.activity === "pumping" && (
+        <>
+          <div style={s.sheetGroup}>{t("sheet.amount")}</div>
+          <div style={s.sliderRow}>
+            <input
+              type="range"
+              min={0}
+              max={ML_STEPS.length}
+              step={1}
+              value={mlToIdx(draft.amount)}
+              aria-label={t("sheet.amount")}
+              onChange={(e) => setDraft((d) => ({ ...d, amount: idxToMl(Number(e.target.value)) }))}
+              style={{ ...s.slider, accentColor: pump }}
+            />
+            <span style={s.sliderValue}>{draft.amount != null ? `${draft.amount} ml` : "—"}</span>
+          </div>
         </>
       )}
 

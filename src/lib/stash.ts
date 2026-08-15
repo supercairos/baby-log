@@ -131,13 +131,17 @@ export interface StashBottle {
   /** When it was expressed — the entry's `end`, falling back to `start`. */
   pumpedMs: number;
   stash: StashInfo | null;
+  /** The server's `notes` verbatim. Kept so an optimistic overlay can tell whether the
+   *  server has caught up with a queued change and stand down once it has. */
+  notes: string | null;
 }
 
 export function toBottle(p: Pumping): StashBottle | null {
   if (p.id == null) return null;
   const pumpedMs = Date.parse(p.end ?? p.start ?? "");
   if (Number.isNaN(pumpedMs)) return null;
-  return { id: p.id, amount: p.amount ?? 0, pumpedMs, stash: decodeStashNotes(p.notes) };
+  const notes = p.notes ?? null;
+  return { id: p.id, amount: p.amount ?? 0, pumpedMs, stash: decodeStashNotes(notes), notes };
 }
 
 /** A bottle we know the whereabouts of — the only kind the stash can reason about. */
@@ -159,9 +163,26 @@ export function availableBottles(bottles: StashBottle[], now: number): TrackedBo
  * nothing, so this crosses over from the stash screen onto Home — the one place a
  * sleep-deprived parent actually looks.
  */
-export const EXPIRING_SOON_MS = 4 * 3_600_000;
+const SOON_CAP_MS = 4 * 3_600_000;
 
-/** Bottles lapsing within `EXPIRING_SOON_MS`, soonest first. Empty when there's no hurry. */
+/**
+ * The warning window for a location, never more than half its storage window.
+ *
+ * A flat 4 h would make room-temperature milk urgent from the instant it's logged — its whole
+ * window is 4 h — so the alert could never be in its "not urgent" state, which trains you to
+ * ignore it everywhere else. Scaling it keeps the warning meaning "act soon" rather than
+ * "this exists": 2 h for room, 4 h for fridge, freezer and thawed.
+ */
+export function soonThresholdMs(loc: StashLocation): number {
+  return Math.min(SOON_CAP_MS, STORAGE_WINDOW_MS[loc] / 2);
+}
+
+/** True once a bottle is inside its own warning window. */
+export function isExpiringSoon(stash: StashInfo, now: number): boolean {
+  return expiresAt(stash) - now <= soonThresholdMs(stash.loc);
+}
+
+/** Bottles inside their warning window, soonest first. Empty when there's no hurry. */
 export function expiringSoon(bottles: StashBottle[], now: number): TrackedBottle[] {
-  return availableBottles(bottles, now).filter((b) => expiresAt(b.stash) - now <= EXPIRING_SOON_MS);
+  return availableBottles(bottles, now).filter((b) => isExpiringSoon(b.stash, now));
 }
