@@ -60,10 +60,17 @@ export function formatAge(birthDate: string, now: Date = new Date()): string {
  * has to be re-read against the current time before it means anything, whereas a date can be
  * compared straight against the next feed.
  */
-export function shortDateTime(epochMs: number): string {
-  return new Date(epochMs).toLocaleString(currentLocale(), {
+export function shortDateTime(epochMs: number, now: Date = new Date()): string {
+  const d = new Date(epochMs);
+  // The year appears only when it isn't the current one. Frozen milk keeps for months, so a
+  // freezer expiry routinely crosses New Year — "until 19/04" on a bottle frozen in December
+  // reads as a date already past, and two Decembers apart look identical. Everyday fridge
+  // rows, which are all same-year, stay short.
+  const sameYear = d.getFullYear() === now.getFullYear();
+  return d.toLocaleString(currentLocale(), {
     day: "2-digit",
     month: "2-digit",
+    ...(sameYear ? {} : { year: "numeric" }),
     hour: "2-digit",
     minute: "2-digit",
   });

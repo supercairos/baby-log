@@ -204,10 +204,13 @@ sw.addEventListener("notificationclose", (event) => {
 async function reshowIfStillRunning(n: SwNotification): Promise<void> {
   if (reshowSuppressed.delete(n.tag)) return; // closed by the Stop action — let it go
   const data = n.data as TimerNotifData;
-  // Pumping has no Stop action (it needs an amount), so re-showing it would make an
-  // un-dismissable notification with no way out of the tray at all: swipe, it returns,
-  // repeat. Sticky only makes sense when the notification itself offers an escape.
-  if (data.activity === "pumping") return;
+  // Never re-show a notification the user has no way to act on. Sticky is only fair when
+  // the notification itself offers an escape: without a Stop button, swipe-it-and-it-returns
+  // is a nag with no way out of the tray. That covers pumping (which deliberately has no
+  // Stop — it needs an amount) AND any platform that doesn't surface `actions` back to us,
+  // where copying them below would otherwise yield an empty array.
+  const actions = [...(n.actions ?? [])];
+  if (actions.length === 0) return;
   if (!(await timerStillRunning(data))) return; // timer ended → no need to nag
   await sw.registration.showNotification(n.title, {
     tag: n.tag,
@@ -217,10 +220,9 @@ async function reshowIfStillRunning(n: SwNotification): Promise<void> {
     requireInteraction: true,
     renotify: false,
     silent: true, // it was just dismissed — bring it back quietly, don't buzz again
-    // Carry the original notification's actions over verbatim. That keeps the button in the
-    // user's language (the SW has no i18n of its own) and preserves "no Stop for pumping"
-    // without having to re-derive either here.
-    actions: [...(n.actions ?? [])],
+    // Carried over verbatim (checked non-empty above). That keeps the button in the user's
+    // language — the SW has no i18n of its own — without re-deriving it here.
+    actions,
     data,
   });
 }

@@ -270,12 +270,21 @@ export async function listPumpings(
   client: BabyBuddyClient,
   childId: number,
   sinceIso: IsoDateTime,
-  limit = 300,
+  pageSize = 300,
 ): Promise<Pumping[]> {
-  const res = await client.GET("/api/pumping/", {
-    params: { query: { child: String(childId), start_min: sinceIso, limit, ordering: "-start" } },
-  });
-  return unwrap(res).results ?? [];
+  // Paginated, not a single capped page. The lookback spans the freezer window (~4 months),
+  // and an exclusive pumper logs 8+ sessions a day — well past any one page. Truncating
+  // would silently drop the OLDEST bottles, which are exactly the frozen ones this window
+  // exists to track, and they'd vanish from the inventory with nothing to say they had.
+  const out: Pumping[] = [];
+  for (let offset = 0; ; offset += pageSize) {
+    const res = await client.GET("/api/pumping/", {
+      params: { query: { child: String(childId), start_min: sinceIso, limit: pageSize, offset, ordering: "-start" } },
+    });
+    const page = unwrap(res);
+    out.push(...(page.results ?? []));
+    if (!page.next || (page.results?.length ?? 0) === 0) return out;
+  }
 }
 
 /**

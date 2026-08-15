@@ -47,10 +47,19 @@ export function diaperMeta(wet: boolean, solid: boolean): string {
   return "";
 }
 
+/**
+ * Where a bottle is, in one word: its location while stored, or its end state once spent.
+ * The single source for this mapping — the journal, the day list and the inventory all read
+ * it, and three hand-rolled copies would let them disagree about the same bottle.
+ */
+export function stashWhereLabel(stash?: StashInfo | null): string | null {
+  if (stash == null) return null;
+  return stash.state === "stored" ? i18n.t(`stash.loc.${stash.loc}`) : i18n.t(`stash.${stash.state}`);
+}
+
 /** Meta line for a pumping entry: "120 ml · Fridge", or "120 ml · used" once it's spent. */
 export function pumpingMeta(amount: number, stash?: StashInfo | null): string {
-  const where = stash == null ? null : stash.state === "stored" ? i18n.t(`stash.loc.${stash.loc}`) : i18n.t(`stash.${stash.state}`);
-  return [`${amount} ml`, where].filter(Boolean).join(" · ");
+  return [`${amount} ml`, stashWhereLabel(stash)].filter(Boolean).join(" · ");
 }
 
 export const medUnitLabel = (unit: MedicationUnit): string => i18n.t(`medUnit.${unit}`);

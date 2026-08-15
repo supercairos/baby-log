@@ -89,7 +89,9 @@
     "overdueByLabel": "in ritardo di",
     "milkSoon_one": "Latte da usare",
     "milkSoon_other": "Latte da usare ({{count}})",
-    "milkSoonBy": "{{volume}} · entro le {{time}}"
+    "milkSoonBy": "{{volume}} · entro le {{time}}",
+    "milkExpired_one": "Latte fuori tempo",
+    "milkExpired_other": "Latte fuori tempo ({{count}})"
   },
   "nav": {
     "home": "Home",

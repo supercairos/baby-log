@@ -89,7 +89,9 @@
     "overdueByLabel": "überfällig seit",
     "milkSoon_one": "Milch verbrauchen",
     "milkSoon_other": "Milch verbrauchen ({{count}})",
-    "milkSoonBy": "{{volume}} · vor {{time}}"
+    "milkSoonBy": "{{volume}} · vor {{time}}",
+    "milkExpired_one": "Milch über der Frist",
+    "milkExpired_other": "Milch über der Frist ({{count}})"
   },
   "nav": {
     "home": "Start",

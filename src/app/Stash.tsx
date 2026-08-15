@@ -23,6 +23,7 @@ import {
 import { useStyles, useTheme } from "../theme";
 import { ACTIVITY_ICON, FridgeIcon, SnowflakeIcon, ThawIcon, ThermometerIcon, type IconProps } from "../ui/icons";
 import { clockTime, shortDateTime } from "../lib/datetime";
+import { stashWhereLabel } from "../lib/labels";
 import {
   availableBottles,
   decodeStashNotes,
@@ -95,7 +96,7 @@ export function PumpDayList({ entries }: { entries: PumpingEntry[] }) {
       {pumps.map((e) => {
         const stash = decodeStashNotes(e.notes);
         const fresh = stash && stash.state === "stored" ? freshness(stash, now) : null;
-        const where = stash == null ? null : stash.state === "stored" ? t(`stash.loc.${stash.loc}`) : t(`stash.${stash.state}`);
+        const where = stashWhereLabel(stash);
         // Storage glyph once we know where it went; the pump itself for an untracked entry
         // (logged in Baby Buddy's own UI, or before this feature existed).
         const RowIcon = stash && stash.state === "stored" ? STASH_ICON[stash.loc] : Icon;
@@ -122,7 +123,17 @@ export function PumpDayList({ entries }: { entries: PumpingEntry[] }) {
 }
 
 // ── Inventory page ───────────────────────────────────────────────────────────
-export function StashPage({ client, childId }: { client: BabyBuddyClient; childId: number | null }) {
+export function StashPage({
+  client,
+  childId,
+  onWriteFailed,
+}: {
+  client: BabyBuddyClient;
+  childId: number | null;
+  /** Surface a non-durable write the way Home's `submit` does — this page has no toast of
+   *  its own, and a silently dropped change is worse here than anywhere else. */
+  onWriteFailed: (err: unknown) => void;
+}) {
   const { s, chipOn } = useStyles();
   const { palette } = useTheme();
   const { t } = useTranslation();
@@ -188,19 +199,33 @@ export function StashPage({ client, childId }: { client: BabyBuddyClient; childI
       // Push it now rather than waiting on the 45 s auto-flush: Background Sync is
       // unavailable on iOS, so `requestOutboxSync` returns false there and nothing else
       // would drain the queue while the user is still looking at the screen.
-      .then(() => flushOutbox(client).catch(() => {}))
-      .then(() => refresh())
-      // Retire the overlay once the round-trip is done, whatever the outcome. If the write
-      // landed the refetch already shows it; if it dead-lettered, the screen must fall back
-      // to what the server actually holds rather than keep displaying a fabricated expiry.
-      .finally(() =>
+      .then(() => flushOutbox(client).catch(() => null))
+      .then(async (summary) => {
+        await refresh();
+        // Retire the overlay only once the queue is actually clear. Offline, the write is
+        // durably queued and `remaining` stays above zero — dropping the overlay there would
+        // snap the row back to its old state, so the tap would look like it did nothing and
+        // the parent would tap again, queuing a duplicate. That's precisely the case the
+        // outbox exists to handle, so the optimistic state stands until it lands.
+        if (!summary || summary.remaining > 0) return;
         setPending((p) => {
           if (!(bottle.id in p)) return p;
           const rest = { ...p };
           delete rest[bottle.id];
           return rest;
-        }),
-      );
+        });
+      })
+      .catch((err: unknown) => {
+        // The ENQUEUE failed (IndexedDB unavailable / over quota): the write never became
+        // durable and will never retry. Home's `submit` toasts this case; saying nothing
+        // here would leave the row showing a change that is never going to happen.
+        setPending((p) => {
+          const rest = { ...p };
+          delete rest[bottle.id];
+          return rest;
+        });
+        onWriteFailed(err);
+      });
   };
 
   /** Identity line (icon · amount · where · when · freshness), then the actions on their own
@@ -222,7 +247,7 @@ export function StashPage({ client, childId }: { client: BabyBuddyClient; childI
             {/* Struck through, not removed — the volume is still part of the day's total. */}
             <div style={{ ...s.entryLabel, ...(gone ? { textDecoration: "line-through" } : {}) }}>
               {b.amount} ml
-              <span style={s.entryMeta}> · {t(gone ? `stash.${b.stash.state}` : `stash.loc.${b.stash.loc}`)}</span>
+              <span style={s.entryMeta}> · {stashWhereLabel(b.stash)}</span>
             </div>
             {/* Date, not just the clock: the freezer section holds bottles months apart, and
                 two of them pumped at 09:52 would otherwise be indistinguishable. */}

@@ -89,7 +89,9 @@
     "overdueByLabel": "late by",
     "milkSoon_one": "Milk to use",
     "milkSoon_other": "Milk to use ({{count}})",
-    "milkSoonBy": "{{volume}} · before {{time}}"
+    "milkSoonBy": "{{volume}} · before {{time}}",
+    "milkExpired_one": "Milk past its window",
+    "milkExpired_other": "Milk past its window ({{count}})"
   },
   "nav": {
     "home": "Home",

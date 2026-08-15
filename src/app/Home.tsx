@@ -72,7 +72,7 @@ import { clockTime, formatAge, greeting } from "../lib/datetime";
 import { predictNext, predictSleepEnd, predictionAlive, type ActivityPrediction } from "../lib/predict";
 import { lastNight } from "../lib/night";
 import { tummyProgress } from "../lib/tummy";
-import { decodeStashNotes, encodeStashNotes, expiresAt, expiringSoon, newStash, toBottle, type StashBottle, type StashLocation } from "../lib/stash";
+import { decodeStashNotes, encodeStashNotes, expiresAt, expiringSoon, isExpired, newStash, toBottle, type StashBottle, type StashLocation, type TrackedBottle } from "../lib/stash";
 import { activityLabel, diaperMeta, feedingMeta } from "../lib/labels";
 import {
   buzz,
@@ -305,10 +305,19 @@ export function Home({
   // deadline is the one that forces a decision.
   const { pumpings } = usePumpings(client, childId);
   const milkSoon = useMemo(() => {
+    const t0 = nowMinute * 60_000;
     const bottles = (pumpings ?? []).map(toBottle).filter((b): b is StashBottle => b != null);
-    const soon = expiringSoon(bottles, nowMinute * 60_000);
+    // Lapsed milk OUTRANKS milk that's merely close. Reporting only the "soon" set would
+    // make this row disappear at the exact moment a bottle goes bad — leaving the app's last
+    // word on it a reassuring countdown, which is the one thing the stash screen refuses to
+    // do. Once something has actually turned, that's what Home says.
+    const lapsed = bottles.filter((b): b is TrackedBottle => b.stash != null && isExpired(b.stash, t0));
+    if (lapsed.length > 0) {
+      return { expired: true, count: lapsed.length, ml: lapsed.reduce((sum, b) => sum + b.amount, 0), byMs: 0 };
+    }
+    const soon = expiringSoon(bottles, t0);
     if (soon.length === 0) return null;
-    return { count: soon.length, ml: soon.reduce((sum, b) => sum + b.amount, 0), byMs: expiresAt(soon[0].stash) };
+    return { expired: false, count: soon.length, ml: soon.reduce((sum, b) => sum + b.amount, 0), byMs: expiresAt(soon[0].stash) };
   }, [pumpings, nowMinute]);
   // Precise age beside the "Tracking …" line (recomputed daily, not every tick).
   const ageLabel = useMemo(
@@ -559,6 +568,10 @@ export function Home({
             refreshRunning();
             refreshTimeline();
             void qc.invalidateQueries({ queryKey: ["calendar"] }); // refresh the calendar grids/summary
+            // The stash has its own query, and it stops polling while it's empty — so
+            // without this the FIRST pump would never appear (nor would an edit or delete)
+            // until something unrelated refetched it.
+            void qc.invalidateQueries({ queryKey: ["pumpings"] });
           })
           .catch(() => {}),
       (err: unknown) => {
@@ -620,6 +633,9 @@ export function Home({
         // exists now the session is over — so ask, then write. The timer stays running until
         // `confirmPumping`; nothing is logged if the sheet is dismissed.
         setPumpSel({ amount: lastPump[childId] ?? null, loc: "fridge", dump: false });
+        // Release the CTA's one-shot guard for this timer (confirmPumping never does — see
+        // the comment there), so re-opening the sheet after a cancel still works.
+        pending.current.delete(`stop:${localId}`);
         setSheet({ type: "pumping", localId, startedMs: rt.startedMs });
         return;
       }
@@ -745,11 +761,16 @@ export function Home({
     if (sheet?.type !== "pumping" || childId == null) return;
     const amount = pumpSel.amount;
     if (amount == null) return; // the CTA is disabled in this state
+    // Held, NOT released in a `finally`: everything below is synchronous, so a finally would
+    // clear the guard before the click handler even returned and a double-tap on Done would
+    // enqueue a second consume for the same localId — the first deletes the timer mapping,
+    // the second then has nothing to resolve against and dead-letters, losing the amount the
+    // parent just measured. `stop()` clears it when the sheet is next opened.
     const guard = `stop:${sheet.localId}`;
     if (pending.current.has(guard)) return;
     pending.current.add(guard);
     buzz();
-    try {
+    {
       const endedMs = nowMs();
       // A dumped session is recorded as spent from the outset, so it never shows up as milk
       // anyone could feed — but the entry (and its volume) is still logged, because pumping
@@ -764,8 +785,6 @@ export function Home({
         t(pumpSel.dump ? "toast.pumpDumped" : "toast.pumpSaved", { amount, duration: hm(endedMs - sheet.startedMs) }),
         pumpSel.dump ? palette.danger : accentOf("pumping"),
       );
-    } finally {
-      pending.current.delete(guard);
     }
   };
 
@@ -1174,9 +1193,13 @@ export function Home({
                     <span style={{ ...s.estimateIcon, background: `${palette.accents.pumping.accent}14`, color: palette.accents.pumping.accent }}>
                       <ACTIVITY_ICON.pumping size={16} />
                     </span>
-                    <span style={s.estimateLabel}>{t("home.milkSoon", { count: milkSoon.count })}</span>
+                    <span style={s.estimateLabel}>
+                      {t(milkSoon.expired ? "home.milkExpired" : "home.milkSoon", { count: milkSoon.count })}
+                    </span>
                     <span style={{ ...s.estimateTime, color: palette.danger }}>
-                      {t("home.milkSoonBy", { volume: `${milkSoon.ml} ml`, time: clockTime(milkSoon.byMs) })}
+                      {milkSoon.expired
+                        ? `${milkSoon.ml} ml`
+                        : t("home.milkSoonBy", { volume: `${milkSoon.ml} ml`, time: clockTime(milkSoon.byMs) })}
                     </span>
                   </button>
                 )}
@@ -1364,7 +1387,14 @@ export function Home({
           element={
             <>
               {renderHeader(t("stash.title"))}
-              <StashPage client={client} childId={childId} />
+              <StashPage
+                client={client}
+                childId={childId}
+                onWriteFailed={(err) => {
+                  const reason = err instanceof Error && err.message ? err.message : String(err);
+                  show(t("action.failed", { action: t("action.update-entry"), reason }), palette.danger, 4500);
+                }}
+              />
             </>
           }
         />
