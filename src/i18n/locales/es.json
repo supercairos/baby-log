@@ -86,7 +86,10 @@
     "doseLastAgo": "última dosis hace {{ago}}",
     "lastFeeding": "Última toma",
     "overdueBy": "{{late}} de retraso",
-    "overdueByLabel": "con retraso de"
+    "overdueByLabel": "con retraso de",
+    "milkSoon_one": "Leche por usar",
+    "milkSoon_other": "Leche por usar ({{count}})",
+    "milkSoonBy": "{{volume}} · antes de {{time}}"
   },
   "nav": {
     "home": "Inicio",
@@ -267,6 +270,7 @@
     "total_other": "{{count}} biberones · {{volume}}",
     "freezerSummary_one": "Congelador · {{count}} biberón · {{volume}}",
     "freezerSummary_other": "Congelador · {{count}} biberones · {{volume}}",
-    "expiresOn": "hasta {{date}}"
+    "expiresOn": "hasta {{date}}",
+    "moveToFridge": "A la nevera"
   }
 }

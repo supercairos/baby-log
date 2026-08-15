@@ -86,7 +86,10 @@
     "doseLastAgo": "dernière dose il y a {{ago}}",
     "lastFeeding": "Dernier repas",
     "overdueBy": "en retard de {{late}}",
-    "overdueByLabel": "en retard de"
+    "overdueByLabel": "en retard de",
+    "milkSoon_one": "Lait à utiliser",
+    "milkSoon_other": "Lait à utiliser ({{count}})",
+    "milkSoonBy": "{{volume}} · avant {{time}}"
   },
   "nav": {
     "home": "Accueil",
@@ -267,6 +270,7 @@
     "total_other": "{{count}} biberons · {{volume}}",
     "freezerSummary_one": "Congélateur · {{count}} biberon · {{volume}}",
     "freezerSummary_other": "Congélateur · {{count}} biberons · {{volume}}",
-    "expiresOn": "jusqu'au {{date}}"
+    "expiresOn": "jusqu'au {{date}}",
+    "moveToFridge": "Au frigo"
   }
 }

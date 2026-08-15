@@ -86,7 +86,10 @@
     "doseLastAgo": "last dose {{ago}} ago",
     "lastFeeding": "Last feed",
     "overdueBy": "{{late}} late",
-    "overdueByLabel": "late by"
+    "overdueByLabel": "late by",
+    "milkSoon_one": "Milk to use",
+    "milkSoon_other": "Milk to use ({{count}})",
+    "milkSoonBy": "{{volume}} · before {{time}}"
   },
   "nav": {
     "home": "Home",
@@ -267,6 +270,7 @@
     "total_other": "{{count}} bottles · {{volume}}",
     "freezerSummary_one": "Freezer · {{count}} bottle · {{volume}}",
     "freezerSummary_other": "Freezer · {{count}} bottles · {{volume}}",
-    "expiresOn": "until {{date}}"
+    "expiresOn": "until {{date}}",
+    "moveToFridge": "To fridge"
   }
 }

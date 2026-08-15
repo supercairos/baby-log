@@ -86,7 +86,10 @@
     "doseLastAgo": "letzte Dosis vor {{ago}}",
     "lastFeeding": "Letzte Mahlzeit",
     "overdueBy": "{{late}} überfällig",
-    "overdueByLabel": "überfällig seit"
+    "overdueByLabel": "überfällig seit",
+    "milkSoon_one": "Milch verbrauchen",
+    "milkSoon_other": "Milch verbrauchen ({{count}})",
+    "milkSoonBy": "{{volume}} · vor {{time}}"
   },
   "nav": {
     "home": "Start",
@@ -267,6 +270,7 @@
     "total_other": "{{count}} Fläschchen · {{volume}}",
     "freezerSummary_one": "Gefrierschrank · {{count}} Fläschchen · {{volume}}",
     "freezerSummary_other": "Gefrierschrank · {{count}} Fläschchen · {{volume}}",
-    "expiresOn": "bis {{date}}"
+    "expiresOn": "bis {{date}}",
+    "moveToFridge": "In den Kühlschrank"
   }
 }

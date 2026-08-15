@@ -140,13 +140,28 @@ export function toBottle(p: Pumping): StashBottle | null {
   return { id: p.id, amount: p.amount ?? 0, pumpedMs, stash: decodeStashNotes(p.notes) };
 }
 
+/** A bottle we know the whereabouts of — the only kind the stash can reason about. */
+export type TrackedBottle = StashBottle & { stash: StashInfo };
+
 /**
  * Current inventory, soonest to turn first — the order that answers "what do I use next".
  * Untracked bottles (no stash prefix) and spent ones are left out: the list is what's
  * actually available to feed.
  */
-export function availableBottles(bottles: StashBottle[], now: number): StashBottle[] {
+export function availableBottles(bottles: StashBottle[], now: number): TrackedBottle[] {
   return bottles
-    .filter((b): b is StashBottle & { stash: StashInfo } => b.stash != null && isAvailable(b.stash, now))
+    .filter((b): b is TrackedBottle => b.stash != null && isAvailable(b.stash, now))
     .sort((a, b) => expiresAt(a.stash) - expiresAt(b.stash));
+}
+
+/**
+ * How close to lapsing counts as "use this now". Milk thrown away is milk expressed for
+ * nothing, so this crosses over from the stash screen onto Home — the one place a
+ * sleep-deprived parent actually looks.
+ */
+export const EXPIRING_SOON_MS = 4 * 3_600_000;
+
+/** Bottles lapsing within `EXPIRING_SOON_MS`, soonest first. Empty when there's no hurry. */
+export function expiringSoon(bottles: StashBottle[], now: number): TrackedBottle[] {
+  return availableBottles(bottles, now).filter((b) => expiresAt(b.stash) - now <= EXPIRING_SOON_MS);
 }

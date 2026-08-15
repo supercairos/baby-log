@@ -29,6 +29,7 @@ import {
   isAvailable,
   moveStash,
   toBottle,
+  EXPIRING_SOON_MS,
   type StashBottle,
   type StashInfo,
   type StashLocation,
@@ -55,8 +56,9 @@ function useFreshness() {
   return (stash: StashInfo, now: number) => {
     const at = expiresAt(stash);
     if (at <= now) return { text: t("stash.expired"), color: palette.danger };
-    // Under six hours it stops being background information and becomes a decision.
-    const color = at - now < 6 * 3_600_000 ? palette.accents.feeding.accent : palette.textFaint;
+    // Same threshold that raises the Home warning, so a bottle flagged there is visibly
+    // flagged here too — one rule, not two that can drift apart.
+    const color = at - now <= EXPIRING_SOON_MS ? palette.accents.feeding.accent : palette.textFaint;
     return { text: t("stash.expiresOn", { date: shortDateTime(at) }), color };
   };
 }
@@ -180,6 +182,15 @@ export function StashPage({ client, childId }: { client: BabyBuddyClient; childI
           <button onClick={() => apply(b, { ...b.stash, state: "used" })} style={{ ...s.chip, ...chipOn(palette.ok) }}>
             {t("stash.markUsed")}
           </button>
+          {/* One forward chain: room → fridge → freezer → thawed. Milk left out and then put
+              away is an ordinary move, and without this the only options for it were "use" or
+              "bin". Nothing offers a way back — refreezing and re-chilling thawed milk are
+              exactly what the guidance rules out. */}
+          {b.stash.loc === "room" && (
+            <button onClick={() => apply(b, moveStash(b.stash, "fridge", now))} style={s.chip}>
+              {t("stash.moveToFridge")}
+            </button>
+          )}
           {b.stash.loc === "fridge" && (
             <button onClick={() => apply(b, moveStash(b.stash, "freezer", now))} style={s.chip}>
               {t("stash.moveToFreezer")}

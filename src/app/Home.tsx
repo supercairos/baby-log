@@ -71,12 +71,13 @@ import { clockTime, formatAge, greeting } from "../lib/datetime";
 import { predictNext, predictSleepEnd, predictionAlive, type ActivityPrediction } from "../lib/predict";
 import { lastNight } from "../lib/night";
 import { tummyProgress } from "../lib/tummy";
-import { encodeStashNotes, newStash, type StashLocation } from "../lib/stash";
+import { encodeStashNotes, expiresAt, expiringSoon, newStash, toBottle, type StashBottle, type StashLocation } from "../lib/stash";
 import { activityLabel, diaperMeta, feedingMeta } from "../lib/labels";
 import {
   buzz,
   useChildren,
   useNow,
+  usePumpings,
   usePwaInstall,
   useRunningTimers,
   useTimeline,
@@ -297,6 +298,17 @@ export function Home({
     }
     return best;
   }, [entries, nowMinute, t]);
+  // Milk about to turn. Its own query rather than the timeline: frozen milk can be months old
+  // and would fall off the end of the recent list, and this shares a cache key with the stash
+  // page so the extra fetch is free. Summarised as "how much, and by when" — the earliest
+  // deadline is the one that forces a decision.
+  const { pumpings } = usePumpings(client, childId);
+  const milkSoon = useMemo(() => {
+    const bottles = (pumpings ?? []).map(toBottle).filter((b): b is StashBottle => b != null);
+    const soon = expiringSoon(bottles, nowMinute * 60_000);
+    if (soon.length === 0) return null;
+    return { count: soon.length, ml: soon.reduce((sum, b) => sum + b.amount, 0), byMs: expiresAt(soon[0].stash) };
+  }, [pumpings, nowMinute]);
   // Precise age beside the "Tracking …" line (recomputed daily, not every tick).
   const ageLabel = useMemo(
     () => (child?.birth_date ? formatAge(child.birth_date, new Date(nowMinute * 60_000)) : ""),
@@ -1113,8 +1125,24 @@ export function Home({
               );
             })}
 
-            {upNext.length > 0 || showTummy || night || mlToday > 0 || medGuard || lastFeeding ? (
+            {upNext.length > 0 || showTummy || night || mlToday > 0 || medGuard || lastFeeding || milkSoon ? (
               <div style={s.estimates}>
+                {/* Milk about to turn, first in the strip and tappable through to the stash —
+                    it's the only row here with a deadline you can still act on. */}
+                {milkSoon && (
+                  <button
+                    onClick={() => { buzz(); navigate("/stash"); }}
+                    style={{ ...s.estimateRow, width: "100%", background: "none", border: "none", padding: 0, font: "inherit", color: "inherit", cursor: "pointer", textAlign: "left" }}
+                  >
+                    <span style={{ ...s.estimateIcon, background: `${palette.accents.pumping.accent}14`, color: palette.accents.pumping.accent }}>
+                      <ACTIVITY_ICON.pumping size={16} />
+                    </span>
+                    <span style={s.estimateLabel}>{t("home.milkSoon", { count: milkSoon.count })}</span>
+                    <span style={{ ...s.estimateTime, color: palette.danger }}>
+                      {t("home.milkSoonBy", { volume: `${milkSoon.ml} ml`, time: clockTime(milkSoon.byMs) })}
+                    </span>
+                  </button>
+                )}
                 {medGuard && (() => {
                   const locked = medGuard.dueMs > now;
                   return (
