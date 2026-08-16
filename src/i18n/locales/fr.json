@@ -90,8 +90,8 @@
     "milkSoon_one": "Lait à utiliser",
     "milkSoon_other": "Lait à utiliser ({{count}})",
     "milkSoonBy": "{{volume}} · avant {{time}}",
-    "milkExpired_one": "Lait hors délai",
-    "milkExpired_other": "Lait hors délai ({{count}})"
+    "milkExpired_one": "Lait périmé",
+    "milkExpired_other": "Lait périmé ({{count}})"
   },
   "nav": {
     "home": "Accueil",
@@ -200,7 +200,7 @@
     "hoursShort": "{{h}} h",
     "lastBreast": "Dernière fois : {{side}}",
     "pumpingAmount": "Quantité tirée",
-    "storeIn": "Conserver au"
+    "storeIn": "Conservation"
   },
   "login": {
     "connectManually": "Connexion manuelle",
@@ -256,18 +256,18 @@
     "loc": {
       "fridge": "Frigo",
       "freezer": "Congélateur",
-      "room": "Ambiante",
+      "room": "Temp. ambiante",
       "thawed": "Décongelé"
     },
     "title": "Réserve de lait",
-    "empty": "Rien en conservation.",
-    "dayTitle": "Tiré ce jour",
-    "expired": "hors délai",
+    "empty": "Aucun biberon en réserve.",
+    "dayTitle": "Lait tiré",
+    "expired": "périmé",
     "used": "utilisé",
     "discarded": "jeté",
     "markUsed": "Utilisé",
     "discard": "Jeter",
-    "moveToFreezer": "Au congél.",
+    "moveToFreezer": "Au congélateur",
     "thaw": "Décongeler",
     "source": "Repères AFSSA 2005 · bébé né à terme, à domicile. Durées non cumulables.",
     "total_one": "{{count}} biberon · {{volume}}",
@@ -276,10 +276,10 @@
     "freezerSummary_other": "Congélateur · {{count}} biberons · {{volume}}",
     "expiresOn": "jusqu'au {{date}}",
     "moveToFridge": "Au frigo",
-    "expiredGroup_one": "Hors délai · {{volume}}",
-    "expiredGroup_other": "Hors délai · {{count}} · {{volume}}",
+    "expiredGroup_one": "Périmé · {{volume}}",
+    "expiredGroup_other": "Périmés · {{count}} · {{volume}}",
     "dump": "Jeter",
-    "restore": "Restaurer",
+    "restore": "Remettre",
     "spentSummary_one": "Historique · {{count}} · {{volume}}",
     "spentSummary_other": "Historique · {{count}} · {{volume}}"
   }

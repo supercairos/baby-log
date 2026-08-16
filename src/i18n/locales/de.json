@@ -200,7 +200,7 @@
     "hoursShort": "{{h}} h",
     "lastBreast": "Letztes Mal: {{side}}",
     "pumpingAmount": "Abgepumpte Menge",
-    "storeIn": "Lagern im"
+    "storeIn": "Aufbewahrung"
   },
   "login": {
     "connectManually": "Manuell verbinden",
@@ -279,7 +279,7 @@
     "expiredGroup_one": "Über der Frist · {{volume}}",
     "expiredGroup_other": "Über der Frist · {{count}} · {{volume}}",
     "dump": "Verwerfen",
-    "restore": "Zurücksetzen",
+    "restore": "Zurücklegen",
     "spentSummary_one": "Verlauf · {{count}} · {{volume}}",
     "spentSummary_other": "Verlauf · {{count}} · {{volume}}"
   }

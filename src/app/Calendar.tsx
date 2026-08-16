@@ -79,6 +79,7 @@ export function Calendar({
   onRetryList,
   onAdd,
   onEdit,
+  onWriteFailed,
   showPredictions = true,
 }: {
   client: BabyBuddyClient;
@@ -95,6 +96,8 @@ export function Calendar({
   onRetryList?: () => void;
   onAdd: () => void;
   onEdit: (e: TimelineEntry) => void;
+  /** Forwarded to the day's pumping list, which writes stash changes of its own. */
+  onWriteFailed: (err: unknown) => void;
   /** Off = the day dial hides its predicted ghost markers and centre eta (facts stay). */
   showPredictions?: boolean;
 }) {
@@ -161,7 +164,7 @@ export function Calendar({
       ) : mode === "summary" ? (
         <SummaryView entries={rangeEntries} prevEntries={prevEntries} range={range} birthDate={birthDate} />
       ) : mode === "day" ? (
-        <RadialDay entries={rangeEntries} range={range} birthDate={birthDate} onEdit={onEdit} showPredictions={showPredictions} />
+        <RadialDay client={client} entries={rangeEntries} range={range} birthDate={birthDate} onEdit={onEdit} onWriteFailed={onWriteFailed} showPredictions={showPredictions} />
       ) : (
         <TimeGrid entries={rangeEntries} range={range} hourPx={hourPx} onZoom={applyZoom} onEdit={onEdit} />
       )}
@@ -215,16 +218,21 @@ const arcPath = (a0: number, a1: number, rad: number): string => {
 };
 
 function RadialDay({
+  client,
   entries,
   range,
   birthDate,
   onEdit,
+  onWriteFailed,
   showPredictions = true,
 }: {
+  /** Only for the pumping list below the dial, which writes stash changes of its own. */
+  client: BabyBuddyClient;
   entries: TimelineEntry[] | null;
   range: Range;
   birthDate: string | null | undefined;
   onEdit: (e: TimelineEntry) => void;
+  onWriteFailed: (err: unknown) => void;
   showPredictions?: boolean;
 }) {
   const { s } = useStyles();
@@ -919,7 +927,7 @@ function RadialDay({
         );
       })()}
       {/* The day's pumping sessions. Deliberately a list, not marks on the ring above. */}
-      <PumpDayList entries={pumps} />
+      <PumpDayList client={client} entries={pumps} onWriteFailed={onWriteFailed} />
       {/* Folded-tick picker: several same-type entries share one "N×" mark — choose which
           one to edit. Same scrim + bottom-sheet chrome as every other sheet in the app. */}
       {pick != null && <button tabIndex={-1} style={{ ...s.scrim, cursor: "default" }} onClick={() => setPick(null)} aria-label={t("home.close")} />}
