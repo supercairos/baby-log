@@ -556,6 +556,13 @@ export function Home({
       .catch(() => {});
   }, [client, childId]);
 
+  /** Stash writes bypass `submit` (they own their own optimistic overlay), so they need the
+   *  same "this never became durable" toast routed back to them. */
+  const onStashWriteFailed = (err: unknown) => {
+    const reason = err instanceof Error && err.message ? err.message : String(err);
+    show(t("action.failed", { action: t("action.update-entry"), reason }), palette.danger, 4500);
+  };
+
   // ── write pipeline ──
   const submit = (m: Mutation) => {
     refreshRunning();
@@ -1386,6 +1393,7 @@ export function Home({
                 showPredictions={predict}
                 onAdd={openAdd}
                 onEdit={openEdit}
+                onWriteFailed={onStashWriteFailed}
               />
             </>
           }
@@ -1398,10 +1406,7 @@ export function Home({
               <StashPage
                 client={client}
                 childId={childId}
-                onWriteFailed={(err) => {
-                  const reason = err instanceof Error && err.message ? err.message : String(err);
-                  show(t("action.failed", { action: t("action.update-entry"), reason }), palette.danger, 4500);
-                }}
+                onWriteFailed={onStashWriteFailed}
               />
             </>
           }
