@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.23.0](https://github.com/supercairos/baby-log/compare/baby-log-v1.22.0...baby-log-v1.23.0) (2026-08-16)
+
+
+### Features
+
+* share the stash row with the day list, and let archived bottles be deleted ([afe7fe9](https://github.com/supercairos/baby-log/commit/afe7fe9c95e244878fa612894d05e8d85a0ad5b8))
+* share the stash row with the day list, delete archived bottles, reword FR ([7f813a9](https://github.com/supercairos/baby-log/commit/7f813a9da563888d464f74d91482564e67181508))
+
+
+### Bug Fixes
+
+* reword the stash strings that read badly in French ([281bf30](https://github.com/supercairos/baby-log/commit/281bf306b4ddf720d9daf3212f7022ba6dca1b22))
+
 ## [1.22.0](https://github.com/supercairos/baby-log/compare/baby-log-v1.21.0...baby-log-v1.22.0) (2026-08-15)
 
 
