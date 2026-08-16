@@ -200,7 +200,7 @@
     "hoursShort": "{{h}}h",
     "lastBreast": "Last time: {{side}}",
     "pumpingAmount": "Pumped amount",
-    "storeIn": "Store in"
+    "storeIn": "Storage"
   },
   "login": {
     "connectManually": "Connect manually",
