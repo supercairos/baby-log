@@ -899,6 +899,7 @@ export function Home({
     const startIso = iso(d.startMs);
     const endIso = iso(d.endMs ?? d.startMs);
     const notes = d.notes.trim() === "" ? null : d.notes; // empty clears the note server-side
+    if (target.path == null) return null; // adding, before a kind has been picked
     switch (target.path) {
       case "/api/feedings/": {
         // Preserve the existing method verbatim (the server accepts all 6 for any type);
@@ -930,8 +931,15 @@ export function Home({
             notes: d.stash ? encodeStashNotes({ ...d.stash, note: d.notes.trim() }) : notes,
           },
         };
-      default:
-        return null;
+      default: {
+        // Exhaustive on purpose. A `default: return null` here silently dropped every edit
+        // to a newly added entry type — `saveEdit` does `if (patch) submit(...)`, so the
+        // sheet closed as though it had saved while the server was never touched. That is
+        // exactly what happened when `/api/pumping/` joined `EntryPath`. Assigning to
+        // `never` turns the next omission into a build failure instead.
+        const unhandled: never = target.path;
+        return unhandled;
+      }
     }
   };
 
@@ -970,27 +978,47 @@ export function Home({
       const startIso = iso(draft.startMs);
       const endIso = iso(draft.endMs ?? draft.startMs);
       const notes = draft.notes.trim() === "" ? null : draft.notes;
-      if (activity === "diaper") submit(logDiaperMutation(childId, { wet: draft.wet, solid: draft.solid, time: startIso, notes }));
-      else if (activity === "medication") submit(logMedicationMutation(childId, { name: draft.medName.trim(), dosage: draft.dosage, dosage_unit: draft.dosageUnit ?? undefined, next_dose_interval: draft.nextDoseMs != null ? toDurationField(draft.nextDoseMs) : null, time: startIso, notes }));
-      else if (activity === "feeding") submit(createFeedingMutation(childId, startIso, endIso, { ...feedingFieldsFor({ type: draft.type, method: draft.method, amount: draft.amount }), notes }));
-      else if (activity === "sleep") submit(createSleepMutation(childId, startIso, endIso, { notes }));
-      else if (activity === "pumping") {
-        // The sheet's chips carry only the CHOICE (their `at` is a placeholder). The real
-        // timestamp is derived here from when the session ended, so a bottle backdated to
-        // this morning and frozen straight away gets its window from 09:00 — not from
-        // whenever the entry happened to be typed in.
-        const dumped = draft.stash?.state === "discarded";
-        const stash = newStash(draft.stash?.loc ?? "fridge", draft.endMs ?? draft.startMs, draft.notes.trim());
-        submit(
-          createPumpingMutation(childId, startIso, endIso, {
-            amount: draft.amount ?? 0,
-            notes: encodeStashNotes(dumped ? { ...stash, state: "discarded" } : stash),
-          }),
-        );
+      // A `switch` with a `never` default, not an if/else chain. The chain used to end in a
+      // bare `else` meaning "anything left is tummy time" — correct until `pumping` joined
+      // `ACTIVITY`, at which point picking it in the add sheet POSTed a tummy-time instead,
+      // silently. Every arm is spelled out and the default cannot be reached, so the next
+      // activity added breaks the build here rather than writing the wrong entry type.
+      switch (activity) {
+        case "diaper":
+          submit(logDiaperMutation(childId, { wet: draft.wet, solid: draft.solid, time: startIso, notes }));
+          break;
+        case "medication":
+          submit(logMedicationMutation(childId, { name: draft.medName.trim(), dosage: draft.dosage, dosage_unit: draft.dosageUnit ?? undefined, next_dose_interval: draft.nextDoseMs != null ? toDurationField(draft.nextDoseMs) : null, time: startIso, notes }));
+          break;
+        case "feeding":
+          submit(createFeedingMutation(childId, startIso, endIso, { ...feedingFieldsFor({ type: draft.type, method: draft.method, amount: draft.amount }), notes }));
+          break;
+        case "sleep":
+          submit(createSleepMutation(childId, startIso, endIso, { notes }));
+          break;
+        case "tummy":
+          submit(createTummyMutation(childId, startIso, endIso, draft.notes.trim() ? { milestone: draft.notes } : {}));
+          break;
+        case "pumping": {
+          // The sheet's chips carry only the CHOICE (their `at` is a placeholder). The real
+          // timestamp is derived here from when the session ended, so a bottle backdated to
+          // this morning and frozen straight away gets its window from 09:00 — not from
+          // whenever the entry happened to be typed in.
+          const dumped = draft.stash?.state === "discarded";
+          const stash = newStash(draft.stash?.loc ?? "fridge", draft.endMs ?? draft.startMs, draft.notes.trim());
+          submit(
+            createPumpingMutation(childId, startIso, endIso, {
+              amount: draft.amount ?? 0,
+              notes: encodeStashNotes(dumped ? { ...stash, state: "discarded" } : stash),
+            }),
+          );
+          break;
+        }
+        default: {
+          const unhandled: never = activity;
+          return unhandled;
+        }
       }
-      // Explicit, not a fallthrough: an `else` here is how a newly added activity silently
-      // gets logged as tummy time.
-      else if (activity === "tummy") submit(createTummyMutation(childId, startIso, endIso, draft.notes.trim() ? { milestone: draft.notes } : {}));
     } else if (editing.serverId != null) {
       const patch = buildPatch(editing, draft);
       if (patch) submit(updateEntryMutation(editing.serverId, patch));
