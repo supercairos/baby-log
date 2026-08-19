@@ -203,13 +203,20 @@ function StashRow({
     <div style={{ ...s.entry, flexDirection: "column", alignItems: "stretch", gap: 14, padding: "16px 16px 14px", marginBottom: 12 }}>
       {/* Dim the IDENTITY line only, never the actions. Fading the whole row made the one
           control an archived bottle still has — restore — read as disabled. */}
-      <div style={{ ...s.entryTap, cursor: "default", gap: 14, ...(gone ? { opacity: 0.55 } : {}) }}>
+      {/* Top-aligned, not centred: the left column is two lines and the right is one, so
+          centring floated the expiry into the gap between them instead of sitting on the
+          line it qualifies. It reads as a stray label, and worst on an expired row where
+          the short "périmé" has nothing to line up against. */}
+      <div style={{ ...s.entryTap, cursor: "default", gap: 14, alignItems: "flex-start", ...(gone ? { opacity: 0.55 } : {}) }}>
         <span style={{ ...s.entryIco, color: accent, background: `${accent}1a` }}>
           <Icon size={20} />
         </span>
         <div style={s.entryMid}>
-          {/* Struck through, not removed — the volume is still part of the day's total. */}
-          <div style={{ ...s.entryLabel, ...(gone ? { textDecoration: "line-through" } : {}) }}>
+          {/* Struck through, not removed — the volume is still part of the day's total.
+              An explicit line-height, matched by the expiry opposite, so the two sit on the
+              same line despite different font sizes — `entryLabel` otherwise inherits the
+              serif's own metrics and the two drift apart. */}
+          <div style={{ ...s.entryLabel, lineHeight: "20px", ...(gone ? { textDecoration: "line-through" } : {}) }}>
             {bottle.amount} ml
             {stash != null && <span style={s.entryMeta}> · {stashWhereLabel(stash)}</span>}
           </div>
@@ -219,7 +226,11 @@ function StashRow({
         </div>
         {/* A spent bottle has no deadline left to report, and a countdown beside "used"
             would read as though it were still on offer. */}
-        {f && <span style={{ ...s.entryTime, color: f.color, fontWeight: 700, textAlign: "right" }}>{f.text}</span>}
+        {f && (
+          <span style={{ ...s.entryTime, color: f.color, fontWeight: 700, textAlign: "right", lineHeight: "20px", flexShrink: 0 }}>
+            {f.text}
+          </span>
+        )}
       </div>
 
       {stash != null && (
