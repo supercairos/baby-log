@@ -26,7 +26,7 @@ jobs:
           configFile: commitlint.config.cjs
 
   lint:
-    name: Lint & Typecheck
+    name: Lint, Typecheck & Test
     runs-on: ubuntu-latest
     if: ${{ github.event_name != 'pull_request' || !startsWith(github.event.pull_request.head.ref, 'release-please--') }}
     steps:
@@ -39,6 +39,7 @@ jobs:
       - run: npm run gen:api
       - run: npm run lint
       - run: npm run typecheck
+      - run: npm test
 
   build:
     name: Build

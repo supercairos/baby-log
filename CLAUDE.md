@@ -201,3 +201,23 @@ Parser:
   scan + connect with `setTimeout`. The *parsing* and the connection object
   (`{url, api_key, session_cookies}`) are real-shaped for a clean swap.
 - The in-browser Babel warning in the console is expected for the preview only; gone in the Vite build.
+
+---
+
+## Tests
+
+`npm test` (Vitest, `vitest.config.ts`). The suite covers the **pure logic layer** — the
+stash codec and expiry rules, the date/duration formatters, the activity registry and timer-name
+contract, the night recap, tummy goals. That's deliberate: it's where every bug this app has
+shipped actually lived, and it needs no DOM.
+
+- **TZ and locale are pinned** (`Europe/Paris`, `fr-FR` stubbed per-file). Most of what's under
+  test is arithmetic across *local* day boundaries, so without pinning the suite would pass
+  here and fail in CI.
+- Modules that import `../i18n` stub it rather than booting a DOM — `i18n/index.ts` installs a
+  browser language detector at import time.
+- **Not covered**: React components, the service worker, and the outbox flush loop. Those need
+  a DOM and a fake IndexedDB; the app is verified there by running it (see the `run` skill).
+
+When fixing a bug in the logic layer, add the failing case first — and check the test actually
+fails before the fix, since a test that never could have caught the bug is worse than none.
