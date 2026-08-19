@@ -68,7 +68,7 @@ import {
   syncTimerNotifications,
 } from "./notifications";
 import { fmt, hm, iso, nowIso, nowMs, parseDurationMs, toDurationField } from "../lib/format";
-import { clockTime, formatAge, greeting } from "../lib/datetime";
+import { clockTime, deadlineTime, formatAge, greeting } from "../lib/datetime";
 import { predictNext, predictSleepEnd, predictionAlive, type ActivityPrediction } from "../lib/predict";
 import { lastNight } from "../lib/night";
 import { tummyProgress } from "../lib/tummy";
@@ -1232,7 +1232,7 @@ export function Home({
                     <span style={{ ...s.estimateTime, color: palette.danger }}>
                       {milkSoon.expired
                         ? `${milkSoon.ml} ml`
-                        : t("home.milkSoonBy", { volume: `${milkSoon.ml} ml`, time: clockTime(milkSoon.byMs) })}
+                        : t("home.milkSoonBy", { volume: `${milkSoon.ml} ml`, time: deadlineTime(milkSoon.byMs, new Date(nowMinute * 60_000)) })}
                     </span>
                   </button>
                 )}
