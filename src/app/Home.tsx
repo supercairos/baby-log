@@ -861,13 +861,19 @@ export function Home({
       // Tummy-time has no `notes` column — its free text lives in `milestone`.
       notes: (e.activity === "tummy" ? e.milestone : stash ? stash.note : e.notes) ?? "",
       stash,
+      // A bottle that has never been moved has `at` == the session's end. Remember that here
+      // so a time correction can carry the expiry clock along with it; once it HAS been
+      // moved, `at` is the moment of the move and must not follow the times.
+      stashAtTracksEnd: stash != null && Math.abs(stash.at - (e.endMs ?? e.startMs)) < 2000,
     });
   };
 
   const openAdd = () => {
     buzz();
     setEditing({ isNew: true, activity: null });
-    setDraft({ type: null, method: null, amount: null, wet: false, solid: false, medName: "", dosage: null, dosageUnit: null, nextDoseMs: null, startMs: nowMs(), endMs: null, notes: "", stash: null });
+    // A new entry builds its stash from the times on save, so the clock tracks the end by
+    // construction and this flag only matters once the entry exists.
+    setDraft({ type: null, method: null, amount: null, wet: false, solid: false, medName: "", dosage: null, dosageUnit: null, nextDoseMs: null, startMs: nowMs(), endMs: null, notes: "", stash: null, stashAtTracksEnd: false });
   };
 
   /** Back from a picked kind to the activity picker (adding only — an existing entry's kind
@@ -928,7 +934,19 @@ export function Home({
             amount: d.amount ?? 0,
             start: startIso,
             end: endIso,
-            notes: d.stash ? encodeStashNotes({ ...d.stash, note: d.notes.trim() }) : notes,
+            // Correcting the TIME has to carry the expiry clock with it. Keeping the old
+            // `at` here made the row claim a window that wasn't 48 h wide at all: a session
+            // logged at 21:31 and later corrected to 16:00 still expired 48 h after 21:31,
+            // so it read "pumped 16:00 · keeps until 21:31 two days on" — 53½ h. Only a
+            // bottle that has actually been MOVED keeps its own timestamp, because there
+            // `at` means "when it went into this location", not "when it was expressed".
+            notes: d.stash
+              ? encodeStashNotes({
+                  ...d.stash,
+                  at: d.stashAtTracksEnd ? (d.endMs ?? d.startMs) : d.stash.at,
+                  note: d.notes.trim(),
+                })
+              : notes,
           },
         };
       default: {

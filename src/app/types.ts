@@ -27,6 +27,11 @@ export interface EditDraft {
   /** Pumping only: the decoded stash state, carried through the edit untouched. `null` for
    *  every other activity and for a pumping entry written by another client. */
   stash: StashInfo | null;
+  /** Pumping only: whether the stash clock was still tracking the session's end when the
+   *  sheet opened — i.e. the bottle has never been moved between locations. If so, editing
+   *  the times moves the expiry clock with them; if it HAS been moved, `at` is the moment of
+   *  that move and has to survive a time correction untouched. */
+  stashAtTracksEnd: boolean;
 }
 
 /** A recently-used medication, for one-tap "repeat last dose" chips (derived from the timeline). */
