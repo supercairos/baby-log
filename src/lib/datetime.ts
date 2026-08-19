@@ -76,6 +76,21 @@ export function shortDateTime(epochMs: number, now: Date = new Date()): string {
   });
 }
 
+/**
+ * A deadline: bare clock time while it falls today, with the date once it doesn't.
+ *
+ * The milk warning fires within hours of expiry, so the deadline is usually today — but a
+ * bottle flagged at 23:15 that lapses at 01:15 rendered as "before 1:15", which reads as a
+ * time that has already been and gone. Adding the date only when it crosses midnight keeps
+ * the common case short without ever being ambiguous.
+ */
+export function deadlineTime(epochMs: number, now: Date = new Date()): string {
+  const d = new Date(epochMs);
+  const sameDay =
+    d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+  return sameDay ? clockTime(epochMs) : shortDateTime(epochMs, now);
+}
+
 export function dayLabel(epochMs: number): string {
   const d = new Date(epochMs);
   d.setHours(0, 0, 0, 0);
