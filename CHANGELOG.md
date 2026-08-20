@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.23.1](https://github.com/supercairos/baby-log/compare/baby-log-v1.23.0...baby-log-v1.23.1) (2026-08-20)
+
+
+### Bug Fixes
+
+* a time correction moves the milk's expiry clock with it ([fde4e00](https://github.com/supercairos/baby-log/commit/fde4e00ec34041cff33cb6e84600ab208230ffc5))
+* a time correction moves the milk's expiry clock with it ([69194fa](https://github.com/supercairos/baby-log/commit/69194fa848737d984095bb4767c4f32da176da8d))
+* date the milk deadline when it falls after midnight ([d1d2cf7](https://github.com/supercairos/baby-log/commit/d1d2cf776fa84b9f61e5dbb0e03bfd0db29a64c8))
+* date the milk deadline when it falls after midnight ([5c494ac](https://github.com/supercairos/baby-log/commit/5c494ac3e51c66bcad236afc1aa0635ec78ca0d1))
+* make the activity write paths exhaustive ([9b33387](https://github.com/supercairos/baby-log/commit/9b333872aa5a8e4ef8c68c41b6f834a4c946e335))
+* make the activity write paths exhaustive ([dc14df4](https://github.com/supercairos/baby-log/commit/dc14df43b6a005e8199b13c44a716eebee75df89))
+* show pumping in the weekly summary, and settle the drawer toggle wording ([24a3035](https://github.com/supercairos/baby-log/commit/24a303537bee37b5dab2a939a7572878b4cf1e15))
+* show pumping in the weekly summary, and settle the drawer toggle wording ([24f8aa3](https://github.com/supercairos/baby-log/commit/24f8aa36e0603d517121be1ed1c0efa5c44d8c58))
+
 ## [1.23.0](https://github.com/supercairos/baby-log/compare/baby-log-v1.22.0...baby-log-v1.23.0) (2026-08-16)
 
 
