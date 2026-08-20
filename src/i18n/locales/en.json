@@ -166,7 +166,8 @@
     "solid_other": "{{count}} solid",
     "awake": "awake",
     "nextStat": "Next stat",
-    "pickEntry": "Which entry?"
+    "pickEntry": "Which entry?",
+    "mlPerDay": "{{value}} ml/day"
   },
   "sheet": {
     "feedingDetails": "Feeding details",

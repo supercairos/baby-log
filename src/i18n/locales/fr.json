@@ -102,13 +102,13 @@
     "themeLight": "Clair",
     "alertsOn": "Alertes · Activées",
     "alertsOff": "Alertes · Désactivées",
-    "napOn": "Alerte sieste · On",
-    "napOff": "Alerte sieste · Off",
+    "napOn": "Alerte sieste · Activée",
+    "napOff": "Alerte sieste · Désactivée",
     "install": "Ajouter à l'écran d'accueil",
     "disconnect": "Se déconnecter",
     "language": "Langue · {{lang}}",
-    "predictOn": "Prédictions · On",
-    "predictOff": "Prédictions · Off"
+    "predictOn": "Prédictions · Activées",
+    "predictOff": "Prédictions · Désactivées"
   },
   "toast": {
     "started": "{{activity}} démarré",
@@ -166,7 +166,8 @@
     "solid_other": "{{count}} selles",
     "awake": "éveil",
     "nextStat": "Statistique suivante",
-    "pickEntry": "Quelle entrée ?"
+    "pickEntry": "Quelle entrée ?",
+    "mlPerDay": "{{value}} ml/jour"
   },
   "sheet": {
     "feedingDetails": "Détails du repas",

@@ -102,13 +102,13 @@
     "themeLight": "Chiaro",
     "alertsOn": "Avvisi · Attivi",
     "alertsOff": "Avvisi · Disattivi",
-    "napOn": "Avviso pisolino · On",
-    "napOff": "Avviso pisolino · Off",
+    "napOn": "Avviso pisolino · Attivo",
+    "napOff": "Avviso pisolino · Disattivo",
     "install": "Aggiungi alla schermata Home",
     "disconnect": "Disconnetti",
     "language": "Lingua · {{lang}}",
-    "predictOn": "Previsioni · On",
-    "predictOff": "Previsioni · Off"
+    "predictOn": "Previsioni · Attive",
+    "predictOff": "Previsioni · Disattive"
   },
   "toast": {
     "started": "{{activity}} avviato",
@@ -166,7 +166,8 @@
     "solid_other": "{{count}} cacca",
     "awake": "sveglio",
     "nextStat": "Statistica successiva",
-    "pickEntry": "Quale voce?"
+    "pickEntry": "Quale voce?",
+    "mlPerDay": "{{value}} ml/giorno"
   },
   "sheet": {
     "feedingDetails": "Dettagli poppata",

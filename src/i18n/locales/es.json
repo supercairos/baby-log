@@ -102,13 +102,13 @@
     "themeLight": "Claro",
     "alertsOn": "Alertas · Activadas",
     "alertsOff": "Alertas · Desactivadas",
-    "napOn": "Alerta de siesta · On",
-    "napOff": "Alerta de siesta · Off",
+    "napOn": "Alerta de siesta · Activada",
+    "napOff": "Alerta de siesta · Desactivada",
     "install": "Añadir a la pantalla de inicio",
     "disconnect": "Desconectar",
     "language": "Idioma · {{lang}}",
-    "predictOn": "Predicciones · On",
-    "predictOff": "Predicciones · Off"
+    "predictOn": "Predicciones · Activadas",
+    "predictOff": "Predicciones · Desactivadas"
   },
   "toast": {
     "started": "{{activity}}: iniciado",
@@ -166,7 +166,8 @@
     "solid_other": "{{count}} caca",
     "awake": "despierto",
     "nextStat": "Siguiente estadística",
-    "pickEntry": "¿Qué entrada?"
+    "pickEntry": "¿Qué entrada?",
+    "mlPerDay": "{{value}} ml/día"
   },
   "sheet": {
     "feedingDetails": "Detalles de la toma",

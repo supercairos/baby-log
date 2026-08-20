@@ -1210,6 +1210,7 @@ function renderBlock(
 /** Signed compact duration for deltas, e.g. "+40m" / "−1h 05m". */
 const signedHm = (ms: number): string => `${ms < 0 ? "−" : "+"}${hm(Math.abs(ms))}`;
 const signedCount = (n: number): string => `${n < 0 ? "−" : "+"}${Math.abs(n)}`;
+const signedMl = (n: number): string => `${n < 0 ? "−" : "+"}${Math.abs(n)} ml`;
 
 function SummaryView({
   entries,
@@ -1252,6 +1253,8 @@ function SummaryView({
     feeding: signedCount(Math.round(stats.feedCount / days - prev.feedCount / prevDays)),
     diaper: signedCount(Math.round(stats.diaperCount / days - prev.diaperCount / prevDays)),
     tummy: signedHm(stats.tummyMs / days - prev.tummyMs / prevDays),
+    // In millilitres, like the card above it — a supply trend in "+30" means nothing.
+    pumping: signedMl(Math.round(stats.pumpMl / days - prev.pumpMl / prevDays)),
   } as const;
 
   if (entries == null) return <div style={s.empty}><div className="spin" style={{ width: 28, height: 28, borderRadius: "50%", border: `3px solid ${palette.surfaceStrongBorder}`, borderTopColor: palette.accents.feeding.accent }} /></div>;
@@ -1262,6 +1265,15 @@ function SummaryView({
     { key: "feeding", big: t("cal.perDay", { count: Math.round(stats.feedCount / days) }), sub: stats.avgGap != null ? t("cal.everyInterval", { duration: hm(stats.avgGap) }) : "—" },
     { key: "diaper", big: t("cal.perDay", { count: Math.round(stats.diaperCount / days) }), sub: `${t("cal.wet", { count: stats.wet })} · ${t("cal.solid", { count: stats.solid })}` },
     { key: "tummy", big: t("cal.minPerDay", { value: Math.round(stats.tummyMs / days / 60_000) }), sub: t("cal.goalMin", { goal }) },
+    // Only for families who express — a permanent "0 ml/day" card would take a sixth of this
+    // screen to say nothing. Volume, not session count, is the number supply is judged on.
+    ...(stats.pumpMl > 0 || prev.pumpMl > 0
+      ? [{
+          key: "pumping" as const,
+          big: t("cal.mlPerDay", { value: Math.round(stats.pumpMl / days) }),
+          sub: t("cal.perDay", { count: Math.round(stats.pumpCount / days) }),
+        }]
+      : []),
   ] as const;
 
   return (
@@ -1285,6 +1297,7 @@ function SummaryView({
 
 function summarize(entries: TimelineEntry[], from: number, to: number) {
   let sleepMs = 0, longestSleep = 0, tummyMs = 0, wet = 0, solid = 0, diaperCount = 0;
+  let pumpMl = 0, pumpCount = 0;
   const feeds: number[] = [];
   for (const e of entries) {
     if (e.activity === "sleep" || e.activity === "tummy") {
@@ -1302,11 +1315,16 @@ function summarize(entries: TimelineEntry[], from: number, to: number) {
         diaperCount++;
         if (e.wet) wet++;
         if (e.solid) solid++;
+      } else if (e.activity === "pumping") {
+        // Counted whatever became of the milk: a session that was expressed and thrown away
+        // still happened, and supply is what this number is for.
+        pumpMl += e.amount;
+        pumpCount++;
       }
     }
   }
   feeds.sort((a, b) => a - b);
   const gaps: number[] = [];
   for (let i = 1; i < feeds.length; i++) gaps.push(feeds[i] - feeds[i - 1]);
-  return { sleepMs, longestSleep, tummyMs, wet, solid, diaperCount, feedCount: feeds.length, avgGap: gaps.length ? median(gaps) : null };
+  return { sleepMs, longestSleep, tummyMs, wet, solid, diaperCount, pumpMl, pumpCount, feedCount: feeds.length, avgGap: gaps.length ? median(gaps) : null };
 }
