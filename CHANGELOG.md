@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.24.0](https://github.com/supercairos/baby-log/compare/baby-log-v1.23.1...baby-log-v1.24.0) (2026-09-17)
+
+
+### Features
+
+* correct a running timer's start time from its card ([ddc6cb2](https://github.com/supercairos/baby-log/commit/ddc6cb26dff799a05759fa926636a57d135e233f))
+* correct a running timer's start time from its card ([8f509cd](https://github.com/supercairos/baby-log/commit/8f509cdcf36d9d431c4ac130d01174c7de14e958))
+
+
+### Bug Fixes
+
+* show running timers while their start is still queued offline ([9bd56ee](https://github.com/supercairos/baby-log/commit/9bd56eefa870659d7cd01ec4f46052091e0936cd))
+* show running timers while their start is still queued offline ([bf4fa55](https://github.com/supercairos/baby-log/commit/bf4fa55f74d7ecc658922c25676e2166605154c8))
+
 ## [1.23.1](https://github.com/supercairos/baby-log/compare/baby-log-v1.23.0...baby-log-v1.23.1) (2026-08-20)
 
 
