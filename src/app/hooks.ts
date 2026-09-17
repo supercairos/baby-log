@@ -246,6 +246,13 @@ export function useRunningTimers(client: BabyBuddyClient, childId: number | null
     queryFn: () => computeRunning(client, childId as number),
     refetchInterval: 15_000,
     refetchOnWindowFocus: true,
+    // MUST run offline. This query is not a server read — it's the local mirror, and
+    // `computeRunning` already reads IndexedDB and swallows the poll's failure itself. Under
+    // the default `networkMode: "online"` TanStack PAUSES it whenever `navigator.onLine` is
+    // false, so the query function is never called and a timer started in a dead-reception
+    // nursery stays invisible for as long as the signal is gone — the one moment the
+    // optimistic view is the only thing the parent has.
+    networkMode: "always",
     // computeRunning never throws (it falls back to the local view if the poll fails), so a
     // result is always a real merge — keep it as the displayed state.
     placeholderData: (prev) => prev,
