@@ -68,12 +68,22 @@ export async function startTimer(
   return unwrap(res);
 }
 
-/** Rename a running timer (`PATCH /api/timers/{id}/`) — updates the encoded feeding side so
- *  other devices (and the Baby Buddy web UI) reflect a refine while the timer is still running. */
-export async function patchTimerName(client: BabyBuddyClient, id: number, name: string): Promise<void> {
+/**
+ * Patch a running timer (`PATCH /api/timers/{id}/`) so other devices — and the Baby Buddy
+ * web UI — see the change while the timer is still running. Two fields matter:
+ *  - `name`: the encoded feeding side, updated by a live refine;
+ *  - `start`: a corrected start time (verified writable — `Timer.start` is not readonly),
+ *    for the "I forgot to hit start ten minutes ago" case.
+ * Both are pushed from the local mapping, so repeated edits converge on the same state.
+ */
+export async function patchTimer(
+  client: BabyBuddyClient,
+  id: number,
+  patch: { name?: string; start?: string },
+): Promise<void> {
   const res = await client.PATCH("/api/timers/{id}/", {
     params: { path: { id: String(id) } },
-    body: { name },
+    body: patch,
   });
   unwrap(res);
 }

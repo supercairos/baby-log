@@ -255,7 +255,25 @@ export function useRunningTimers(client: BabyBuddyClient, childId: number | null
     void qc.invalidateQueries({ queryKey: ["running-timers", childId] });
   }, [qc, childId]);
 
-  return { running: childId == null ? [] : (data ?? []), refresh };
+  /**
+   * Repaint one timer from a local edit before the refetch lands. `refresh()` alone would
+   * round-trip the server poll first, and a start-time nudge is tapped repeatedly — the card
+   * has to move under the thumb, not a beat later. The refetch then reconciles.
+   *
+   * `id` matches either the row's `key` or its `localId`: a server-only timer is addressed by
+   * key until it's adopted (the adoption itself is what writes the localId in), and by localId
+   * from then on, so both handles resolve to the same row through the change.
+   */
+  const patchLocal = useCallback(
+    (id: string, patch: Partial<RunningTimer>) => {
+      qc.setQueryData<RunningTimer[]>(["running-timers", childId], (prev) =>
+        prev?.map((rt) => (rt.key === id || rt.localId === id ? { ...rt, ...patch } : rt)),
+      );
+    },
+    [qc, childId],
+  );
+
+  return { running: childId == null ? [] : (data ?? []), refresh, patchLocal };
 }
 
 // ── timeline ──────────────────────────────────────────────────────────────────

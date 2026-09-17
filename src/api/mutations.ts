@@ -48,9 +48,10 @@ export type Mutation =
       /** The real moment the timer started — sent on flush so offline starts keep it. */
       startedAt: IsoDateTime;
     })
-  // Sync a running feeding's refined type/method to the server by renaming its timer (the
-  // name is the only cross-device channel). Carries just the localId; the flush rebuilds the
-  // encoded name from the timer mapping's current `feeding`, so repeated refines converge.
+  // Sync a running timer's locally-edited state to the server: a corrected `start`, and (for
+  // feeding) the refined type/method encoded in the timer name — the name is the only
+  // cross-device channel for a side. Carries just the localId; the flush rebuilds the body
+  // from the timer mapping's CURRENT values, so repeated edits converge instead of racing.
   | (MutationBase & {
       kind: "patch-timer";
       localId: LocalId;
@@ -140,7 +141,8 @@ export function startTimerMutation(
   };
 }
 
-/** Sync a running feeding's refined side to the server (renames the timer). See the mutation type. */
+/** Sync a running timer's mapping (corrected start, refined feeding side) to the server.
+ *  See the mutation type. */
 export function patchTimerMutation(localId: LocalId): Mutation {
   return { kind: "patch-timer", mutationId: newId(), at: nowIso(), localId };
 }
