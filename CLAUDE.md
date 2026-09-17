@@ -140,6 +140,26 @@ Parser:
   - an outbox of writes not yet flushed to the server (service worker retries on reconnect).
 - **Reconciliation on reopen**: fetch server timers, merge with local outbox. Timers are just
   timestamps so conflicts are trivial; if server has a stop time you don't, server wins.
+- **`networkMode: "always"` is REQUIRED on the running-timers query.** TanStack Query defaults
+  to `networkMode: "online"`, which PAUSES a query whenever `navigator.onLine` is false — the
+  query function is never called at all. `computeRunning` is not a server read: it reads
+  IndexedDB and swallows the poll's failure itself, so pausing it means a timer started in a
+  dead-reception nursery is invisible until the signal returns. The pill says "offline · 1
+  pending" and the card simply isn't there. Any future query that must render from the local
+  mirror needs the same opt-out; plain server reads (timeline, calendar, stash) should keep
+  the default, where pausing correctly leaves the last cached data on screen.
+- **A write that never reached the server is never permanent.** `unwrap()` only throws
+  `BabyBuddyApiError`, so anything else out of a flush is the fetch itself failing — no
+  response came back. Only an answer from the server may be terminal (4xx won't self-heal;
+  repeated 5xx exhausts `MAX_ATTEMPTS`). Counting transport failures would let a long outage
+  burn the budget and hit the permanent branch, which DELETES a start-timer's mapping — the
+  running card would vanish mid-feed and the activity would be lost. `attempts` still
+  increments while offline so the backoff keeps widening; only the give-up test is gated.
+- **Clear the backoff on reconnect** (`clearOutboxBackoff`, called from the `online` listener
+  and the service worker's Background Sync handler). `drain()` skips records whose
+  `nextAttemptAt` is in the future, so without this a write queued through a long outage sits
+  for up to `BACKOFF_MAX_MS` (5 min) after the bars come back. `attempts` is left alone — it's
+  the budget for a server that answers with errors, and reconnecting says nothing about that.
 - Store UTC, render local (DST / midnight-spanning sleeps must stay correct).
 - **Stale-timer nudge**: if e.g. a "sleep" has run >~14h it's likely a forgotten stop — surface a
   gentle "still sleeping?" prompt rather than logging a nonsense duration.

@@ -184,9 +184,20 @@ async function drain(client: BabyBuddyClient): Promise<FlushSummary> {
       executed++;
     } catch (err) {
       const attempts = record.attempts + 1;
-      const status = err instanceof BabyBuddyApiError ? err.status : 0;
-      // Client errors (except the already-handled timer-gone race) won't self-heal.
-      const permanent = (status >= 400 && status < 500) || attempts >= MAX_ATTEMPTS;
+      // Did the SERVER answer? `unwrap` only ever throws BabyBuddyApiError, so anything else
+      // is the fetch itself failing — no response reached us at all (offline, dead reception,
+      // host unreachable). That distinction decides whether giving up is ever allowed.
+      const answered = err instanceof BabyBuddyApiError;
+      const status = answered ? err.status : 0;
+      // Only an actual answer can be terminal. A client error won't self-heal, and a server
+      // that keeps erroring runs out of attempts — but a request that never LANDED must be
+      // retried forever, because the alternative is worse than a stuck queue: the permanent
+      // branch below deletes a start-timer's mapping, so burning MAX_ATTEMPTS during a long
+      // dead-reception stretch would erase the running card mid-feed and lose the feeding
+      // entirely. Queueing until the signal returns is the entire point of the outbox.
+      // `attempts` still increments while offline, so the backoff keeps widening (capped at
+      // BACKOFF_MAX_MS) instead of retrying in a tight loop.
+      const permanent = answered && ((status >= 400 && status < 500) || attempts >= MAX_ATTEMPTS);
       if (permanent) {
         // Give up and DROP the record: it will never land (a rejected 4xx, or out of retries),
         // and a kept "dead" entry serves nothing here — it only accumulates and can mis-suppress
@@ -378,6 +389,24 @@ async function resolveStop(
 }
 
 /**
+ * Drop every queued record's remaining backoff so the next drain retries it at once.
+ *
+ * Call this the moment connectivity returns. The backoff exists to space out retries against
+ * a server that isn't answering — and once the radio is back, that reason has evaporated.
+ * Without it a write queued through a long outage keeps whatever delay it accumulated (up to
+ * BACKOFF_MAX_MS), so the parent watches "N pending" sit there for minutes after the bars
+ * came back. `attempts` is deliberately left alone: it's the give-up budget for a server that
+ * answers with errors, and coming back online says nothing about that.
+ */
+export async function clearOutboxBackoff(): Promise<void> {
+  const now = Date.now();
+  for (const record of await allRecords()) {
+    if (record.seq === undefined || record.nextAttemptAt <= now) continue;
+    await updateRecord({ ...record, nextAttemptAt: 0 });
+  }
+}
+
+/**
  * Wire automatic flushing on the main thread: when connectivity returns, when the tab
  * regains focus, and on a gentle interval (matching the multi-caregiver poll cadence).
  * Returns a teardown function. No-op outside a browser window.
@@ -388,12 +417,15 @@ export function startOutboxAutoFlush(client: BabyBuddyClient, intervalMs = 45_00
   const onVisible = () => {
     if (document.visibilityState === "visible") flush();
   };
-  window.addEventListener("online", flush);
+  // Reconnect: clear the backoff FIRST, otherwise this flush skips every record still
+  // sitting out a delay it only earned because the network was gone.
+  const onOnline = () => void clearOutboxBackoff().catch(() => {}).then(flush);
+  window.addEventListener("online", onOnline);
   document.addEventListener("visibilitychange", onVisible);
   const timer = window.setInterval(flush, intervalMs);
   flush(); // drain anything left from a previous session
   return () => {
-    window.removeEventListener("online", flush);
+    window.removeEventListener("online", onOnline);
     document.removeEventListener("visibilitychange", onVisible);
     window.clearInterval(timer);
   };

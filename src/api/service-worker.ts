@@ -13,7 +13,7 @@
  */
 import { createBabyBuddyClient } from "./client";
 import { allRecords, allTimerMappings, enqueue, loadConnection, setTimerMapping } from "./outbox";
-import { flushOutbox, OUTBOX_SYNC_TAG } from "./sync";
+import { clearOutboxBackoff, flushOutbox, OUTBOX_SYNC_TAG } from "./sync";
 import { consumeTimerMutation } from "./mutations";
 import { METHODS_FOR_TYPE, type FeedingMethod, type FeedingType, type TimerActivityKey } from "./activities";
 
@@ -93,6 +93,10 @@ interface TimerNotifData {
 async function flush(): Promise<void> {
   const conn = await loadConnection();
   if (!conn) return; // not logged in — nothing to flush
+  // Background Sync only fires once the browser believes connectivity is back, so this is a
+  // reconnect: clear any backoff first or the drain skips the very records that were queued
+  // during the outage (see clearOutboxBackoff).
+  await clearOutboxBackoff().catch(() => {});
   await flushOutbox(createBabyBuddyClient(conn));
 }
 
