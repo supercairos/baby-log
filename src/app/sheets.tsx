@@ -11,6 +11,7 @@ import {
   type ActivityKey,
   type FeedingMethod,
   type FeedingType,
+  type TimerActivityKey,
 } from "../api";
 import { useTranslation } from "react-i18next";
 import { useStyles, useTheme } from "../theme";
@@ -112,6 +113,49 @@ function SheetShell({ open, label, children }: { open: boolean; label: string; c
   );
 }
 
+// ── Start-time correction (shared by every running-timer sheet) ───────────────
+/**
+ * Fix the start of a RUNNING timer — "I only remembered to hit start ten minutes in". The
+ * elapsed readout above it is live, so the correction is checked against the clock it moves.
+ *
+ * A start can never sit in the future (that would mean negative elapsed): `max` handles the
+ * picker's own stepper, and the handler re-checks, since `max` doesn't constrain typed input.
+ */
+function StartTimeEditor({
+  startMs,
+  nowMs,
+  onStart,
+}: {
+  startMs: number;
+  /** Ticking clock from the host — the ceiling a corrected start is checked against. */
+  nowMs: number;
+  onStart: (ms: number) => void;
+}) {
+  const { s } = useStyles();
+  const { t } = useTranslation();
+
+  return (
+    <>
+      <div style={s.sheetGroup}>{t("sheet.start")}</div>
+      <input
+        type="datetime-local"
+        value={toLocalInput(startMs)}
+        max={toLocalInput(nowMs)}
+        aria-label={t("sheet.start")}
+        onChange={(e) => {
+          const ms = fromLocalInput(e.target.value);
+          // A half-typed date parses to NaN, and a typed future time slips past `max` — both
+          // would turn the running card's clock to garbage, so neither is committed.
+          if (Number.isNaN(ms) || ms > nowMs) return;
+          onStart(ms);
+        }}
+        onFocus={scrollFieldIntoView}
+        style={s.timeInput}
+      />
+    </>
+  );
+}
+
 // ── Feeding refinement ────────────────────────────────────────────────────────
 export function FeedingSheet({
   open,
@@ -121,6 +165,9 @@ export function FeedingSheet({
   type,
   method,
   amount,
+  startMs,
+  nowMs,
+  onStart,
   onType,
   onMethod,
   onAmount,
@@ -136,6 +183,10 @@ export function FeedingSheet({
   type: FeedingType | null;
   method: FeedingMethod | null;
   amount: number | null;
+  /** Running timer's start (refine mode only) — editable here, alongside the side. */
+  startMs?: number | null;
+  nowMs: number;
+  onStart: (ms: number) => void;
   onType: (t: FeedingType) => void;
   onMethod: (m: FeedingMethod | null) => void;
   onAmount: (ml: number | null) => void;
@@ -210,9 +261,63 @@ export function FeedingSheet({
         </>
       )}
 
+      {/* Correcting the start only makes sense once a timer is running — pre-start it IS now.
+          Last in the sheet: the side is what a parent came here for; the start is the rescue. */}
+      {started && startMs != null && <StartTimeEditor startMs={startMs} nowMs={nowMs} onStart={onStart} />}
+
       {/* Pre-start the CTA STARTS the timer — say so; "Done" would read as "already logged". */}
       <button onClick={onDone} style={s.cta}>
         {t(started ? "common.done" : "sheet.startTimer")}
+      </button>
+    </SheetShell>
+  );
+}
+
+// ── Running timer (sleep / tummy / pumping) ──────────────────────────────────
+/**
+ * The non-feeding half of "edit the running timer". Feeding already had a refine sheet (type,
+ * method, amount) and the start editor simply joined it; sleep, tummy and pumping carry no
+ * details worth refining mid-run, so their pencil opens this — the start correction alone.
+ * Edits merge into the running timer live, so the CTA just closes.
+ */
+export function RunningTimerSheet({
+  open,
+  activity,
+  startMs,
+  nowMs,
+  onStart,
+  onDone,
+}: {
+  open: boolean;
+  /** null when the sheet is closed (or its timer vanished) — keeps the slide-out animating. */
+  activity: TimerActivityKey | null;
+  startMs: number | null;
+  nowMs: number;
+  onStart: (ms: number) => void;
+  onDone: () => void;
+}) {
+  const { s } = useStyles();
+  const { t } = useTranslation();
+  const { palette } = useTheme();
+  const accent = activity ? palette.accents[activity].accent : palette.accents.sleep.accent;
+
+  return (
+    <SheetShell open={open} label={t("home.editTimer")}>
+      <div style={s.sheetHandle} />
+      <div style={s.sheetTitle}>{activity ? activityLabel(activity) : ""}</div>
+      {/* Same re-tint as the pumping sheet: `sheetRunning` is styled for the feeding accent,
+          and one activity owning one colour is what makes these screens readable at a glance. */}
+      {startMs != null && (
+        <div style={{ ...s.sheetRunning, background: `${accent}1f`, border: `1px solid ${accent}47`, color: accent }}>
+          <span className="breathe" style={{ width: 6, height: 6, borderRadius: "50%", background: accent }} />
+          {t("sheet.timerRunning")} · {fmt(nowMs - startMs)}
+        </div>
+      )}
+
+      {startMs != null && <StartTimeEditor startMs={startMs} nowMs={nowMs} onStart={onStart} />}
+
+      <button onClick={onDone} style={{ ...s.cta, background: accent }}>
+        {t("common.done")}
       </button>
     </SheetShell>
   );

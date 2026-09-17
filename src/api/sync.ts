@@ -42,7 +42,7 @@ import {
 import type { Mutation, LocalId } from "./mutations";
 import { BabyBuddyApiError, TimerAlreadyConsumedError, apiErrorDetail } from "./errors";
 import { emitOutboxError } from "./outbox-events";
-import { startTimer, discardTimer, patchTimerName } from "./timers";
+import { startTimer, discardTimer, patchTimer } from "./timers";
 import { feedingTimerName } from "./activities";
 import {
   consumeFeedingTimer,
@@ -230,10 +230,14 @@ async function executeRecord(
     case "start-timer": {
       // Record start metadata first, so a replayed/late stop keeps the true start time.
       // Preserve any `feeding` refinement already on the mapping (and any concurrent refine).
+      // The mapping's `startedAt` also WINS over the mutation's: the two are identical unless
+      // the parent corrected the start before this flush ran (offline), and that correction is
+      // the whole point — re-stamping `m.startedAt` here would silently undo it.
       const existing = await getTimerMapping(m.localId);
+      const startedAt = existing?.startedAt ?? m.startedAt;
       await setTimerMapping({
         localId: m.localId,
-        startedAt: m.startedAt,
+        startedAt,
         activity: m.activity,
         childId: m.childId,
         feeding: existing?.feeding,
@@ -247,18 +251,22 @@ async function executeRecord(
       // Encode the feeding's type/method into the timer name so other devices see the side on
       // the running timer (a bare timer carries no method). Sleep/tummy use their plain name.
       const name = m.activity === "feeding" ? feedingTimerName(existing?.feeding) : undefined;
-      const timer = await startTimer(client, m.activity, m.childId, m.startedAt, name);
+      const timer = await startTimer(client, m.activity, m.childId, startedAt, name);
       await mergeTimerMapping(m.localId, { serverId: timer.id }); // merge, don't clobber feeding
       return;
     }
 
     case "patch-timer": {
-      // Sync a refined feeding side by renaming the server timer. Only meaningful once the
-      // timer exists server-side; if its start is still queued or was coalesced away, skip —
-      // the start flush encodes the latest side into the name itself.
+      // Push the mapping's current state onto the server timer: its corrected `start`, plus
+      // (feeding only) the refined side encoded in the name. Only meaningful once the timer
+      // exists server-side; if its start is still queued or was coalesced away, skip — the
+      // start flush sends the mapping's `startedAt` and encoded name itself.
       const mapping = await getTimerMapping(m.localId);
-      if (mapping?.serverId != null && mapping.activity === "feeding") {
-        await patchTimerName(client, mapping.serverId, feedingTimerName(mapping.feeding));
+      if (mapping?.serverId != null) {
+        await patchTimer(client, mapping.serverId, {
+          start: mapping.startedAt,
+          ...(mapping.activity === "feeding" ? { name: feedingTimerName(mapping.feeding) } : {}),
+        });
       }
       return;
     }

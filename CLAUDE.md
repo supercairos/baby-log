@@ -58,6 +58,17 @@ Parser:
   unknown ≠ invalid, so leave them completely alone (never delete/convert them). Keep it simple:
   no neutral card, no chooser, no "N others running" hint. Just filter them out.
 
+### Editing a running timer
+- `Timer.start` IS writable: `PATCH /api/timers/<id>/ {"start": "<iso>"}` moves a running
+  timer's start and the server recomputes `duration` from it (verified live). Consuming the
+  timer afterwards produces an entry with the corrected start, so this is the whole mechanism
+  behind "I forgot to hit start ten minutes ago" — no entry edit needed after the fact.
+- The client pushes it via the `patch-timer` mutation, which rebuilds its body from the local
+  timer mapping's CURRENT values (`start`, plus the encoded `name` for feeding) rather than
+  carrying a payload. Repeated edits therefore converge instead of racing, and a start
+  corrected while offline survives: the `start-timer` flush prefers the mapping's `startedAt`
+  over the mutation's, or the correction would be silently re-stamped.
+
 ### Stopping a timer = consuming it into an entry
 - There is no "stop"/PATCH endpoint. You stop a timer by creating the typed entry from it:
   `POST /api/{feedings,sleep,tummy-times}/ {"timer": <id>}`.
@@ -156,6 +167,13 @@ Parser:
   logged. A pencil button on the running card reopens the sheet in **live-refine mode** (edits
   merge into the running timer; the CTA just closes). Tapping the card body STOPS the timer
   ("tap to stop" hint). Starting blank must not overwrite remembered last choice.
+- **Every running card carries that same pencil** — one affordance meaning "edit this timer".
+  Feeding opens its refine sheet (type/method/amount **plus** the start); sleep, tummy and
+  pumping have no mid-run details worth refining, so theirs opens `RunningTimerSheet`: the
+  start correction alone, tinted with the activity's accent. Both write through the same
+  `adjustStart` (mapping → `patch-timer`), and both repaint the card optimistically before
+  the poll. A start can never be set in the future; a server-only timer (another device, the
+  HA buttons) is adopted into a local mapping first, exactly as stop/discard already do.
 - **Instant entries stamp their time at the tap**, not at outbox flush — a diaper logged offline
   keeps the moment the color preset was tapped (pass `time` explicitly; the server would
   otherwise stamp arrival time).

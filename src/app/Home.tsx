@@ -85,7 +85,7 @@ import {
   useToast,
   type RunningTimer,
 } from "./hooks";
-import { DiaperSheet, EntrySheet, FeedingSheet, PumpingSheet } from "./sheets";
+import { DiaperSheet, EntrySheet, FeedingSheet, PumpingSheet, RunningTimerSheet } from "./sheets";
 import { Calendar } from "./Calendar";
 import { StashPage } from "./Stash";
 import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
@@ -118,6 +118,9 @@ const actionKeyFor = (kind: string): string =>
 // CTA starts it); a real localId = refine mode over an already-running timer. `lastMethod`
 // (pre-start only) is the previous feed's method, snapshotted at open so the "last time:
 // left" hint doesn't chase the user's taps.
+// Timer sheet: the pencil on a running sleep/tummy/pumping card — a start-time correction and
+// nothing else. Feeding's pencil opens the feeding sheet instead: it already refines
+// type/method there, and the start editor simply joined it.
 // Pumping sheet: opened by STOPPING a running pump, never by starting one. The server
 // requires an amount to log a pumping session and that number doesn't exist until the
 // session is over, so the timer keeps running until the CTA is tapped — closing the sheet
@@ -125,6 +128,7 @@ const actionKeyFor = (kind: string): string =>
 type Sheet =
   | { type: "feeding"; localId: string | null; lastMethod?: FeedingMethod | null }
   | { type: "diaper" }
+  | { type: "timer"; localId: string; activity: TimerActivityKey }
   | { type: "pumping"; localId: string; startedMs: number }
   | null;
 type FeedSel = { type: FeedingType | null; method: FeedingMethod | null; amount?: number | null };
@@ -151,7 +155,7 @@ export function Home({
   const now = useNow();
 
   const { children, childId, selectChild, error: childrenError, refresh: refreshChildren } = useChildren(client);
-  const { running, refresh: refreshRunning } = useRunningTimers(client, childId);
+  const { running, refresh: refreshRunning, patchLocal: patchRunningLocal } = useRunningTimers(client, childId);
   const { entries, hasMore: listHasMore, loadMore: listLoadMore, loadingMore: listLoadingMore, refresh: refreshTimeline, removeLocal, restoreLocal, updatedAt: timelineUpdatedAt, error: timelineError } = useTimeline(client, childId);
   const { toast, show, dismiss } = useToast();
   const { canInstall, promptInstall } = usePwaInstall();
@@ -691,19 +695,52 @@ export function Home({
     }
   };
 
-  /** Open the feeding refine sheet, minting a mapping first for a server-only timer. */
-  const openFeedingRefine = async (rt: RunningTimer) => {
+  /**
+   * The pencil on a running card — "edit this timer". Feeding gets its refine sheet (type /
+   * method / amount, plus the start); every other activity has no mid-run details worth
+   * refining, so it gets the start-only sheet. Both need a localId to write against, so a
+   * server-only timer (started on another device or by the HA buttons) is adopted first.
+   */
+  const openRunningEdit = async (rt: RunningTimer) => {
     if (childId == null) return;
     buzz();
     const sel: FeedSel = { type: rt.feeding?.type ?? null, method: rt.feeding?.method ?? null, amount: rt.feeding?.amount ?? null };
     let localId = rt.localId;
     if (!localId) {
       localId = crypto.randomUUID();
-      await setTimerMapping({ localId, serverId: rt.serverId, startedAt: new Date(rt.startedMs).toISOString(), activity: "feeding", childId, feeding: sel });
+      await setTimerMapping({
+        localId,
+        serverId: rt.serverId,
+        startedAt: new Date(rt.startedMs).toISOString(),
+        activity: rt.activity,
+        childId,
+        ...(rt.activity === "feeding" ? { feeding: sel } : {}),
+      });
+      // Hand the cached row its new localId right away: the sheet looks its timer up by
+      // localId, so without this the start editor would render empty until the poll returns.
+      patchRunningLocal(rt.key, { localId });
       refreshRunning();
     }
-    setFeedSel(sel);
-    setSheet({ type: "feeding", localId });
+    if (rt.activity === "feeding") {
+      setFeedSel(sel);
+      setSheet({ type: "feeding", localId });
+      return;
+    }
+    setSheet({ type: "timer", localId, activity: rt.activity });
+  };
+
+  /**
+   * Correct a running timer's start — "I only remembered to hit start ten minutes in".
+   * The mapping is the local source of truth (the running card and, on stop, the entry's
+   * start both read it), and `patch-timer` pushes it to the server timer so the other
+   * caregiver's phone shows the corrected clock too. Repaint locally first: the nudge chips
+   * get tapped several times in a row and must move the card immediately, not a poll later.
+   */
+  const adjustStart = async (localId: string, startMs: number) => {
+    if (Number.isNaN(startMs) || startMs > nowMs()) return; // never a future start
+    patchRunningLocal(localId, { startedMs: startMs });
+    await mergeTimerMapping(localId, { startedAt: iso(startMs) });
+    submit(patchTimerMutation(localId));
   };
 
   const onActivity = async (activity: ActivityKey) => {
@@ -1080,8 +1117,14 @@ export function Home({
   };
 
   const sheetOpen = sheet !== null || editing !== null;
-  const runningFeeding = running.find((r) => r.activity === "feeding");
-  const feedingElapsed = sheet?.type === "feeding" && runningFeeding ? now - runningFeeding.startedMs : null;
+  // The running timer the open sheet is editing (null in the feeding sheet's pre-start mode,
+  // and while a just-closed sheet slides out). Matched by localId, not activity: it's the id
+  // every write goes through, so the readout can't drift onto a different card.
+  const sheetTimer =
+    sheet && (sheet.type === "feeding" || sheet.type === "timer") && sheet.localId != null
+      ? (running.find((r) => r.localId === sheet.localId) ?? null)
+      : null;
+  const feedingElapsed = sheet?.type === "feeding" && sheetTimer ? now - sheetTimer.startedMs : null;
   // The pumping sheet carries its own start: the timer is still running behind it, and it
   // must keep ticking while the parent picks an amount.
   const pumpingElapsed = sheet?.type === "pumping" ? now - sheet.startedMs : null;
@@ -1221,15 +1264,15 @@ export function Home({
                       <StopIcon size={18} />
                     </span>
                   </button>
-                  {rt.activity === "feeding" && (
-                    <button
-                      onClick={() => void openFeedingRefine(rt)}
-                      style={{ ...s.runEdit, color: v.accent, borderColor: `${v.accent}55` }}
-                      aria-label={t("home.editFeeding")}
-                    >
-                      <EditIcon size={16} />
-                    </button>
-                  )}
+                  {/* One pencil, every activity: feeding opens its refine sheet, the rest the
+                      start-time sheet. Both are "edit the running timer", so they share the icon. */}
+                  <button
+                    onClick={() => void openRunningEdit(rt)}
+                    style={{ ...s.runEdit, color: v.accent, borderColor: `${v.accent}55` }}
+                    aria-label={t(rt.activity === "feeding" ? "home.editFeeding" : "home.editTimer")}
+                  >
+                    <EditIcon size={16} />
+                  </button>
                   {/* discard: end a mistaken timer WITHOUT logging it (more prominent when stale) */}
                   <button
                     onClick={() => void discard(rt)}
@@ -1545,12 +1588,23 @@ export function Home({
         type={feedSel.type}
         method={feedSel.method}
         amount={feedSel.amount ?? null}
+        startMs={sheet?.type === "feeding" ? (sheetTimer?.startedMs ?? null) : null}
+        nowMs={now}
+        onStart={(ms) => { if (sheet?.type === "feeding" && sheet.localId) void adjustStart(sheet.localId, ms); }}
         onType={selectType}
         onMethod={selectMethod}
         onAmount={selectAmount}
         onDone={() => void confirmFeeding()}
       />
       <DiaperSheet open={sheet?.type === "diaper"} onLog={logDiaper} />
+      <RunningTimerSheet
+        open={sheet?.type === "timer"}
+        activity={sheet?.type === "timer" ? sheet.activity : null}
+        startMs={sheet?.type === "timer" ? (sheetTimer?.startedMs ?? null) : null}
+        nowMs={now}
+        onStart={(ms) => { if (sheet?.type === "timer") void adjustStart(sheet.localId, ms); }}
+        onDone={() => { buzz(); setSheet(null); }}
+      />
       <PumpingSheet
         open={sheet?.type === "pumping"}
         elapsedMs={pumpingElapsed}

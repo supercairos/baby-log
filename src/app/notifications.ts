@@ -69,14 +69,18 @@ export async function syncTimerNotifications(
   const reg = await readyRegistration();
   if (!reg) return;
 
-  const wanted = new Set(running.map((rt) => TAG_PREFIX + rt.key));
+  // Tag → the start each running timer currently claims. A notification body is baked at show
+  // time and can't be edited, so a corrected start has to close and re-show its notification —
+  // otherwise the tray would keep quoting the wrong "Started 03:12" for hours.
+  const wanted = new Map(running.map((rt) => [TAG_PREFIX + rt.key, new Date(rt.startedMs).toISOString()]));
   // Close notifications for timers that are no longer running, and remember which are already
   // on screen so we don't re-show (and thus re-alert) them on every ~15s poll — we only fire
   // a fresh notification the first time a timer appears (or after the user dismisses it).
   const onScreen = new Set<string>();
   for (const n of await reg.getNotifications()) {
     if (!n.tag.startsWith(TAG_PREFIX)) continue;
-    if (wanted.has(n.tag)) onScreen.add(n.tag);
+    const shownStart = (n.data as { startedAt?: string } | undefined)?.startedAt;
+    if (wanted.has(n.tag) && shownStart === wanted.get(n.tag)) onScreen.add(n.tag);
     else n.close();
   }
 
