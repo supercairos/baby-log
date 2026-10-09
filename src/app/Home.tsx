@@ -139,6 +139,9 @@ type PumpSel = { amount: number | null; loc: StashLocation; dump: boolean };
 const otherBreast = (m: FeedingMethod | null | undefined): FeedingMethod | null =>
   m === "left breast" ? "right breast" : m === "right breast" ? "left breast" : (m ?? null);
 
+/** Activities a `?do=` home-screen shortcut may trigger — anything else is ignored. */
+const SHORTCUT_ACTIVITIES: ActivityKey[] = ["feeding", "sleep", "diaper", "tummy", "pumping"];
+
 export function Home({
   client,
   connection,
@@ -155,13 +158,13 @@ export function Home({
   const now = useNow();
 
   const { children, childId, selectChild, error: childrenError, refresh: refreshChildren } = useChildren(client);
-  const { running, refresh: refreshRunning, patchLocal: patchRunningLocal } = useRunningTimers(client, childId);
+  const { running, loaded: runningLoaded, refresh: refreshRunning, patchLocal: patchRunningLocal } = useRunningTimers(client, childId);
   const { entries, hasMore: listHasMore, loadMore: listLoadMore, loadingMore: listLoadingMore, refresh: refreshTimeline, removeLocal, restoreLocal, updatedAt: timelineUpdatedAt, error: timelineError } = useTimeline(client, childId);
   const { toast, show, dismiss } = useToast();
   const { canInstall, promptInstall } = usePwaInstall();
 
   const navigate = useNavigate();
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const [menu, setMenu] = useState(false);
   const [sheet, setSheet] = useState<Sheet>(null);
   const [feedSel, setFeedSel] = useState<FeedSel>({ type: null, method: null });
@@ -774,6 +777,33 @@ export function Home({
       pending.current.delete(guard);
     }
   };
+
+  /**
+   * Home-screen shortcuts (long-press on the installed icon) land here as `?do=<activity>`
+   * — see `shortcuts` in vite.config.ts. Acted on once, after the running timers have
+   * loaded: the tile toggles, and a shortcut that STOPPED an already-running sleep because
+   * it fired against the empty placeholder would be the opposite of what was asked. So an
+   * activity already running is left alone — its card is right there — and anything else
+   * goes through exactly the tile's path.
+   */
+  const shortcutDone = useRef(false);
+  useEffect(() => {
+    if (shortcutDone.current || !runningLoaded) return;
+    const want = new URLSearchParams(search).get("do");
+    if (want == null) return;
+    shortcutDone.current = true;
+    // Drop the query so a reload or a later back-navigation can't fire it a second time.
+    navigate(pathname, { replace: true });
+    if (!SHORTCUT_ACTIVITIES.includes(want as ActivityKey)) return;
+    if (running.some((r) => r.activity === want)) return;
+    // Opening a sheet from an effect is the point here: the shortcut IS an external event,
+    // the URL, arriving once — the same tap a tile would deliver.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void onActivity(want as ActivityKey);
+    // onActivity/running are read at the moment the shortcut fires; re-running on their
+    // identity changes is exactly what the ref guards against anyway.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [runningLoaded, search]);
 
   /** Feeding sheet CTA. Pre-start mode: start the timer NOW with the chosen details.
    *  Refine mode (running timer): the details were already merged live — just close. */

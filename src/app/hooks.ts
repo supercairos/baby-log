@@ -280,7 +280,9 @@ export function useRunningTimers(client: BabyBuddyClient, childId: number | null
     [qc, childId],
   );
 
-  return { running: childId == null ? [] : (data ?? []), refresh, patchLocal };
+  // `loaded`: the first merge has landed. Before it `running` is an empty placeholder, which
+  // a caller acting on "nothing is running" (the home-screen shortcuts) must not trust.
+  return { running: childId == null ? [] : (data ?? []), loaded: childId != null && data !== undefined, refresh, patchLocal };
 }
 
 // ── timeline ──────────────────────────────────────────────────────────────────

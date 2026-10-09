@@ -53,6 +53,15 @@ export default defineConfig(({ mode }) => {
             { src: "pwa-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
             { src: "pwa.svg", sizes: "any", type: "image/svg+xml" },
           ],
+          // Long-press on the installed icon (Android/Chromium; ignored elsewhere). Each one
+          // lands on Home as `?do=<activity>` and goes through the tile's own path — see the
+          // shortcut effect in Home.tsx. One language only: the manifest can't be localised.
+          shortcuts: [
+            { name: "Feeding", url: `${base}?do=feeding`, icons: [{ src: `${base}notif-feeding.png`, sizes: "256x256", type: "image/png" }] },
+            { name: "Sleep", url: `${base}?do=sleep`, icons: [{ src: `${base}notif-sleep.png`, sizes: "256x256", type: "image/png" }] },
+            { name: "Diaper", url: `${base}?do=diaper` },
+            { name: "Pumping", url: `${base}?do=pumping`, icons: [{ src: `${base}notif-pumping.png`, sizes: "256x256", type: "image/png" }] },
+          ],
         },
         // The SW (precache/offline) is verified via `vite preview`; dev uses page autoflush.
         devOptions: { enabled: false },
