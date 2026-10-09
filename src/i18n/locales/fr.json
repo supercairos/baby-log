@@ -38,7 +38,7 @@
     "drops": "gouttes"
   },
   "feedType": {
-    "breast milk": "Sein",
+    "breast milk": "Lait maternel",
     "formula": "Lait artificiel",
     "fortified breast milk": "Enrichi",
     "solid food": "Solide"
@@ -268,19 +268,18 @@
     "used": "utilisé",
     "discarded": "jeté",
     "markUsed": "Utilisé",
-    "discard": "Jeter",
-    "moveToFreezer": "Au congélateur",
-    "thaw": "Décongeler",
-    "source": "Repères AFSSA 2005 · bébé né à terme, à domicile. Durées non cumulables.",
+    "discard": "Jeté",
+    "moveToFreezer": "Congelé",
+    "thaw": "Décongelé",
     "total_one": "{{count}} biberon · {{volume}}",
     "total_other": "{{count}} biberons · {{volume}}",
     "freezerSummary_one": "Congélateur · {{count}} biberon · {{volume}}",
     "freezerSummary_other": "Congélateur · {{count}} biberons · {{volume}}",
     "expiresOn": "jusqu'au {{date}}",
-    "moveToFridge": "Au frigo",
+    "moveToFridge": "Frigo",
     "expiredGroup_one": "Périmé · {{volume}}",
     "expiredGroup_other": "Périmés · {{count}} · {{volume}}",
-    "dump": "Jeter",
+    "dump": "Jeté",
     "restore": "Remettre",
     "spentSummary_one": "Historique · {{count}} · {{volume}}",
     "spentSummary_other": "Historique · {{count}} · {{volume}}"

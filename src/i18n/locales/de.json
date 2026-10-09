@@ -38,7 +38,7 @@
     "drops": "Tropfen"
   },
   "feedType": {
-    "breast milk": "Brust",
+    "breast milk": "Muttermilch",
     "formula": "Pulver",
     "fortified breast milk": "Angereichert",
     "solid food": "Fest"
@@ -268,19 +268,18 @@
     "used": "verbraucht",
     "discarded": "verworfen",
     "markUsed": "Verbraucht",
-    "discard": "Verwerfen",
-    "moveToFreezer": "Ins Gefrierfach",
-    "thaw": "Auftauen",
-    "source": "AFSSA 2005 · reif geborenes Baby zu Hause. Zeiten sind nicht kumulierbar.",
+    "discard": "Verworfen",
+    "moveToFreezer": "Gefrierfach",
+    "thaw": "Aufgetaut",
     "total_one": "{{count}} Fläschchen · {{volume}}",
     "total_other": "{{count}} Fläschchen · {{volume}}",
     "freezerSummary_one": "Gefrierschrank · {{count}} Fläschchen · {{volume}}",
     "freezerSummary_other": "Gefrierschrank · {{count}} Fläschchen · {{volume}}",
     "expiresOn": "bis {{date}}",
-    "moveToFridge": "In den Kühlschrank",
+    "moveToFridge": "Kühlschrank",
     "expiredGroup_one": "Über der Frist · {{volume}}",
     "expiredGroup_other": "Über der Frist · {{count}} · {{volume}}",
-    "dump": "Verwerfen",
+    "dump": "Verworfen",
     "restore": "Zurücklegen",
     "spentSummary_one": "Verlauf · {{count}} · {{volume}}",
     "spentSummary_other": "Verlauf · {{count}} · {{volume}}"

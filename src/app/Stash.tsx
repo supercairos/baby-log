@@ -442,9 +442,6 @@ export function StashPage({
           {showSpent && rows(spent)}
         </>
       )}
-
-      {/* Which table is in force, and the caveat both sources stress. */}
-      <div style={{ ...s.sheetHint, marginTop: 18 }}>{t("stash.source")}</div>
     </section>
   );
 }

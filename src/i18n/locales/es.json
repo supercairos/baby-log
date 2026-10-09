@@ -38,7 +38,7 @@
     "drops": "gotas"
   },
   "feedType": {
-    "breast milk": "Pecho",
+    "breast milk": "Leche materna",
     "formula": "Fórmula",
     "fortified breast milk": "Fortificada",
     "solid food": "Sólido"
@@ -268,19 +268,18 @@
     "used": "usado",
     "discarded": "desechado",
     "markUsed": "Usado",
-    "discard": "Desechar",
-    "moveToFreezer": "Al congelador",
-    "thaw": "Descongelar",
-    "source": "Recomendación AFSSA 2005 · bebé a término en casa. Duraciones no acumulables.",
+    "discard": "Desechado",
+    "moveToFreezer": "Congelador",
+    "thaw": "Descongelado",
     "total_one": "{{count}} biberón · {{volume}}",
     "total_other": "{{count}} biberones · {{volume}}",
     "freezerSummary_one": "Congelador · {{count}} biberón · {{volume}}",
     "freezerSummary_other": "Congelador · {{count}} biberones · {{volume}}",
     "expiresOn": "hasta {{date}}",
-    "moveToFridge": "A la nevera",
+    "moveToFridge": "Nevera",
     "expiredGroup_one": "Fuera de plazo · {{volume}}",
     "expiredGroup_other": "Fuera de plazo · {{count}} · {{volume}}",
-    "dump": "Desechar",
+    "dump": "Desechado",
     "restore": "Restaurar",
     "spentSummary_one": "Historial · {{count}} · {{volume}}",
     "spentSummary_other": "Historial · {{count}} · {{volume}}"

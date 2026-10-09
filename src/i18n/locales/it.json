@@ -38,7 +38,7 @@
     "drops": "gocce"
   },
   "feedType": {
-    "breast milk": "Seno",
+    "breast milk": "Latte materno",
     "formula": "Artificiale",
     "fortified breast milk": "Fortificato",
     "solid food": "Solido"
@@ -268,19 +268,18 @@
     "used": "usato",
     "discarded": "eliminato",
     "markUsed": "Usato",
-    "discard": "Elimina",
-    "moveToFreezer": "In congelatore",
-    "thaw": "Scongela",
-    "source": "Indicazioni AFSSA 2005 · neonato a termine a casa. Durate non cumulabili.",
+    "discard": "Eliminato",
+    "moveToFreezer": "Congelatore",
+    "thaw": "Scongelato",
     "total_one": "{{count}} biberon · {{volume}}",
     "total_other": "{{count}} biberon · {{volume}}",
     "freezerSummary_one": "Congelatore · {{count}} biberon · {{volume}}",
     "freezerSummary_other": "Congelatore · {{count}} biberon · {{volume}}",
     "expiresOn": "fino al {{date}}",
-    "moveToFridge": "In frigo",
+    "moveToFridge": "Frigo",
     "expiredGroup_one": "Fuori tempo · {{volume}}",
     "expiredGroup_other": "Fuori tempo · {{count}} · {{volume}}",
-    "dump": "Elimina",
+    "dump": "Eliminato",
     "restore": "Ripristina",
     "spentSummary_one": "Cronologia · {{count}} · {{volume}}",
     "spentSummary_other": "Cronologia · {{count}} · {{volume}}"

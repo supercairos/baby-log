@@ -38,7 +38,7 @@
     "drops": "drops"
   },
   "feedType": {
-    "breast milk": "Breast",
+    "breast milk": "Breast milk",
     "formula": "Formula",
     "fortified breast milk": "Fortified",
     "solid food": "Solid"
@@ -268,19 +268,18 @@
     "used": "used",
     "discarded": "discarded",
     "markUsed": "Used",
-    "discard": "Discard",
-    "moveToFreezer": "To freezer",
-    "thaw": "Thaw",
-    "source": "AFSSA 2005 guidance · full-term baby at home. Durations are not cumulative.",
+    "discard": "Discarded",
+    "moveToFreezer": "Freezer",
+    "thaw": "Thawed",
     "total_one": "{{count}} bottle · {{volume}}",
     "total_other": "{{count}} bottles · {{volume}}",
     "freezerSummary_one": "Freezer · {{count}} bottle · {{volume}}",
     "freezerSummary_other": "Freezer · {{count}} bottles · {{volume}}",
     "expiresOn": "until {{date}}",
-    "moveToFridge": "To fridge",
+    "moveToFridge": "Fridge",
     "expiredGroup_one": "Past its window · {{volume}}",
     "expiredGroup_other": "Past their window · {{count}} · {{volume}}",
-    "dump": "Discard",
+    "dump": "Discarded",
     "restore": "Restore",
     "spentSummary_one": "History · {{count}} · {{volume}}",
     "spentSummary_other": "History · {{count}} · {{volume}}"
