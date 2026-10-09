@@ -63,6 +63,12 @@ const STASH_ICON: Record<StashLocation, (p: IconProps) => React.ReactElement> = 
   thawed: ThawIcon,
 };
 
+/** Milk still on offer (inventory, freezer, expired) runs oldest pumped first: the oldest
+ *  bottle is the one to reach for. Logs — the history and the day's sessions — run newest
+ *  first instead, like the journal: there you're looking for what just happened. */
+const byPumped = (a: StashBottle, b: StashBottle) => a.pumpedMs - b.pumpedMs;
+const byPumpedDesc = (a: StashBottle, b: StashBottle) => b.pumpedMs - a.pumpedMs;
+
 /** When a stored bottle lapses — the absolute moment, or that it already has. */
 function useFreshness() {
   const { t } = useTranslation();
@@ -322,7 +328,7 @@ export function PumpDayList({
     Promise.all([qc.invalidateQueries({ queryKey: ["calendar"] }), qc.invalidateQueries({ queryKey: ["pumpings"] })]);
   const { apply, remove, overlay } = useStashWriter(client, refresh, onWriteFailed);
 
-  // Newest first, like every other list in the app (the journal, the timeline merge).
+  // Newest first: this is the day's log, not the inventory (see `byPumped`).
   const bottles = overlay(
     [...entries]
       .sort((a, b) => b.startMs - a.startMs)
@@ -375,7 +381,7 @@ export function StashPage({
     [pumpings, overlay],
   );
 
-  const available = useMemo(() => availableBottles(bottles, now), [bottles, now]);
+  const available = useMemo(() => availableBottles(bottles, now).sort(byPumped), [bottles, now]);
   const fresh = available.filter((b) => b.stash.loc !== "freezer");
   const frozen = available.filter((b) => b.stash.loc === "freezer");
   /** Past its window but still kept — the bottle is physically in the fridge and needs
@@ -384,17 +390,17 @@ export function StashPage({
     () =>
       bottles
         .filter((b): b is TrackedBottle => b.stash != null && isExpired(b.stash, now))
-        .sort((a, b) => expiresAt(a.stash) - expiresAt(b.stash)),
+        .sort(byPumped),
     [bottles, now],
   );
   /** Used or thrown away. Kept on screen — struck through — rather than auto-deleted: the
    *  session happened, it counts toward supply, and a row that simply vanishes gives no way
-   *  to tell a mis-tap from a real one. Newest first, since this is history. */
+   *  to tell a mis-tap from a real one. */
   const spent = useMemo(
     () =>
       bottles
         .filter((b): b is TrackedBottle => b.stash != null && isSpent(b.stash))
-        .sort((a, b) => b.pumpedMs - a.pumpedMs),
+        .sort(byPumpedDesc),
     [bottles],
   );
 
@@ -436,8 +442,14 @@ export function StashPage({
           don't bury the part of the list you actually choose from. */}
       {spent.length > 0 && (
         <>
-          <button onClick={() => { buzz(); setShowSpent((v) => !v); }} style={{ ...s.chip, width: "100%", margin: "14px 0 12px" }}>
-            {t("stash.spentSummary", { count: spent.length, volume: volume(spent.reduce((sum, b) => sum + b.amount, 0)) })}
+          {/* A quiet text toggle, not a chip: history is bookkeeping, and a full-width chip
+              gave it the same weight as the freezer — the part you actually draw from. */}
+          <button
+            onClick={() => { buzz(); setShowSpent((v) => !v); }}
+            aria-expanded={showSpent}
+            style={{ ...s.sheetHint, display: "block", width: "100%", minHeight: 44, margin: "22px 0 4px", padding: "8px 0", background: "none", border: "none", textAlign: "center" }}
+          >
+            {t("stash.spentSummary", { count: spent.length, volume: volume(spent.reduce((sum, b) => sum + b.amount, 0)) })} {showSpent ? "▴" : "▾"}
           </button>
           {showSpent && rows(spent)}
         </>
