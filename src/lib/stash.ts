@@ -204,6 +204,19 @@ export function soonThresholdMs(loc: StashLocation): number {
   return Math.min(SOON_CAP_MS, maxWindowMs(loc) / 2);
 }
 
+/**
+ * How long before the fridge deadline to start pushing the freezer. Wider than the 4 h
+ * "use it now" warning on purpose: that one fires when it's already about drinking the
+ * bottle, while freezing is a decision for the last half-day — late enough not to nag about
+ * milk you're about to use anyway, early enough that a night's sleep can't swallow it.
+ */
+const SUGGEST_FREEZE_MS = 12 * 3_600_000;
+
+/** A fridge bottle nearing its deadline, which the freezer would still save. */
+export function shouldSuggestFreezing(stash: StashInfo, now: number): boolean {
+  return stash.state === "stored" && stash.loc === "fridge" && now < expiresAt(stash) && expiresAt(stash) - now <= SUGGEST_FREEZE_MS;
+}
+
 /** True once a bottle is inside its own warning window. */
 export function isExpiringSoon(stash: StashInfo, now: number): boolean {
   return expiresAt(stash) - now <= soonThresholdMs(stash.loc);

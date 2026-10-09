@@ -38,6 +38,7 @@ import {
   isExpired,
   isExpiringSoon,
   isSpent,
+  shouldSuggestFreezing,
   moveStash,
   toBottle,
   type StashBottle,
@@ -272,7 +273,9 @@ function StashRow({
               lapsed milk would be the app endorsing feeding it. */}
           {!gone && !lapsed && (
             <>
-              <button onClick={() => apply(bottle, { ...stash, state: "used" })} style={{ ...s.chip, ...chipOn(palette.ok) }}>
+              {/* Secondary like its neighbours — a filled chip read as the row's current state
+                  rather than an action. Green text keeps it findable, as red does for discard. */}
+              <button onClick={() => apply(bottle, { ...stash, state: "used" })} style={{ ...s.chip, color: palette.ok }}>
                 {t("stash.markUsed")}
               </button>
               {/* One forward chain: room → fridge → freezer → thawed. Milk left out and then
@@ -283,8 +286,14 @@ function StashRow({
                   {t("stash.moveToFridge")}
                 </button>
               )}
+              {/* Near the fridge deadline the freezer is the move that saves the milk, so the
+                  chip lights up in the freezer's colour instead of sitting among the others. */}
               {stash.loc === "fridge" && (
-                <button onClick={() => apply(bottle, moveStash(stash, "freezer", now))} style={s.chip}>
+                <button
+                  onClick={() => apply(bottle, moveStash(stash, "freezer", now))}
+                  style={{ ...s.chip, ...(shouldSuggestFreezing(stash, now) ? { ...chipOn(palette.stashLoc.freezer), gap: 7 } : {}) }}
+                >
+                  {shouldSuggestFreezing(stash, now) && <SnowflakeIcon size={16} />}
                   {t("stash.moveToFreezer")}
                 </button>
               )}
