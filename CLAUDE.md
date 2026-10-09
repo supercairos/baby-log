@@ -118,8 +118,9 @@ Parser:
   logged in error. Deleting is deliberately unavailable while a bottle is still stored.
 - **The day list under the dial and the inventory render the same row** and share one writer
   (`useStashWriter`), so a bottle looks and behaves identically in both and you can re-file
-  the day's session without opening the inventory. Only the identity line dims when a bottle
-  is archived — dimming the whole row made its remaining actions read as disabled.
+  the day's session without opening the inventory. Only the amount and date dim when a bottle
+  is archived — its state label and actions stay full strength (dimming the whole row made
+  the remaining actions read as disabled).
 - Windows are **AFSSA 2005** (room 4 h / fridge 48 h / freezer 4 months / thawed 24 h), the
   conservative end of French guidance — CoFAM 2024 allows 8 days and 12 months, ABM 2017 sits
   between. `STORAGE_WINDOW` in `lib/stash.ts` is the one place to change them. Applies to

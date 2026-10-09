@@ -143,6 +143,11 @@ export const TrashIcon = (p: IconProps) => (
     <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" />
   </Svg>
 );
+export const CheckIcon = (p: IconProps) => (
+  <Svg strokeWidth={2.2} {...p}>
+    <path d="M5 12.5 10 17.5 19 7" />
+  </Svg>
+);
 export const PlusIcon = (p: IconProps) => (
   <Svg strokeWidth={2.2} {...p}>
     <path d="M12 5v14M5 12h14" />
@@ -218,7 +223,8 @@ export const FridgeIcon = (p: IconProps) => (
 export const SnowflakeIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M12 2.5v19M3.8 7.2l16.4 9.6M20.2 7.2 3.8 16.8" />
-    <path d="M12 6.4 9.9 4.5M12 6.4l2.1-1.9M12 17.6l-2.1 1.9M12 17.6l2.1 1.9" />
+    {/* A branch on every arm — with them on the vertical only, it read as an asterisk. */}
+    <path d="M10.2 4 12 5.8 13.8 4M4.1 9.6l2.5-.7-.6-2.5M6 17.6l.6-2.5-2.5-.7M13.8 20 12 18.2 10.2 20M19.9 14.4l-2.5.7.6 2.5M18 6.4l-.6 2.5 2.5.7" />
   </Svg>
 );
 /** Room temperature — a thermometer, not a house: the window is about warmth, not place. */

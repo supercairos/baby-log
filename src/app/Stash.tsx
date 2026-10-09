@@ -27,7 +27,7 @@ import {
   type TimelineEntry,
 } from "../api";
 import { useStyles, useTheme } from "../theme";
-import { ACTIVITY_ICON, FridgeIcon, SnowflakeIcon, ThawIcon, ThermometerIcon, type IconProps } from "../ui/icons";
+import { ACTIVITY_ICON, CheckIcon, FridgeIcon, SnowflakeIcon, ThawIcon, ThermometerIcon, TrashIcon, type IconProps } from "../ui/icons";
 import { shortDateTime } from "../lib/datetime";
 import { stashWhereLabel } from "../lib/labels";
 import {
@@ -194,21 +194,30 @@ function StashRow({
   // An entry with no stash prefix — written by Baby Buddy's own UI, or before this feature
   // existed. We don't know where it went, so it gets the pump glyph and no actions: the app
   // shouldn't invent a location, and it has nothing to reason about.
-  const Icon = stash == null ? ACTIVITY_ICON.pumping : STASH_ICON[stash.loc];
   const gone = stash != null && isSpent(stash);
   const lapsed = stash != null && isExpired(stash, now);
   const f = stash != null && !gone ? freshness(stash, now) : null;
+  // The state is the first thing to read off a bottle, so the glyph and its label carry it
+  // in colour as well as words: where it's kept while it's on offer, then a check or a bin
+  // once it's spent. Each location has its own colour as well as its own glyph, so a
+  // fridge bottle and a freezer one never read alike. Lapsed milk keeps its location glyph
+  // (it IS still in the fridge) but turns red, so it can't pass for a usable bottle.
+  const Icon =
+    stash == null ? ACTIVITY_ICON.pumping : stash.state === "used" ? CheckIcon : stash.state === "discarded" ? TrashIcon : STASH_ICON[stash.loc];
+  const tone =
+    stash == null ? accent : stash.state === "used" ? palette.ok : stash.state === "discarded" || lapsed ? palette.danger : palette.stashLoc[stash.loc];
+  // Dim the amount and date of an archived bottle, never its state — the label is what says
+  // why it's archived — nor the actions: fading those made restore read as disabled.
+  const dim = gone ? { opacity: 0.55 } : {};
 
   return (
     <div style={{ ...s.entry, flexDirection: "column", alignItems: "stretch", gap: 14, padding: "16px 16px 14px", marginBottom: 12 }}>
-      {/* Dim the IDENTITY line only, never the actions. Fading the whole row made the one
-          control an archived bottle still has — restore — read as disabled. */}
       {/* Top-aligned, not centred: the left column is two lines and the right is one, so
           centring floated the expiry into the gap between them instead of sitting on the
           line it qualifies. It reads as a stray label, and worst on an expired row where
           the short "périmé" has nothing to line up against. */}
-      <div style={{ ...s.entryTap, cursor: "default", gap: 14, alignItems: "flex-start", ...(gone ? { opacity: 0.55 } : {}) }}>
-        <span style={{ ...s.entryIco, color: accent, background: `${accent}1a` }}>
+      <div style={{ ...s.entryTap, cursor: "default", gap: 14, alignItems: "flex-start" }}>
+        <span style={{ ...s.entryIco, color: tone, background: `${tone}1f`, boxShadow: `inset 0 0 0 1px ${tone}55` }}>
           <Icon size={20} />
         </span>
         <div style={s.entryMid}>
@@ -216,13 +225,15 @@ function StashRow({
               An explicit line-height, matched by the expiry opposite, so the two sit on the
               same line despite different font sizes — `entryLabel` otherwise inherits the
               serif's own metrics and the two drift apart. */}
-          <div style={{ ...s.entryLabel, lineHeight: "20px", ...(gone ? { textDecoration: "line-through" } : {}) }}>
-            {bottle.amount} ml
-            {stash != null && <span style={s.entryMeta}> · {stashWhereLabel(stash)}</span>}
+          <div style={{ ...s.entryLabel, lineHeight: "20px", display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+            <span style={{ ...dim, ...(gone ? { textDecoration: "line-through" } : {}) }}>{bottle.amount} ml</span>
+            {stash != null && (
+              <span style={{ ...s.entryMeta, fontWeight: 800, color: tone }}>{stashWhereLabel(stash)}</span>
+            )}
           </div>
           {/* Date, not just the clock: the freezer section holds bottles months apart, and
               two of them pumped at 09:52 would otherwise be indistinguishable. */}
-          <div style={{ ...s.entryTime, marginTop: 2 }}>{shortDateTime(bottle.pumpedMs)}</div>
+          <div style={{ ...s.entryTime, marginTop: 2, ...dim }}>{shortDateTime(bottle.pumpedMs)}</div>
         </div>
         {/* A spent bottle has no deadline left to report, and a countdown beside "used"
             would read as though it were still on offer. */}

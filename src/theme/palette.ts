@@ -6,6 +6,7 @@
  * Light = cream paper, ink text, saturated earthy accents, hard offset shadows (press-to-sink).
  */
 import type { ActivityKey } from "../api";
+import type { StashLocation } from "../lib/stash";
 
 export type ThemeName = "dark" | "light";
 export type ThemePref = ThemeName | "system";
@@ -88,6 +89,10 @@ export interface Palette {
   drawerShadow: string;
 
   accents: Record<ActivityKey, ActivityVisual>;
+  /** One colour per milk-stash location, on a cold→warm temperature scale, so bottles kept in
+   *  different places tell apart at a glance — the shared pumping gold made four glyphs read
+   *  as one. Only used inside the stash rows, never as an activity identity. */
+  stashLoc: Record<StashLocation, string>;
 }
 
 const FONT_SERIF = "'Fraunces', Georgia, 'Times New Roman', serif";
@@ -156,6 +161,7 @@ export const darkPalette: Palette = {
     // reading as the same accent at 3am, and to stay clear of feeding's honey orange.
     pumping: { accent: "#dcc57e", glow: "rgba(220,197,126,.30)" },
   },
+  stashLoc: { room: "#e8907a", fridge: "#7cc6bd", freezer: "#a6c6f2", thawed: "#c6a5e3" },
 };
 
 export const lightPalette: Palette = {
@@ -219,6 +225,7 @@ export const lightPalette: Palette = {
     // background of public/notif-pumping.png; keep the two in step.
     pumping: { accent: "#8a6d1c", glow: "rgba(138,109,28,.20)" },
   },
+  stashLoc: { room: "#b4502e", fridge: "#2a7a70", freezer: "#3a62a6", thawed: "#7a4d9c" },
 };
 
 export const PALETTES: Record<ThemeName, Palette> = { dark: darkPalette, light: lightPalette };
