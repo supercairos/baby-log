@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.25.0](https://github.com/supercairos/baby-log/compare/baby-log-v1.24.0...baby-log-v1.25.0) (2026-10-09)
+
+
+### Features
+
+* **i18n:** clearer feeding and milk-stash wording ([422e14c](https://github.com/supercairos/baby-log/commit/422e14caf9ce3898bd005ab338c6f0e8a644d0c0))
+* **pwa:** home-screen shortcuts for feeding, sleep, diaper and pumping ([0b86974](https://github.com/supercairos/baby-log/commit/0b86974069f86c532bf6c7a20ead6e32398517fa))
+* **stash:** make each bottle's state obvious at a glance ([70314e9](https://github.com/supercairos/baby-log/commit/70314e93cadd35a28820778b25fb16589634a623))
+* **stash:** oldest-first inventory and a quieter history toggle ([522e153](https://github.com/supercairos/baby-log/commit/522e15305c4ff39ca752197516280c4b3791f233))
+* **stash:** secondary "Utilisé" chip, suggest the freezer before the fridge deadline ([c433b3e](https://github.com/supercairos/baby-log/commit/c433b3e2f4c18d3f079dafbd3ad4f6df21c99cae))
+* **stash:** today's pumping vs the recent daily average ([0b4e988](https://github.com/supercairos/baby-log/commit/0b4e988c3bebbb8fc6dfd35e0eb6489044f45412))
+
+
+### Bug Fixes
+
+* **stash:** count freezer expiry in calendar months ([1ebb59b](https://github.com/supercairos/baby-log/commit/1ebb59b676152807190d93f759879df509fd65da))
+
 ## [1.24.0](https://github.com/supercairos/baby-log/compare/baby-log-v1.23.1...baby-log-v1.24.0) (2026-09-17)
 
 
