@@ -39,6 +39,7 @@ import {
   isExpiringSoon,
   isSpent,
   shouldSuggestFreezing,
+  supplySummary,
   moveStash,
   toBottle,
   type StashBottle,
@@ -364,6 +365,31 @@ export function PumpDayList({
   );
 }
 
+// ── Supply summary ───────────────────────────────────────────────────────────
+/** Today against the recent daily average, side by side — see `supplySummary`. */
+function SupplySummary({ bottles, now }: { bottles: StashBottle[]; now: number }) {
+  const { s } = useStyles();
+  const { palette } = useTheme();
+  const { t } = useTranslation();
+  const sum = useMemo(() => supplySummary(bottles, now), [bottles, now]);
+  const accent = palette.accents.pumping.accent;
+
+  const cell = (label: string, value: string, sub: string | null) => (
+    <div style={{ flex: 1, minWidth: 0 }}>
+      <div style={{ ...s.entryTime, fontSize: 12.5 }}>{label}</div>
+      <div style={{ fontFamily: palette.serif, fontSize: 24, fontWeight: 600, color: accent, lineHeight: 1.2, marginTop: 3 }}>{value}</div>
+      {sub && <div style={{ ...s.entryTime, marginTop: 2 }}>{sub}</div>}
+    </div>
+  );
+
+  return (
+    <div style={{ ...s.entry, gap: 16, padding: "14px 16px", marginBottom: 6, alignItems: "flex-start" }}>
+      {cell(t("stash.supplyToday"), volume(sum.todayMl), t("stash.supplySessions", { count: sum.todayCount }))}
+      {sum.avgMl != null && cell(t("stash.supplyAvg", { count: sum.avgDays }), t("stash.perDay", { volume: volume(sum.avgMl) }), null)}
+    </div>
+  );
+}
+
 // ── Inventory page ───────────────────────────────────────────────────────────
 export function StashPage({
   client,
@@ -419,6 +445,9 @@ export function StashPage({
 
   return (
     <section style={s.cal}>
+      {/* Every session, whatever became of the milk — supply is what was expressed. */}
+      {bottles.length > 0 && <SupplySummary bottles={bottles} now={now} />}
+
       <div style={s.sheetGroup}>{t("stash.total", { count: available.length, volume: volume(totalMl) })}</div>
 
       {available.length === 0 && expired.length === 0 && spent.length === 0 && <div style={s.empty}>{t("stash.empty")}</div>}

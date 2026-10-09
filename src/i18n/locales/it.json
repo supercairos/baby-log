@@ -282,6 +282,12 @@
     "dump": "Eliminato",
     "restore": "Ripristina",
     "spentSummary_one": "Cronologia · {{count}} · {{volume}}",
-    "spentSummary_other": "Cronologia · {{count}} · {{volume}}"
+    "spentSummary_other": "Cronologia · {{count}} · {{volume}}",
+    "supplyToday": "Oggi",
+    "supplySessions_one": "{{count}} sessione",
+    "supplySessions_other": "{{count}} sessioni",
+    "supplyAvg_one": "Media su {{count}} giorno",
+    "supplyAvg_other": "Media su {{count}} giorni",
+    "perDay": "{{volume}}/giorno"
   }
 }

@@ -282,6 +282,12 @@
     "dump": "Verworfen",
     "restore": "Zurücklegen",
     "spentSummary_one": "Verlauf · {{count}} · {{volume}}",
-    "spentSummary_other": "Verlauf · {{count}} · {{volume}}"
+    "spentSummary_other": "Verlauf · {{count}} · {{volume}}",
+    "supplyToday": "Heute",
+    "supplySessions_one": "{{count}} Sitzung",
+    "supplySessions_other": "{{count}} Sitzungen",
+    "supplyAvg_one": "Ø über {{count}} Tag",
+    "supplyAvg_other": "Ø über {{count}} Tage",
+    "perDay": "{{volume}}/Tag"
   }
 }

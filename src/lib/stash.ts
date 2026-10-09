@@ -226,3 +226,44 @@ export function isExpiringSoon(stash: StashInfo, now: number): boolean {
 export function expiringSoon(bottles: StashBottle[], now: number): TrackedBottle[] {
   return availableBottles(bottles, now).filter((b) => isExpiringSoon(b.stash, now));
 }
+
+/** Days the supply average looks back over. */
+export const SUPPLY_AVG_DAYS = 7;
+
+/**
+ * Today's pumping next to the recent daily average — the trend a pumping parent watches.
+ *
+ * Every session counts, whatever became of the milk: used, discarded and untracked bottles
+ * were all expressed, and supply is about what came out, not what got drunk. Days are local
+ * calendar days (midnight to midnight, DST-safe via Date's own arithmetic). The average covers
+ * the full days BEFORE today, so a morning with one session doesn't drag it down, and it
+ * only divides by days since the first session: a parent three days into pumping gets a
+ * three-day average, not one diluted by four empty days that predate it. Null until there's
+ * at least one full day behind.
+ */
+export function supplySummary(
+  bottles: StashBottle[],
+  now: number,
+): { todayCount: number; todayMl: number; avgMl: number | null; avgDays: number } {
+  const midnight = new Date(now);
+  midnight.setHours(0, 0, 0, 0);
+  const todayStart = midnight.getTime();
+  const windowStartDate = new Date(midnight);
+  windowStartDate.setDate(windowStartDate.getDate() - SUPPLY_AVG_DAYS);
+  const windowStart = windowStartDate.getTime();
+
+  const today = bottles.filter((b) => b.pumpedMs >= todayStart && b.pumpedMs <= now);
+  const past = bottles.filter((b) => b.pumpedMs >= windowStart && b.pumpedMs < todayStart);
+
+  let avgMl: number | null = null;
+  let avgDays = 0;
+  if (past.length > 0) {
+    const first = new Date(Math.min(...past.map((b) => b.pumpedMs)));
+    first.setHours(0, 0, 0, 0);
+    // Calendar days from the first session's day up to today — rounded, since a DST night
+    // makes the raw span 23 or 25 h short of a whole number of days.
+    avgDays = Math.round((todayStart - first.getTime()) / 86_400_000);
+    avgMl = Math.round(past.reduce((sum, b) => sum + b.amount, 0) / avgDays);
+  }
+  return { todayCount: today.length, todayMl: today.reduce((sum, b) => sum + b.amount, 0), avgMl, avgDays };
+}

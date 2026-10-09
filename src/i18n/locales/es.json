@@ -282,6 +282,12 @@
     "dump": "Desechado",
     "restore": "Restaurar",
     "spentSummary_one": "Historial · {{count}} · {{volume}}",
-    "spentSummary_other": "Historial · {{count}} · {{volume}}"
+    "spentSummary_other": "Historial · {{count}} · {{volume}}",
+    "supplyToday": "Hoy",
+    "supplySessions_one": "{{count}} sesión",
+    "supplySessions_other": "{{count}} sesiones",
+    "supplyAvg_one": "Media de {{count}} día",
+    "supplyAvg_other": "Media de {{count}} días",
+    "perDay": "{{volume}}/día"
   }
 }

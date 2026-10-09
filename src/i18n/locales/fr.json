@@ -282,6 +282,12 @@
     "dump": "Jeté",
     "restore": "Remettre",
     "spentSummary_one": "Historique · {{count}} · {{volume}}",
-    "spentSummary_other": "Historique · {{count}} · {{volume}}"
+    "spentSummary_other": "Historique · {{count}} · {{volume}}",
+    "supplyToday": "Aujourd'hui",
+    "supplySessions_one": "{{count}} séance",
+    "supplySessions_other": "{{count}} séances",
+    "supplyAvg_one": "Moyenne sur {{count}} jour",
+    "supplyAvg_other": "Moyenne sur {{count}} jours",
+    "perDay": "{{volume}}/j"
   }
 }
