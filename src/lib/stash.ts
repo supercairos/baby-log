@@ -33,19 +33,28 @@ export const STASH_LOCATIONS: StashLocation[] = ["fridge", "freezer", "room", "t
  *
  * Applies to full-term healthy infants at home. The durations are NOT cumulative — milk
  * that spent two days in the fridge does not then get a fresh four months in the freezer.
- * We show the new window on a move (below) without pretending the milk became fresh again;
- * the UI carries the caveat.
+ * We show the new window on a move (below) without pretending the milk became fresh again.
+ *
+ * The freezer window is in CALENDAR months, not a fixed span: milk frozen on 6 Oct at 09:01
+ * is good until 6 Feb at 09:01 local time — the date a parent would work out themselves. A
+ * flat 120 days landed on a different day, and an hour off once winter time had kicked in.
  */
-export const STORAGE_WINDOW_MS: Record<StashLocation, number> = {
-  room: 4 * 3_600_000, //         4 h — flat, since we can't know the ambient temperature
-  fridge: 48 * 3_600_000, //     48 h
-  freezer: 120 * 86_400_000, //   4 months (120 d)
-  thawed: 24 * 3_600_000, //     24 h — and never refreeze
+export const STORAGE_WINDOW: Record<StashLocation, { hours: number } | { months: number }> = {
+  room: { hours: 4 }, //     flat, since we can't know the ambient temperature
+  fridge: { hours: 48 },
+  freezer: { months: 4 },
+  thawed: { hours: 24 }, //  and never refreeze
 };
+
+/** Longest a window can run, in ms — a month counted as 31 days so it never falls short. */
+function maxWindowMs(loc: StashLocation): number {
+  const w = STORAGE_WINDOW[loc];
+  return "hours" in w ? w.hours * 3_600_000 : w.months * 31 * 86_400_000;
+}
 
 /** How far back the stash query has to reach to see everything still drinkable: the longest
  *  window, padded so a bottle never falls out of the query while it's still good. */
-export const STASH_LOOKBACK_DAYS = Math.ceil(STORAGE_WINDOW_MS.freezer / 86_400_000) + 7;
+export const STASH_LOOKBACK_DAYS = Math.ceil(maxWindowMs("freezer") / 86_400_000) + 7;
 
 export interface StashInfo {
   loc: StashLocation;
@@ -112,7 +121,16 @@ export function moveStash(info: StashInfo, loc: StashLocation, now: number): Sta
 }
 
 export function expiresAt(info: StashInfo): number {
-  return info.at + STORAGE_WINDOW_MS[info.loc];
+  const w = STORAGE_WINDOW[info.loc];
+  if ("hours" in w) return info.at + w.hours * 3_600_000;
+  // Same local wall-clock time, N months on. Clamped to the month's last day, so 31 Oct
+  // gives 28 Feb rather than JavaScript's overflow into early March.
+  const d = new Date(info.at);
+  const day = d.getDate();
+  d.setDate(1);
+  d.setMonth(d.getMonth() + w.months);
+  d.setDate(Math.min(day, new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()));
+  return d.getTime();
 }
 
 export function isExpired(info: StashInfo, now: number): boolean {
@@ -183,7 +201,7 @@ const SOON_CAP_MS = 4 * 3_600_000;
  * "this exists": 2 h for room, 4 h for fridge, freezer and thawed.
  */
 export function soonThresholdMs(loc: StashLocation): number {
-  return Math.min(SOON_CAP_MS, STORAGE_WINDOW_MS[loc] / 2);
+  return Math.min(SOON_CAP_MS, maxWindowMs(loc) / 2);
 }
 
 /** True once a bottle is inside its own warning window. */

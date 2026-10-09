@@ -122,7 +122,7 @@ Parser:
   is archived — dimming the whole row made its remaining actions read as disabled.
 - Windows are **AFSSA 2005** (room 4 h / fridge 48 h / freezer 4 months / thawed 24 h), the
   conservative end of French guidance — CoFAM 2024 allows 8 days and 12 months, ABM 2017 sits
-  between. `STORAGE_WINDOW_MS` in `lib/stash.ts` is the one place to change them. Applies to
+  between. `STORAGE_WINDOW` in `lib/stash.ts` is the one place to change them. Applies to
   full-term babies at home; durations are NOT cumulative.
 
 ---
