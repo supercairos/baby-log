@@ -105,6 +105,8 @@ Parser:
   the timestamp a location change needs.
 - **Expiry is derived, never stored** — keep only `loc` + `at`, recompute on render. Exactly
   the rule timers follow with `startedAt`, and it survives reload/multi-device for free.
+  The freezer's 4 months count from when the milk was **pumped** (the entry's end), not from
+  the move into the freezer — windows aren't cumulative. Room/fridge/thawed restart on a move.
 - **Pumping to throw away** (after a drink, or a medication that isn't feed-safe) is an
   ordinary reason to express, so the stop sheet's destination row carries a "discard" chip
   beside the locations: the session and its volume are still logged — they count toward

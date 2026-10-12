@@ -342,13 +342,10 @@ export function PumpDayList({
   const bottles = overlay(
     [...entries]
       .sort((a, b) => b.startMs - a.startMs)
-      .map((e) => ({
-        id: e.id,
-        amount: e.amount,
-        pumpedMs: e.endMs ?? e.startMs,
-        stash: decodeStashNotes(e.notes),
-        notes: e.notes,
-      })),
+      .map((e) => {
+        const pumpedMs = e.endMs ?? e.startMs;
+        return { id: e.id, amount: e.amount, pumpedMs, stash: decodeStashNotes(e.notes, pumpedMs), notes: e.notes };
+      }),
   );
   if (bottles.length === 0) return null;
 

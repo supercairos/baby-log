@@ -33,7 +33,10 @@ export const STASH_LOCATIONS: StashLocation[] = ["fridge", "freezer", "room", "t
  *
  * Applies to full-term healthy infants at home. The durations are NOT cumulative — milk
  * that spent two days in the fridge does not then get a fresh four months in the freezer.
- * We show the new window on a move (below) without pretending the milk became fresh again.
+ * So the freezer's months run from when the milk was EXPRESSED, not from when it went in:
+ * a bottle pumped Saturday night and frozen Monday is good until the Saturday four months
+ * on, as a parent counting from the date on the bag would expect. The short windows (room,
+ * fridge, thawed) do restart on a move — they're about the bottle's current conditions.
  *
  * The freezer window is in CALENDAR months, not a fixed span: milk frozen on 6 Oct at 09:01
  * is good until 6 Feb at 09:01 local time — the date a parent would work out themselves. A
@@ -63,6 +66,9 @@ export interface StashInfo {
   state: StashState;
   /** Whatever the caregiver actually typed, with the machine prefix stripped. */
   note: string;
+  /** Epoch ms the milk was expressed — the freezer's clock (see `STORAGE_WINDOW`). Not
+   *  encoded: it's the entry's own end time, attached on read. Absent, `at` stands in. */
+  pumpedAt?: number;
 }
 
 const PREFIX_RE = /^\[stash ([^\]]*)\]\s?([\s\S]*)$/;
@@ -79,7 +85,7 @@ function isState(v: string): v is StashState {
  * stash prefix — an entry logged by Baby Buddy's own UI, by another client, or before this
  * feature existed. Callers treat `null` as "untracked", never as an error.
  */
-export function decodeStashNotes(notes: string | null | undefined): StashInfo | null {
+export function decodeStashNotes(notes: string | null | undefined, pumpedAt?: number): StashInfo | null {
   const m = PREFIX_RE.exec(notes ?? "");
   if (!m) return null;
   let loc: StashLocation | null = null;
@@ -100,7 +106,7 @@ export function decodeStashNotes(notes: string | null | undefined): StashInfo | 
   // A prefix missing its location or timestamp can't be reasoned about — treat the whole
   // note as human text rather than inventing a default that would fake an expiry date.
   if (loc == null || at == null) return null;
-  return { loc, at, state, note: m[2] };
+  return { loc, at, state, note: m[2], pumpedAt };
 }
 
 /** Write the stash state back into `notes`, preserving the caregiver's own text. */
@@ -110,12 +116,13 @@ export function encodeStashNotes(info: StashInfo): string {
   return info.note ? `${prefix} ${info.note}` : prefix;
 }
 
-/** Fresh milk goes to the fridge unless told otherwise — the overwhelmingly common case. */
+/** A freshly pumped bottle: `at` is when it was expressed, so it's the pumping time too. */
 export function newStash(loc: StashLocation, at: number, note = ""): StashInfo {
-  return { loc, at, state: "stored", note };
+  return { loc, at, state: "stored", note, pumpedAt: at };
 }
 
-/** Move to another location. The window restarts from now — see the non-cumulative caveat. */
+/** Move to another location. `at` restarts from now, but a freezer window still counts from
+ *  `pumpedAt` — see the non-cumulative caveat on `STORAGE_WINDOW`. */
 export function moveStash(info: StashInfo, loc: StashLocation, now: number): StashInfo {
   return { ...info, loc, at: now };
 }
@@ -123,9 +130,10 @@ export function moveStash(info: StashInfo, loc: StashLocation, now: number): Sta
 export function expiresAt(info: StashInfo): number {
   const w = STORAGE_WINDOW[info.loc];
   if ("hours" in w) return info.at + w.hours * 3_600_000;
-  // Same local wall-clock time, N months on. Clamped to the month's last day, so 31 Oct
+  // Same local wall-clock time, N months on from when it was pumped (never later than it
+  // went in, should a backdated entry disagree). Clamped to the month's last day, so 31 Oct
   // gives 28 Feb rather than JavaScript's overflow into early March.
-  const d = new Date(info.at);
+  const d = new Date(Math.min(info.at, info.pumpedAt ?? info.at));
   const day = d.getDate();
   d.setDate(1);
   d.setMonth(d.getMonth() + w.months);
@@ -168,7 +176,7 @@ export function toBottle(p: Pumping): StashBottle | null {
   const pumpedMs = Date.parse(p.end ?? p.start ?? "");
   if (Number.isNaN(pumpedMs)) return null;
   const notes = p.notes ?? null;
-  return { id: p.id, amount: p.amount ?? 0, pumpedMs, stash: decodeStashNotes(notes), notes };
+  return { id: p.id, amount: p.amount ?? 0, pumpedMs, stash: decodeStashNotes(notes, pumpedMs), notes };
 }
 
 /** A bottle we know the whereabouts of — the only kind the stash can reason about. */
