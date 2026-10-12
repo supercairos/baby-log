@@ -256,6 +256,10 @@ function StashRow({
   const where = stashWhereLabel(stash);
   const sessions = bottle.members != null && bottle.members.length > 1 ? bottle.members : null;
   const pick = palette.stashLoc.freezer;
+  const frozenLabel =
+    stash?.loc === "freezer"
+      ? t("stash.frozenLabel", { pumped: shortDateTime(stash.pumpedAt ?? bottle.pumpedMs), frozen: shortDateTime(stash.at) })
+      : null;
 
   return (
     <div
@@ -297,11 +301,16 @@ function StashRow({
           </div>
           {/* Date, not just the clock: the freezer section holds bottles months apart, and
               two of them pumped at 09:52 would otherwise be indistinguishable. */}
-          {/* A bag lists every session in it — what went in, and when, is exactly what
-              you'd otherwise write on the bag. */}
-          <div style={{ ...s.entryTime, marginTop: 2, ...dim }}>
-            {sessions ? sessions.map((m) => `${m.amount} ml · ${shortDateTime(m.pumpedMs)}`).join(" + ") : shortDateTime(bottle.pumpedMs)}
-          </div>
+          {/* A combined bottle lists every session in it — what went in, and when. */}
+          {(sessions || !frozenLabel) && (
+            <div style={{ ...s.entryTime, marginTop: 2, ...dim }}>
+              {sessions ? sessions.map((m) => `${m.amount} ml · ${shortDateTime(m.pumpedMs)}`).join(" + ") : shortDateTime(bottle.pumpedMs)}
+            </div>
+          )}
+          {/* What the crèche wants written on a frozen bottle: when it was pumped (the first
+              session, for a combined one) and when it went into the freezer. Worded to be
+              copied onto the label as is. */}
+          {frozenLabel && <div style={{ ...s.entryTime, marginTop: 2, ...dim }}>{frozenLabel}</div>}
         </div>
         {/* A spent bottle has no deadline left to report, and a countdown beside "used"
             would read as though it were still on offer. */}
@@ -558,7 +567,7 @@ export function StashPage({
 
       {rows(fresh)}
 
-      {/* Bag it: the night's fridge bottles poured into one freezer bag in the morning. Every
+      {/* Combine ("Regrouper"): the night's fridge bottles poured into one bottle before freezing. Every
           candidate starts ticked — that's the routine — and you untick what stays out. */}
       {bagging == null && baggable.length >= 2 && (
         <button

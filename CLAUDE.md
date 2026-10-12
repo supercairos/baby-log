@@ -107,12 +107,13 @@ Parser:
   the rule timers follow with `startedAt`, and it survives reload/multi-device for free.
   The freezer's 4 months count from when the milk was **pumped** (the entry's end), not from
   the move into the freezer — windows aren't cumulative. Room/fridge/thawed restart on a move.
-- **Bags** ("Mettre en sac"): the night's fridge bottles poured into one freezer bag. Each
+- **Combined bottles** ("Regrouper"; `bag` in code): fridge bottles poured into one bottle
+  before freezing. The UI never says "bag" — the crèche brochure forbids storage bags. Each
   session stays its own entry with its own volume — a new "bag" entry would double-count
   supply — and they share `bag=<oldest session id>` in the prefix. `groupBags` folds them into
   one row (summed volume, earliest `at`/`pumpedAt`, so the bag turns with its oldest milk);
   every write to a bag writes each member, keeping each one's own note. Fridge milk only.
-  The day list shows a bagged session read-only (a bag can span midnight). "Défaire le sac"
+  The day list shows a bagged session read-only (a bag can span midnight). "Dégrouper"
   is the mis-tap undo: back to the fridge, clock from each pumping time.
 - **Pumping to throw away** (after a drink, or a medication that isn't feed-safe) is an
   ordinary reason to express, so the stop sheet's destination row carries a "discard" chip

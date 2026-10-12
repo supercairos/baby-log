@@ -12,7 +12,8 @@
  * The human half is preserved verbatim across every rewrite — we never clobber what a
  * caregiver typed.
  *
- * BAGS. Bottles are often poured together into one freezer bag. Each session stays its own
+ * BAGS ("Regrouper" in the UI — never "bag": crèches refuse storage bags). Fridge bottles
+ * are often poured together into one bottle before freezing. Each session stays its own
  * entry with its own volume (supply counts what was expressed, so a new "bag" entry would
  * count it twice); they just share `bag=<id of the oldest>` and move as one from then on.
  *

@@ -289,9 +289,10 @@
     "supplyAvg_one": "Ø über {{count}} Tag",
     "supplyAvg_other": "Ø über {{count}} Tage",
     "perDay": "{{volume}}/Tag",
-    "bagIt": "In einen Beutel",
-    "freezeBag": "Beutel einfrieren · {{volume}}",
-    "inBag": "Beutel · {{where}}",
-    "unbag": "Beutel auflösen"
+    "bagIt": "Zusammenfüllen",
+    "freezeBag": "Flasche einfrieren · {{volume}}",
+    "inBag": "Zusammengefüllt · {{where}}",
+    "unbag": "Trennen",
+    "frozenLabel": "Abgepumpt {{pumped}} · Eingefroren {{frozen}}"
   }
 }

@@ -289,9 +289,10 @@
     "supplyAvg_one": "Moyenne sur {{count}} jour",
     "supplyAvg_other": "Moyenne sur {{count}} jours",
     "perDay": "{{volume}}/j",
-    "bagIt": "Mettre en sac",
-    "freezeBag": "Congeler le sac · {{volume}}",
-    "inBag": "Sac · {{where}}",
-    "unbag": "Défaire le sac"
+    "bagIt": "Regrouper",
+    "freezeBag": "Congeler le biberon · {{volume}}",
+    "inBag": "Regroupé · {{where}}",
+    "unbag": "Dégrouper",
+    "frozenLabel": "Recueil {{pumped}} · Congelé {{frozen}}"
   }
 }

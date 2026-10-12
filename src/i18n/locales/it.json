@@ -289,9 +289,10 @@
     "supplyAvg_one": "Media su {{count}} giorno",
     "supplyAvg_other": "Media su {{count}} giorni",
     "perDay": "{{volume}}/giorno",
-    "bagIt": "Metti in sacchetto",
-    "freezeBag": "Congela il sacchetto · {{volume}}",
-    "inBag": "Sacchetto · {{where}}",
-    "unbag": "Annulla sacchetto"
+    "bagIt": "Unisci",
+    "freezeBag": "Congela il biberon · {{volume}}",
+    "inBag": "Unito · {{where}}",
+    "unbag": "Separa",
+    "frozenLabel": "Estratto {{pumped}} · Congelato {{frozen}}"
   }
 }

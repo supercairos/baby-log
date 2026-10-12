@@ -289,9 +289,10 @@
     "supplyAvg_one": "Media de {{count}} día",
     "supplyAvg_other": "Media de {{count}} días",
     "perDay": "{{volume}}/día",
-    "bagIt": "Juntar en bolsa",
-    "freezeBag": "Congelar la bolsa · {{volume}}",
-    "inBag": "Bolsa · {{where}}",
-    "unbag": "Deshacer bolsa"
+    "bagIt": "Juntar",
+    "freezeBag": "Congelar el biberón · {{volume}}",
+    "inBag": "Combinado · {{where}}",
+    "unbag": "Separar",
+    "frozenLabel": "Extraída {{pumped}} · Congelada {{frozen}}"
   }
 }
