@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.26.0](https://github.com/supercairos/baby-log/compare/baby-log-v1.25.0...baby-log-v1.26.0) (2026-10-12)
+
+
+### Features
+
+* **stash:** bag the night's fridge bottles into one freezer bag ([405726b](https://github.com/supercairos/baby-log/commit/405726b922e588ac0f2d810a51a41667d80429a8))
+* **stash:** crèche-friendly wording and a label line on frozen bottles ([c662544](https://github.com/supercairos/baby-log/commit/c662544ecc7a06b27b6d9799ddc18a9f77739626))
+
+
+### Bug Fixes
+
+* **stash:** count the freezer window from when the milk was pumped ([36660ca](https://github.com/supercairos/baby-log/commit/36660ca011bc71c139c9f301eb3611ccce3e0286))
+
 ## [1.25.0](https://github.com/supercairos/baby-log/compare/baby-log-v1.24.0...baby-log-v1.25.0) (2026-10-09)
 
 
