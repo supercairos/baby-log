@@ -288,6 +288,10 @@
     "supplySessions_other": "{{count}} sessioni",
     "supplyAvg_one": "Media su {{count}} giorno",
     "supplyAvg_other": "Media su {{count}} giorni",
-    "perDay": "{{volume}}/giorno"
+    "perDay": "{{volume}}/giorno",
+    "bagIt": "Metti in sacchetto",
+    "freezeBag": "Congela il sacchetto · {{volume}}",
+    "inBag": "Sacchetto · {{where}}",
+    "unbag": "Annulla sacchetto"
   }
 }

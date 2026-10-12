@@ -288,6 +288,10 @@
     "supplySessions_other": "{{count}} sesiones",
     "supplyAvg_one": "Media de {{count}} día",
     "supplyAvg_other": "Media de {{count}} días",
-    "perDay": "{{volume}}/día"
+    "perDay": "{{volume}}/día",
+    "bagIt": "Juntar en bolsa",
+    "freezeBag": "Congelar la bolsa · {{volume}}",
+    "inBag": "Bolsa · {{where}}",
+    "unbag": "Deshacer bolsa"
   }
 }

@@ -288,6 +288,10 @@
     "supplySessions_other": "{{count}} sessions",
     "supplyAvg_one": "{{count}}-day average",
     "supplyAvg_other": "{{count}}-day average",
-    "perDay": "{{volume}}/day"
+    "perDay": "{{volume}}/day",
+    "bagIt": "Bag it",
+    "freezeBag": "Freeze the bag · {{volume}}",
+    "inBag": "Bag · {{where}}",
+    "unbag": "Undo bag"
   }
 }

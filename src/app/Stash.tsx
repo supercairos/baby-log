@@ -32,9 +32,11 @@ import { shortDateTime } from "../lib/datetime";
 import { stashWhereLabel } from "../lib/labels";
 import {
   availableBottles,
+  canBag,
   decodeStashNotes,
   encodeStashNotes,
   expiresAt,
+  groupBags,
   isExpired,
   isExpiringSoon,
   isSpent,
@@ -142,8 +144,7 @@ function useStashWriter(client: BabyBuddyClient, refresh: () => Promise<unknown>
         onWriteFailed(err);
       });
 
-  const apply = (bottle: StashBottle, next: StashInfo) => {
-    buzz();
+  const write = (bottle: StashBottle, next: StashInfo) => {
     setPending((p) => ({ ...p, [bottle.id]: next }));
     void run(
       bottle.id,
@@ -151,6 +152,31 @@ function useStashWriter(client: BabyBuddyClient, refresh: () => Promise<unknown>
       // PATCH included — sending only `notes` would be rejected.
       enqueueMutation(updateEntryMutation(bottle.id, { path: "/api/pumping/", body: { amount: bottle.amount, notes: encodeStashNotes(next) } })),
     );
+  };
+
+  /** A bag writes through to each session in it. Each keeps its own human note and pumping
+   *  time — the bag's are only its oldest member's. */
+  const apply = (bottle: StashBottle, next: StashInfo) => {
+    buzz();
+    for (const m of bottle.members ?? [bottle]) write(m, { ...next, note: m.stash?.note ?? next.note, pumpedAt: m.pumpedMs });
+  };
+
+  /** Pour fridge bottles into one bag and freeze it. The bag is named after its oldest
+   *  session; the freezer window then runs from that one's pumping (see lib/stash). */
+  const bagIt = (bottles: TrackedBottle[], now: number) => {
+    buzz();
+    const sessions = bottles.flatMap((b) => (b.members as TrackedBottle[] | undefined) ?? [b]);
+    const anchor = sessions.reduce((a, b) => (b.pumpedMs < a.pumpedMs ? b : a));
+    for (const m of sessions) write(m, { ...moveStash(m.stash, "freezer", now), bag: anchor.id, pumpedAt: m.pumpedMs });
+  };
+
+  /** Undo a mis-tapped bag: back to the fridge, the clock from when each was pumped — what
+   *  a fridge bottle has unless someone moved it there later, and never later than that. */
+  const unbag = (bottle: StashBottle) => {
+    buzz();
+    for (const m of bottle.members ?? [bottle]) {
+      if (m.stash != null) write(m, { ...m.stash, bag: undefined, loc: "fridge", at: m.pumpedMs, pumpedAt: m.pumpedMs });
+    }
   };
 
   /** Remove the entry outright. Offered only on ARCHIVED bottles — a spent row is history,
@@ -172,7 +198,7 @@ function useStashWriter(client: BabyBuddyClient, refresh: () => Promise<unknown>
         return want && b.notes !== encodeStashNotes(want) ? { ...b, stash: want } : b;
       });
 
-  return { apply, remove, overlay };
+  return { apply, bagIt, unbag, remove, overlay };
 }
 
 // ── Shared row ───────────────────────────────────────────────────────────────
@@ -186,11 +212,16 @@ function StashRow({
   now,
   apply,
   remove,
+  unbag,
+  select,
 }: {
   bottle: StashBottle;
   now: number;
   apply: (bottle: StashBottle, next: StashInfo) => void;
   remove: (bottle: StashBottle) => void;
+  unbag: (bottle: StashBottle) => void;
+  /** Picking bottles for a bag: the row becomes one checkbox and its actions step aside. */
+  select?: { checked: boolean; onToggle: () => void };
 }) {
   const { s, chipOn } = useStyles();
   const { palette } = useTheme();
@@ -217,17 +248,42 @@ function StashRow({
   // Dim the amount and date of an archived bottle, never its state — the label is what says
   // why it's archived — nor the actions: fading those made restore read as disabled.
   const dim = gone ? { opacity: 0.55 } : {};
+  // A bagged session met on its own — the day list only sees that day's sessions, and a
+  // night's bag often spans midnight. Writing to it alone would split it from its bag, so
+  // it's read-only here; the inventory shows and handles the whole bag.
+  const bagged = stash?.bag != null;
+  const readOnly = bagged && bottle.members == null;
+  const where = stashWhereLabel(stash);
+  const sessions = bottle.members != null && bottle.members.length > 1 ? bottle.members : null;
+  const pick = palette.stashLoc.freezer;
 
   return (
-    <div style={{ ...s.entry, flexDirection: "column", alignItems: "stretch", gap: 14, padding: "16px 16px 14px", marginBottom: 12 }}>
+    <div
+      {...(select ? { role: "checkbox", "aria-checked": select.checked, tabIndex: 0, onClick: select.onToggle } : {})}
+      style={{
+        ...s.entry,
+        flexDirection: "column",
+        alignItems: "stretch",
+        gap: 14,
+        padding: "16px 16px 14px",
+        marginBottom: 12,
+        ...(select ? { cursor: "pointer", boxShadow: select.checked ? `inset 0 0 0 2px ${pick}` : undefined } : {}),
+      }}
+    >
       {/* Top-aligned, not centred: the left column is two lines and the right is one, so
           centring floated the expiry into the gap between them instead of sitting on the
           line it qualifies. It reads as a stray label, and worst on an expired row where
           the short "périmé" has nothing to line up against. */}
       <div style={{ ...s.entryTap, cursor: "default", gap: 14, alignItems: "flex-start" }}>
-        <span style={{ ...s.entryIco, color: tone, background: `${tone}1f`, boxShadow: `inset 0 0 0 1px ${tone}55` }}>
-          <Icon size={20} />
-        </span>
+        {select ? (
+          <span style={{ ...s.entryIco, color: select.checked ? palette.onAccent : pick, background: select.checked ? pick : `${pick}1f`, boxShadow: `inset 0 0 0 1px ${pick}55` }}>
+            {select.checked && <CheckIcon size={20} />}
+          </span>
+        ) : (
+          <span style={{ ...s.entryIco, color: tone, background: `${tone}1f`, boxShadow: `inset 0 0 0 1px ${tone}55` }}>
+            <Icon size={20} />
+          </span>
+        )}
         <div style={s.entryMid}>
           {/* Struck through, not removed — the volume is still part of the day's total.
               An explicit line-height, matched by the expiry opposite, so the two sit on the
@@ -235,13 +291,17 @@ function StashRow({
               serif's own metrics and the two drift apart. */}
           <div style={{ ...s.entryLabel, lineHeight: "20px", display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
             <span style={{ ...dim, ...(gone ? { textDecoration: "line-through" } : {}) }}>{bottle.amount} ml</span>
-            {stash != null && (
-              <span style={{ ...s.entryMeta, fontWeight: 800, color: tone }}>{stashWhereLabel(stash)}</span>
+            {where != null && (
+              <span style={{ ...s.entryMeta, fontWeight: 800, color: tone }}>{bagged ? t("stash.inBag", { where }) : where}</span>
             )}
           </div>
           {/* Date, not just the clock: the freezer section holds bottles months apart, and
               two of them pumped at 09:52 would otherwise be indistinguishable. */}
-          <div style={{ ...s.entryTime, marginTop: 2, ...dim }}>{shortDateTime(bottle.pumpedMs)}</div>
+          {/* A bag lists every session in it — what went in, and when, is exactly what
+              you'd otherwise write on the bag. */}
+          <div style={{ ...s.entryTime, marginTop: 2, ...dim }}>
+            {sessions ? sessions.map((m) => `${m.amount} ml · ${shortDateTime(m.pumpedMs)}`).join(" + ") : shortDateTime(bottle.pumpedMs)}
+          </div>
         </div>
         {/* A spent bottle has no deadline left to report, and a countdown beside "used"
             would read as though it were still on offer. */}
@@ -252,7 +312,7 @@ function StashRow({
         )}
       </div>
 
-      {stash != null && (
+      {stash != null && !readOnly && !select && (
         <div style={s.chips}>
           {/* Archived rows keep undo — the bookkeeping tap is easy to mis-hit and nothing
               else in the app can put the state back. `at` is untouched, so the expiry
@@ -264,10 +324,13 @@ function StashRow({
                 {t("stash.restore")}
               </button>
               {/* The one place a pumping entry is really removed. Archived only: history is
-                  kept by default, but a session logged in error has to be able to go. */}
-              <button onClick={() => remove(bottle)} style={{ ...s.chip, color: palette.danger }}>
-                {t("common.delete")}
-              </button>
+                  kept by default, but a session logged in error has to be able to go. Not
+                  on a bag — that would take several sessions with it in one tap. */}
+              {bottle.members == null && (
+                <button onClick={() => remove(bottle)} style={{ ...s.chip, color: palette.danger }}>
+                  {t("common.delete")}
+                </button>
+              )}
             </>
           )}
           {/* Past its window there is exactly one honest action. Offering "used" or a move on
@@ -303,6 +366,12 @@ function StashRow({
                   {t("stash.thaw")}
                 </button>
               )}
+              {/* Undo for a mis-tapped bag — see `unbag`. */}
+              {bagged && stash.loc === "freezer" && (
+                <button onClick={() => unbag(bottle)} style={s.chip}>
+                  {t("stash.unbag")}
+                </button>
+              )}
             </>
           )}
           {!gone && (
@@ -336,7 +405,7 @@ export function PumpDayList({
   // write; the inventory's own query is invalidated too, since both show the same bottle.
   const refresh = () =>
     Promise.all([qc.invalidateQueries({ queryKey: ["calendar"] }), qc.invalidateQueries({ queryKey: ["pumpings"] })]);
-  const { apply, remove, overlay } = useStashWriter(client, refresh, onWriteFailed);
+  const { apply, unbag, remove, overlay } = useStashWriter(client, refresh, onWriteFailed);
 
   // Newest first: this is the day's log, not the inventory (see `byPumped`).
   const bottles = overlay(
@@ -356,7 +425,7 @@ export function PumpDayList({
         {t("stash.dayTitle")} · {t("stash.total", { count: bottles.length, volume: volume(total) })}
       </div>
       {bottles.map((b) => (
-        <StashRow key={b.id} bottle={b} now={now} apply={apply} remove={remove} />
+        <StashRow key={b.id} bottle={b} now={now} apply={apply} unbag={unbag} remove={remove} />
       ))}
     </section>
   );
@@ -399,46 +468,73 @@ export function StashPage({
    *  its own, and a silently dropped change is worse here than anywhere else. */
   onWriteFailed: (err: unknown) => void;
 }) {
-  const { s } = useStyles();
+  const { s, chipOn } = useStyles();
   const { palette } = useTheme();
   const { t } = useTranslation();
   const now = useNow(60_000);
   const { pumpings, refresh } = usePumpings(client, childId);
   const [showFrozen, setShowFrozen] = useState(false);
   const [showSpent, setShowSpent] = useState(false);
-  const { apply, remove, overlay } = useStashWriter(client, refresh, onWriteFailed);
+  /** Ids picked for a bag, or null when not bagging. */
+  const [bagging, setBagging] = useState<Set<number> | null>(null);
+  const { apply, bagIt, unbag, remove, overlay } = useStashWriter(client, refresh, onWriteFailed);
 
+  /** One per session — supply counts what was expressed, so it reads these. */
   const bottles = useMemo(
     () => overlay((pumpings ?? []).map(toBottle).filter((b): b is StashBottle => b != null)),
     [pumpings, overlay],
   );
+  /** One per physical container — every list below reads these. */
+  const items = useMemo(() => groupBags(bottles), [bottles]);
 
-  const available = useMemo(() => availableBottles(bottles, now).sort(byPumped), [bottles, now]);
+  const available = useMemo(() => availableBottles(items, now).sort(byPumped), [items, now]);
+  const baggable = available.filter((b) => canBag(b, now));
+  const picked = bagging == null ? [] : baggable.filter((b) => bagging.has(b.id));
   const fresh = available.filter((b) => b.stash.loc !== "freezer");
   const frozen = available.filter((b) => b.stash.loc === "freezer");
   /** Past its window but still kept — the bottle is physically in the fridge and needs
    *  binning, so hiding it is the one thing this screen must not do. */
   const expired = useMemo(
     () =>
-      bottles
+      items
         .filter((b): b is TrackedBottle => b.stash != null && isExpired(b.stash, now))
         .sort(byPumped),
-    [bottles, now],
+    [items, now],
   );
   /** Used or thrown away. Kept on screen — struck through — rather than auto-deleted: the
    *  session happened, it counts toward supply, and a row that simply vanishes gives no way
    *  to tell a mis-tap from a real one. */
   const spent = useMemo(
     () =>
-      bottles
+      items
         .filter((b): b is TrackedBottle => b.stash != null && isSpent(b.stash))
         .sort(byPumpedDesc),
-    [bottles],
+    [items],
   );
 
   const totalMl = available.reduce((sum, b) => sum + b.amount, 0);
+  const toggle = (id: number) => {
+    buzz();
+    setBagging((sel) => {
+      const next = new Set(sel);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
   const rows = (list: StashBottle[]) =>
-    list.map((b) => <StashRow key={b.id} bottle={b} now={now} apply={apply} remove={remove} />);
+    list.map((b) => (
+      <StashRow
+        key={b.id}
+        bottle={b}
+        now={now}
+        apply={apply}
+        unbag={unbag}
+        remove={remove}
+        select={bagging != null && canBag(b, now) ? { checked: bagging.has(b.id), onToggle: () => toggle(b.id) } : undefined}
+      />
+    ));
+  const freeze = palette.stashLoc.freezer;
 
   return (
     <section style={s.cal}>
@@ -461,6 +557,35 @@ export function StashPage({
       )}
 
       {rows(fresh)}
+
+      {/* Bag it: the night's fridge bottles poured into one freezer bag in the morning. Every
+          candidate starts ticked — that's the routine — and you untick what stays out. */}
+      {bagging == null && baggable.length >= 2 && (
+        <button
+          onClick={() => { buzz(); setBagging(new Set(baggable.map((b) => b.id))); }}
+          style={{ ...s.chip, ...chipOn(freeze), width: "100%", gap: 7, margin: "2px 0 12px" }}
+        >
+          <SnowflakeIcon size={16} />
+          {t("stash.bagIt")}
+        </button>
+      )}
+      {bagging != null && (
+        <>
+          <button
+            onClick={() => { bagIt(picked, now); setBagging(null); }}
+            disabled={picked.length < 2}
+            style={{ ...s.cta, marginTop: 4, ...(picked.length < 2 ? s.ctaOff : { background: freeze }) }}
+          >
+            {t("stash.freezeBag", { volume: volume(picked.reduce((sum, b) => sum + b.amount, 0)) })}
+          </button>
+          <button
+            onClick={() => { buzz(); setBagging(null); }}
+            style={{ ...s.sheetHint, display: "block", width: "100%", minHeight: 44, margin: "6px 0 8px", background: "none", border: "none", textAlign: "center" }}
+          >
+            {t("common.cancel")}
+          </button>
+        </>
+      )}
 
       {/* Frozen milk keeps for months, so it would bury the fridge — the part you actually
           choose from — under an ever-growing list. Collapsed to one line until asked for. */}

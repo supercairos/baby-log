@@ -12,6 +12,12 @@
  * The human half is preserved verbatim across every rewrite — we never clobber what a
  * caregiver typed.
  *
+ * BAGS. Bottles are often poured together into one freezer bag. Each session stays its own
+ * entry with its own volume (supply counts what was expressed, so a new "bag" entry would
+ * count it twice); they just share `bag=<id of the oldest>` and move as one from then on.
+ *
+ *   [stash loc=freezer at=2026-10-12T07:30:00.000Z state=stored bag=35]
+ *
  * EXPIRY IS DERIVED, NEVER STORED. We keep only `loc` + `at` and recompute freshness on
  * render, exactly as a running timer keeps only `startedAt` and derives elapsed. Reload,
  * backgrounding and multi-device all stay correct for free, and there's no stored deadline
@@ -69,6 +75,8 @@ export interface StashInfo {
   /** Epoch ms the milk was expressed — the freezer's clock (see `STORAGE_WINDOW`). Not
    *  encoded: it's the entry's own end time, attached on read. Absent, `at` stands in. */
   pumpedAt?: number;
+  /** Id of the bag's oldest session, shared by every session poured into that bag. */
+  bag?: number;
 }
 
 const PREFIX_RE = /^\[stash ([^\]]*)\]\s?([\s\S]*)$/;
@@ -91,6 +99,7 @@ export function decodeStashNotes(notes: string | null | undefined, pumpedAt?: nu
   let loc: StashLocation | null = null;
   let at: number | null = null;
   let state: StashState = "stored";
+  let bag: number | undefined;
   for (const pair of m[1].trim().split(/\s+/)) {
     const eq = pair.indexOf("=");
     if (eq < 0) continue;
@@ -98,6 +107,7 @@ export function decodeStashNotes(notes: string | null | undefined, pumpedAt?: nu
     const value = pair.slice(eq + 1);
     if (key === "loc" && isLocation(value)) loc = value;
     else if (key === "state" && isState(value)) state = value;
+    else if (key === "bag" && /^\d+$/.test(value)) bag = Number(value);
     else if (key === "at") {
       const ms = Date.parse(value);
       if (!Number.isNaN(ms)) at = ms;
@@ -106,13 +116,14 @@ export function decodeStashNotes(notes: string | null | undefined, pumpedAt?: nu
   // A prefix missing its location or timestamp can't be reasoned about — treat the whole
   // note as human text rather than inventing a default that would fake an expiry date.
   if (loc == null || at == null) return null;
-  return { loc, at, state, note: m[2], pumpedAt };
+  return { loc, at, state, note: m[2], pumpedAt, ...(bag != null ? { bag } : {}) };
 }
 
 /** Write the stash state back into `notes`, preserving the caregiver's own text. */
 export function encodeStashNotes(info: StashInfo): string {
   const at = new Date(info.at).toISOString();
-  const prefix = `[stash loc=${info.loc} at=${at} state=${info.state}]`;
+  const bag = info.bag != null ? ` bag=${info.bag}` : "";
+  const prefix = `[stash loc=${info.loc} at=${at} state=${info.state}${bag}]`;
   return info.note ? `${prefix} ${info.note}` : prefix;
 }
 
@@ -169,6 +180,9 @@ export interface StashBottle {
   /** The server's `notes` verbatim. Kept so an optimistic overlay can tell whether the
    *  server has caught up with a queued change and stand down once it has. */
   notes: string | null;
+  /** Set on a bag (see `groupBags`): the sessions poured into it, oldest first. A write to
+   *  the bag is a write to each of them. */
+  members?: StashBottle[];
 }
 
 export function toBottle(p: Pumping): StashBottle | null {
@@ -177,6 +191,54 @@ export function toBottle(p: Pumping): StashBottle | null {
   if (Number.isNaN(pumpedMs)) return null;
   const notes = p.notes ?? null;
   return { id: p.id, amount: p.amount ?? 0, pumpedMs, stash: decodeStashNotes(notes, pumpedMs), notes };
+}
+
+/**
+ * Fold the sessions of each bag into one item: summed volume, and the earliest `at` and
+ * `pumpedAt` of its members, so the bag turns when its oldest milk does — the standard rule
+ * for mixed milk. Members only group while they agree on location and state: a write that
+ * reached one session but not yet the other shows as two rows rather than a bag that lies.
+ */
+export function groupBags(bottles: StashBottle[]): StashBottle[] {
+  const groups = new Map<string, StashBottle[]>();
+  const out: (StashBottle | string)[] = [];
+  for (const b of bottles) {
+    if (b.stash?.bag == null) {
+      out.push(b);
+      continue;
+    }
+    const key = `${b.stash.bag}|${b.stash.loc}|${b.stash.state}`;
+    const list = groups.get(key);
+    if (list) list.push(b);
+    else {
+      groups.set(key, [b]);
+      out.push(key);
+    }
+  }
+  return out.map((item) => {
+    if (typeof item !== "string") return item;
+    const members = groups.get(item)!.sort((a, b) => a.pumpedMs - b.pumpedMs);
+    const first = members[0];
+    const stash = first.stash!;
+    return {
+      id: first.id,
+      amount: members.reduce((sum, m) => sum + m.amount, 0),
+      pumpedMs: first.pumpedMs,
+      notes: null,
+      members,
+      stash: {
+        ...stash,
+        at: Math.min(...members.map((m) => m.stash!.at)),
+        pumpedAt: Math.min(...members.map((m) => m.stash!.pumpedAt ?? m.stash!.at)),
+      },
+    };
+  });
+}
+
+/** Can go into a new bag: fridge milk still on offer. Room milk is chilled first — fresh
+ *  milk is cooled before it's added to cold milk — and frozen milk is never mixed. */
+export function canBag(b: StashBottle, now: number): b is TrackedBottle {
+  return b.stash != null && b.stash.loc === "fridge" && isAvailable(b.stash, now);
 }
 
 /** A bottle we know the whereabouts of — the only kind the stash can reason about. */

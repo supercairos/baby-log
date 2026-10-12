@@ -72,7 +72,7 @@ import { clockTime, deadlineTime, formatAge, greeting } from "../lib/datetime";
 import { predictNext, predictSleepEnd, predictionAlive, type ActivityPrediction } from "../lib/predict";
 import { lastNight } from "../lib/night";
 import { tummyProgress } from "../lib/tummy";
-import { decodeStashNotes, encodeStashNotes, expiresAt, expiringSoon, isExpired, newStash, toBottle, type StashBottle, type StashLocation, type TrackedBottle } from "../lib/stash";
+import { decodeStashNotes, encodeStashNotes, expiresAt, expiringSoon, groupBags, isExpired, newStash, toBottle, type StashBottle, type StashLocation, type TrackedBottle } from "../lib/stash";
 import { activityLabel, diaperMeta, feedingMeta } from "../lib/labels";
 import {
   buzz,
@@ -313,7 +313,8 @@ export function Home({
   const { pumpings } = usePumpings(client, childId);
   const milkSoon = useMemo(() => {
     const t0 = nowMinute * 60_000;
-    const bottles = (pumpings ?? []).map(toBottle).filter((b): b is StashBottle => b != null);
+    // Bags as one: two sessions poured together are one thing to use or bin.
+    const bottles = groupBags((pumpings ?? []).map(toBottle).filter((b): b is StashBottle => b != null));
     // Lapsed milk OUTRANKS milk that's merely close. Reporting only the "soon" set would
     // make this row disappear at the exact moment a bottle goes bad — leaving the app's last
     // word on it a reassuring countdown, which is the one thing the stash screen refuses to
