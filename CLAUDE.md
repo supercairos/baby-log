@@ -110,11 +110,17 @@ Parser:
 - **Combined bottles** ("Regrouper"; `bag` in code): fridge bottles poured into one bottle
   before freezing. The UI never says "bag" — the crèche brochure forbids storage bags. Each
   session stays its own entry with its own volume — a new "bag" entry would double-count
-  supply — and they share `bag=<oldest session id>` in the prefix. `groupBags` folds them into
+  supply — and they share `bag=<id>` in the prefix (new bags: the epoch ms they were formed;
+  older ones: the oldest session's id — it's only compared for equality). `groupBags` folds them into
   one row (summed volume, earliest `at`/`pumpedAt`, so the bag turns with its oldest milk);
   every write to a bag writes each member, keeping each one's own note. Fridge milk only.
   The day list shows a bagged session read-only (a bag can span midnight). "Dégrouper"
   is the mis-tap undo: back to the fridge, clock from each pumping time.
+  **Partial pours**: a ticked bottle gets a slider for how much goes in; the rest stays in
+  the fridge. One session in two containers = extra `[stash … ml=N]` records after the main
+  one in the same note (the main record keeps the remainder); `splitPortions` expands them.
+  Never split the entry itself — that would rewrite the session log. Unbagging a portion
+  merges it back while the rest is still in the fridge.
 - **Pumping to throw away** (after a drink, or a medication that isn't feed-safe) is an
   ordinary reason to express, so the stop sheet's destination row carries a "discard" chip
   beside the locations: the session and its volume are still logged — they count toward

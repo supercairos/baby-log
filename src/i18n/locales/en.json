@@ -293,6 +293,8 @@
     "freezeBag": "Freeze the bottle · {{volume}}",
     "inBag": "Combined · {{where}}",
     "unbag": "Separate",
+    "pourAmount": "Amount poured in",
+    "pourRest": "{{volume}} stays in the fridge",
     "frozenLabel": "Pumped {{pumped}} · Frozen {{frozen}}"
   }
 }

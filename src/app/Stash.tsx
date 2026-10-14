@@ -15,7 +15,7 @@
  *
  * Both read expiry rather than store it — see lib/stash.
  */
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
@@ -32,6 +32,7 @@ import { shortDateTime } from "../lib/datetime";
 import { stashWhereLabel } from "../lib/labels";
 import {
   availableBottles,
+  bottleKey,
   canBag,
   decodeStashNotes,
   encodeStashNotes,
@@ -40,7 +41,7 @@ import {
   isExpired,
   isExpiringSoon,
   isSpent,
-  shouldSuggestFreezing,
+  splitPortions,
   supplySummary,
   moveStash,
   toBottle,
@@ -96,6 +97,9 @@ function useFreshness() {
  * `refresh` is whatever re-reads the caller's own data (the stash query on the inventory,
  * the calendar range on the day list).
  */
+/** The volume of the whole session a container belongs to — what the server's row holds. */
+const sessionAmount = (b: StashBottle) => b.sessionAmount ?? b.amount;
+
 function useStashWriter(client: BabyBuddyClient, refresh: () => Promise<unknown>, onWriteFailed: (err: unknown) => void) {
   /**
    * Queued location/state changes. The overlay RETIRES as soon as the server agrees. Left in
@@ -104,16 +108,21 @@ function useStashWriter(client: BabyBuddyClient, refresh: () => Promise<unknown>
    * means displaying a fabricated expiry date for milk someone is going to feed a baby.
    */
   const [pending, setPending] = useState<Record<number, StashInfo>>({});
+  /** The same, readable mid-tap: one action can write several containers of ONE session (its
+   *  rest and a portion poured off it), and each write has to build on the one before. */
+  const latest = useRef<Record<number, StashInfo>>({});
   /** Deleted here but not yet gone from the server's response. */
   const [removed, setRemoved] = useState<Set<number>>(new Set());
 
-  const drop = (id: number) =>
+  const drop = (id: number) => {
+    delete latest.current[id];
     setPending((p) => {
       if (!(id in p)) return p;
       const rest = { ...p };
       delete rest[id];
       return rest;
     });
+  };
 
   /** Push the queue now rather than waiting on the 45 s auto-flush: Background Sync is
    *  unavailable on iOS, so `requestOutboxSync` returns false there and nothing else would
@@ -144,38 +153,81 @@ function useStashWriter(client: BabyBuddyClient, refresh: () => Promise<unknown>
         onWriteFailed(err);
       });
 
-  const write = (bottle: StashBottle, next: StashInfo) => {
+  /** Rewrite one session's whole stash record. `bottle` is any container of it — the
+   *  session itself or a portion poured off it; the note always carries all of them. */
+  const edit = (bottle: StashBottle, change: (entry: StashInfo) => StashInfo) => {
+    const base = latest.current[bottle.id] ?? bottle.entry ?? bottle.stash;
+    if (base == null) return;
+    const next = change(base);
+    latest.current[bottle.id] = next;
     setPending((p) => ({ ...p, [bottle.id]: next }));
     void run(
       bottle.id,
       // `amount` rides along because the server requires it on every write to a pumping row,
-      // PATCH included — sending only `notes` would be rejected.
-      enqueueMutation(updateEntryMutation(bottle.id, { path: "/api/pumping/", body: { amount: bottle.amount, notes: encodeStashNotes(next) } })),
+      // PATCH included — sending only `notes` would be rejected. It's the SESSION's amount:
+      // a portion's volume lives in the note.
+      enqueueMutation(updateEntryMutation(bottle.id, { path: "/api/pumping/", body: { amount: sessionAmount(bottle), notes: encodeStashNotes(next) } })),
     );
   };
 
-  /** A bag writes through to each session in it. Each keeps its own human note and pumping
-   *  time — the bag's are only its oldest member's. */
-  const apply = (bottle: StashBottle, next: StashInfo) => {
-    buzz();
-    for (const m of bottle.members ?? [bottle]) write(m, { ...next, note: m.stash?.note ?? next.note, pumpedAt: m.pumpedMs });
+  /** Give one container a new location/state. Only those travel: the human note, the pumping
+   *  time, a portion's volume and the other containers of the session stay as they are. */
+  const write = (bottle: StashBottle, next: StashInfo) => {
+    const where = { loc: next.loc, at: next.at, state: next.state, bag: next.bag };
+    edit(bottle, (entry) =>
+      bottle.part == null
+        ? { ...entry, ...where }
+        : { ...entry, portions: entry.portions?.map((p, i) => (i === bottle.part ? { ...p, ...where } : p)) },
+    );
   };
 
-  /** Pour fridge bottles into one bag and freeze it. The bag is named after its oldest
-   *  session; the freezer window then runs from that one's pumping (see lib/stash). */
-  const bagIt = (bottles: TrackedBottle[], now: number) => {
+  /** A bag writes through to each session in it. */
+  const apply = (bottle: StashBottle, next: StashInfo) => {
     buzz();
-    const sessions = bottles.flatMap((b) => (b.members as TrackedBottle[] | undefined) ?? [b]);
-    const anchor = sessions.reduce((a, b) => (b.pumpedMs < a.pumpedMs ? b : a));
-    for (const m of sessions) write(m, { ...moveStash(m.stash, "freezer", now), bag: anchor.id, pumpedAt: m.pumpedMs });
+    for (const m of bottle.members ?? [bottle]) write(m, next);
+  };
+
+  /** Pour fridge bottles — each whole or only part of it — into one and freeze it. A partial
+   *  pour leaves the rest in the fridge, where it was: a new portion takes the poured volume
+   *  (see lib/stash). The freezer window runs from the oldest milk's pumping. */
+  const bagIt = (picks: { bottle: TrackedBottle; ml: number }[], now: number) => {
+    buzz();
+    const bag = now;
+    for (const { bottle, ml } of picks) {
+      for (const m of (bottle.members as TrackedBottle[] | undefined) ?? [bottle]) {
+        if (bottle.members != null || ml >= m.amount) {
+          write(m, { ...moveStash(m.stash, "freezer", now), bag });
+          continue;
+        }
+        const poured: StashInfo = { ...moveStash(m.stash, "freezer", now), bag, ml, note: "", portions: undefined };
+        edit(m, (entry) => ({
+          ...entry,
+          // Pouring from a portion takes the volume from that portion, not from the session.
+          portions: [...(entry.portions ?? []).map((p, i) => (i === m.part ? { ...p, ml: (p.ml ?? 0) - ml } : p)), poured],
+        }));
+      }
+    }
   };
 
   /** Undo a mis-tapped bag: back to the fridge, the clock from when each was pumped — what
-   *  a fridge bottle has unless someone moved it there later, and never later than that. */
+   *  a fridge bottle has unless someone moved it there later, and never later than that. A
+   *  poured-off portion goes back into the rest of its bottle while that's still in the
+   *  fridge, so the session reads as one bottle again. */
   const unbag = (bottle: StashBottle) => {
     buzz();
-    for (const m of bottle.members ?? [bottle]) {
-      if (m.stash != null) write(m, { ...m.stash, bag: undefined, loc: "fridge", at: m.pumpedMs, pumpedAt: m.pumpedMs });
+    // Highest portion first, so merging one back can't shift the index of the next.
+    for (const m of [...(bottle.members ?? [bottle])].sort((a, b) => (b.part ?? -1) - (a.part ?? -1))) {
+      if (m.stash == null) continue;
+      const back = { bag: undefined, loc: "fridge" as const, at: m.pumpedMs };
+      if (m.part == null) {
+        write(m, { ...m.stash, ...back });
+        continue;
+      }
+      edit(m, (entry) =>
+        entry.state === "stored" && entry.loc === "fridge" && entry.bag == null
+          ? { ...entry, portions: entry.portions?.filter((_, i) => i !== m.part) }
+          : { ...entry, portions: entry.portions?.map((p, i) => (i === m.part ? { ...p, ...back } : p)) },
+      );
     }
   };
 
@@ -187,7 +239,8 @@ function useStashWriter(client: BabyBuddyClient, refresh: () => Promise<unknown>
     void run(bottle.id, enqueueMutation(deleteEntryMutation(bottle.id, "/api/pumping/")));
   };
 
-  /** Fold the queued changes over a freshly fetched list. */
+  /** Fold the queued changes over a freshly fetched list — one item per SESSION; split it
+   *  into containers afterwards. */
   const overlay = (raw: StashBottle[]): StashBottle[] =>
     raw
       .filter((b) => !removed.has(b.id))
@@ -200,6 +253,19 @@ function useStashWriter(client: BabyBuddyClient, refresh: () => Promise<unknown>
 
   return { apply, bagIt, unbag, remove, overlay };
 }
+
+/** What the pour slider stops on: every 5 ml, and the whole bottle at the top even when its
+ *  volume isn't a round number. */
+function pourSteps(amount: number): number[] {
+  const steps: number[] = [];
+  for (let ml = 5; ml < amount; ml += 5) steps.push(ml);
+  return [...steps, amount];
+}
+const pourIdx = (amount: number, ml: number) => {
+  const steps = pourSteps(amount);
+  const i = steps.findIndex((v) => v >= ml);
+  return i < 0 ? steps.length - 1 : i;
+};
 
 // ── Shared row ───────────────────────────────────────────────────────────────
 /**
@@ -220,10 +286,11 @@ function StashRow({
   apply: (bottle: StashBottle, next: StashInfo) => void;
   remove: (bottle: StashBottle) => void;
   unbag: (bottle: StashBottle) => void;
-  /** Picking bottles for a bag: the row becomes one checkbox and its actions step aside. */
-  select?: { checked: boolean; onToggle: () => void };
+  /** Picking bottles for a bag: the row becomes one checkbox and its actions step aside.
+   *  `pour` is how much of it goes in — all of it unless the slider says otherwise. */
+  select?: { checked: boolean; onToggle: () => void; pour: number; onPour: (ml: number) => void };
 }) {
-  const { s, chipOn } = useStyles();
+  const { s } = useStyles();
   const { palette } = useTheme();
   const { t } = useTranslation();
   const freshness = useFreshness();
@@ -321,6 +388,30 @@ function StashRow({
         )}
       </div>
 
+      {/* How much of a ticked bottle goes in — often not all of it: the rest stays in the
+          fridge for the next feed. Its own taps mustn't untick the row it sits in. */}
+      {select?.checked && pourSteps(bottle.amount).length > 1 && (
+        <div style={s.sliderRow} onClick={(e) => e.stopPropagation()}>
+          <input
+            type="range"
+            min={0}
+            max={pourSteps(bottle.amount).length - 1}
+            step={1}
+            value={pourIdx(bottle.amount, select.pour)}
+            aria-label={t("stash.pourAmount")}
+            aria-valuetext={`${select.pour} ml`}
+            onChange={(e) => select.onPour(pourSteps(bottle.amount)[Number(e.target.value)])}
+            style={{ ...s.slider, accentColor: pick }}
+          />
+          <span style={{ ...s.sliderValue, display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
+            {select.pour} ml
+            {select.pour < bottle.amount && (
+              <span style={{ ...s.entryTime, fontSize: 12, fontFamily: palette.body }}>{t("stash.pourRest", { volume: volume(bottle.amount - select.pour) })}</span>
+            )}
+          </span>
+        </div>
+      )}
+
       {stash != null && !readOnly && !select && (
         <div style={s.chips}>
           {/* Archived rows keep undo — the bookkeeping tap is easy to mis-hit and nothing
@@ -334,8 +425,9 @@ function StashRow({
               </button>
               {/* The one place a pumping entry is really removed. Archived only: history is
                   kept by default, but a session logged in error has to be able to go. Not
-                  on a bag — that would take several sessions with it in one tap. */}
-              {bottle.members == null && (
+                  on a bag — that would take several sessions with it in one tap — nor on a
+                  session split across containers, which would take the others with it. */}
+              {bottle.members == null && bottle.part == null && !stash.portions?.length && (
                 <button onClick={() => remove(bottle)} style={{ ...s.chip, color: palette.danger }}>
                   {t("common.delete")}
                 </button>
@@ -359,14 +451,11 @@ function StashRow({
                   {t("stash.moveToFridge")}
                 </button>
               )}
-              {/* Near the fridge deadline the freezer is the move that saves the milk, so the
-                  chip lights up in the freezer's colour instead of sitting among the others. */}
+              {/* Plain like its neighbours, even near the fridge deadline: a lit chip read as the
+                  bottle's state ("frozen") rather than as an action. The expiry date already
+                  turns amber when it's close. */}
               {stash.loc === "fridge" && (
-                <button
-                  onClick={() => apply(bottle, moveStash(stash, "freezer", now))}
-                  style={{ ...s.chip, ...(shouldSuggestFreezing(stash, now) ? { ...chipOn(palette.stashLoc.freezer), gap: 7 } : {}) }}
-                >
-                  {shouldSuggestFreezing(stash, now) && <SnowflakeIcon size={16} />}
+                <button onClick={() => apply(bottle, moveStash(stash, "freezer", now))} style={s.chip}>
                   {t("stash.moveToFreezer")}
                 </button>
               )}
@@ -417,7 +506,7 @@ export function PumpDayList({
   const { apply, unbag, remove, overlay } = useStashWriter(client, refresh, onWriteFailed);
 
   // Newest first: this is the day's log, not the inventory (see `byPumped`).
-  const bottles = overlay(
+  const sessions = overlay(
     [...entries]
       .sort((a, b) => b.startMs - a.startMs)
       .map((e) => {
@@ -425,16 +514,19 @@ export function PumpDayList({
         return { id: e.id, amount: e.amount, pumpedMs, stash: decodeStashNotes(e.notes, pumpedMs), notes: e.notes };
       }),
   );
-  if (bottles.length === 0) return null;
+  if (sessions.length === 0) return null;
+  // One row per container: a session partly poured into a combined bottle shows its rest
+  // and the poured portion apart, since they're now kept in different places.
+  const bottles = splitPortions(sessions);
 
-  const total = bottles.reduce((sum, b) => sum + b.amount, 0);
+  const total = sessions.reduce((sum, b) => sum + b.amount, 0);
   return (
     <section style={{ marginTop: 22 }}>
       <div style={s.sheetGroup}>
-        {t("stash.dayTitle")} · {t("stash.total", { count: bottles.length, volume: volume(total) })}
+        {t("stash.dayTitle")} · {t("stash.total", { count: sessions.length, volume: volume(total) })}
       </div>
       {bottles.map((b) => (
-        <StashRow key={b.id} bottle={b} now={now} apply={apply} unbag={unbag} remove={remove} />
+        <StashRow key={bottleKey(b)} bottle={b} now={now} apply={apply} unbag={unbag} remove={remove} />
       ))}
     </section>
   );
@@ -477,15 +569,17 @@ export function StashPage({
    *  its own, and a silently dropped change is worse here than anywhere else. */
   onWriteFailed: (err: unknown) => void;
 }) {
-  const { s, chipOn } = useStyles();
+  const { s } = useStyles();
   const { palette } = useTheme();
   const { t } = useTranslation();
   const now = useNow(60_000);
   const { pumpings, refresh } = usePumpings(client, childId);
   const [showFrozen, setShowFrozen] = useState(false);
   const [showSpent, setShowSpent] = useState(false);
-  /** Ids picked for a bag, or null when not bagging. */
-  const [bagging, setBagging] = useState<Set<number> | null>(null);
+  /** Bottles picked for a bag (by `bottleKey`), or null when not bagging. */
+  const [bagging, setBagging] = useState<Set<string> | null>(null);
+  /** How much of each picked bottle goes in, when not all of it. */
+  const [pours, setPours] = useState<Record<string, number>>({});
   const { apply, bagIt, unbag, remove, overlay } = useStashWriter(client, refresh, onWriteFailed);
 
   /** One per session — supply counts what was expressed, so it reads these. */
@@ -498,7 +592,9 @@ export function StashPage({
 
   const available = useMemo(() => availableBottles(items, now).sort(byPumped), [items, now]);
   const baggable = available.filter((b) => canBag(b, now));
-  const picked = bagging == null ? [] : baggable.filter((b) => bagging.has(b.id));
+  const picked = bagging == null ? [] : baggable.filter((b) => bagging.has(bottleKey(b)));
+  const pourOf = (b: StashBottle) => Math.min(pours[bottleKey(b)] ?? b.amount, b.amount);
+  const pickedMl = picked.reduce((sum, b) => sum + pourOf(b), 0);
   const fresh = available.filter((b) => b.stash.loc !== "freezer");
   const frozen = available.filter((b) => b.stash.loc === "freezer");
   /** Past its window but still kept — the bottle is physically in the fridge and needs
@@ -522,7 +618,7 @@ export function StashPage({
   );
 
   const totalMl = available.reduce((sum, b) => sum + b.amount, 0);
-  const toggle = (id: number) => {
+  const toggle = (id: string) => {
     buzz();
     setBagging((sel) => {
       const next = new Set(sel);
@@ -534,13 +630,22 @@ export function StashPage({
   const rows = (list: StashBottle[]) =>
     list.map((b) => (
       <StashRow
-        key={b.id}
+        key={bottleKey(b)}
         bottle={b}
         now={now}
         apply={apply}
         unbag={unbag}
         remove={remove}
-        select={bagging != null && canBag(b, now) ? { checked: bagging.has(b.id), onToggle: () => toggle(b.id) } : undefined}
+        select={
+          bagging != null && canBag(b, now)
+            ? {
+                checked: bagging.has(bottleKey(b)),
+                onToggle: () => toggle(bottleKey(b)),
+                pour: pourOf(b),
+                onPour: (ml) => setPours((p) => ({ ...p, [bottleKey(b)]: ml })),
+              }
+            : undefined
+        }
       />
     ));
   const freeze = palette.stashLoc.freezer;
@@ -571,8 +676,8 @@ export function StashPage({
           candidate starts ticked — that's the routine — and you untick what stays out. */}
       {bagging == null && baggable.length >= 2 && (
         <button
-          onClick={() => { buzz(); setBagging(new Set(baggable.map((b) => b.id))); }}
-          style={{ ...s.chip, ...chipOn(freeze), width: "100%", gap: 7, margin: "2px 0 12px" }}
+          onClick={() => { buzz(); setPours({}); setBagging(new Set(baggable.map(bottleKey))); }}
+          style={{ ...s.chip, width: "100%", gap: 7, margin: "2px 0 12px" }}
         >
           <SnowflakeIcon size={16} />
           {t("stash.bagIt")}
@@ -581,11 +686,11 @@ export function StashPage({
       {bagging != null && (
         <>
           <button
-            onClick={() => { bagIt(picked, now); setBagging(null); }}
+            onClick={() => { bagIt(picked.map((b) => ({ bottle: b, ml: pourOf(b) })), now); setBagging(null); }}
             disabled={picked.length < 2}
             style={{ ...s.cta, marginTop: 4, ...(picked.length < 2 ? s.ctaOff : { background: freeze }) }}
           >
-            {t("stash.freezeBag", { volume: volume(picked.reduce((sum, b) => sum + b.amount, 0)) })}
+            {t("stash.freezeBag", { volume: volume(pickedMl) })}
           </button>
           <button
             onClick={() => { buzz(); setBagging(null); }}

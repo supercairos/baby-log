@@ -293,6 +293,8 @@
     "freezeBag": "Congela il biberon · {{volume}}",
     "inBag": "Unito · {{where}}",
     "unbag": "Separa",
+    "pourAmount": "Quantità versata",
+    "pourRest": "{{volume}} restano in frigo",
     "frozenLabel": "Estratto {{pumped}} · Congelato {{frozen}}"
   }
 }

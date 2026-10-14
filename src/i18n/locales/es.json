@@ -293,6 +293,8 @@
     "freezeBag": "Congelar el biberón · {{volume}}",
     "inBag": "Combinado · {{where}}",
     "unbag": "Separar",
+    "pourAmount": "Cantidad vertida",
+    "pourRest": "{{volume}} se quedan en la nevera",
     "frozenLabel": "Extraída {{pumped}} · Congelada {{frozen}}"
   }
 }

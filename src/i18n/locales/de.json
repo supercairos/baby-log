@@ -293,6 +293,8 @@
     "freezeBag": "Flasche einfrieren · {{volume}}",
     "inBag": "Zusammengefüllt · {{where}}",
     "unbag": "Trennen",
+    "pourAmount": "Umgefüllte Menge",
+    "pourRest": "{{volume}} bleiben im Kühlschrank",
     "frozenLabel": "Abgepumpt {{pumped}} · Eingefroren {{frozen}}"
   }
 }

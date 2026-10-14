@@ -293,6 +293,8 @@
     "freezeBag": "Congeler le biberon · {{volume}}",
     "inBag": "Regroupé · {{where}}",
     "unbag": "Dégrouper",
+    "pourAmount": "Quantité versée",
+    "pourRest": "{{volume}} restent au frigo",
     "frozenLabel": "Recueil {{pumped}} · Congelé {{frozen}}"
   }
 }
