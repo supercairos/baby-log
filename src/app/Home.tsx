@@ -72,7 +72,6 @@ import { fmt, hm, iso, nowIso, nowMs, parseDurationMs, toDurationField } from ".
 import { clockTime, deadlineTime, formatAge, greeting } from "../lib/datetime";
 import { LEARNING_DAYS, planDay, predictNext, predictSleepEnd, predictionAlive, type ActivityPrediction } from "../lib/predict";
 import { lastNight } from "../lib/night";
-import { tummyProgress } from "../lib/tummy";
 import { decodeStashNotes, encodeStashNotes, expiresAt, expiringSoon, groupBags, isExpired, newStash, toBottle, type StashBottle, type StashLocation, type TrackedBottle } from "../lib/stash";
 import { activityLabel, diaperMeta, feedingMeta, predictionLabel } from "../lib/labels";
 import {
@@ -257,27 +256,18 @@ export function Home({
   // it's plausible: past six hours it's far likelier a nap went unlogged than that she's awake.
   const lastWake = plan == null || runningSleepStartedMs != null ? null : ([...plan.sleeps].reverse().find((p) => p.status === "done")?.endMs ?? plan.wakeMs);
   const awakeSince = lastWake != null && now - lastWake <= 6 * 3_600_000 ? lastWake : null;
-  // Today's tummy-time total vs the age-recommended daily goal — shown as a row in the same
-  // "up next" panel (not on the tile).
-  const tummy = useMemo(
-    () => (child ? tummyProgress(entries ?? [], child.birth_date, nowMinute * 60_000) : null),
-    [entries, child, nowMinute],
-  );
   // Confident-enough estimates, soonest first. An activity with a running timer is omitted
   // (it's already in progress), and a long-expired eta is dropped — a prediction blown far
   // past its own confidence window is noise, not a forecast.
+  // The feeding forecast is not shown HERE (user, 2026-10-15: « ne l'affiche pas sur la home
+  // page »). It's still computed, and the day dial draws it.
   const upNext = useMemo(() => {
     if (!predict) return [];
     const busy = new Set<string>(running.map((r) => r.activity));
     return (Object.values(predictions) as ActivityPrediction[])
-      .filter((p) => p.confidence >= 0.1 && !busy.has(p.activity) && predictionAlive(p, nowMinute * 60_000))
+      .filter((p) => p.activity !== "feeding" && p.confidence >= 0.1 && !busy.has(p.activity) && predictionAlive(p, nowMinute * 60_000))
       .sort((a, b) => a.etaMs - b.etaMs);
   }, [predict, predictions, running, nowMinute]);
-  // Show the tummy stat unless a tummy timer is already running, and don't let a lone "0/x min"
-  // row pre-empt the cold-start nudge (only surface it once there's tummy time logged or other
-  // estimates to sit beside).
-  const tummyBusy = running.some((r) => r.activity === "tummy");
-  const showTummy = !!tummy && !tummyBusy && (tummy.todayMs > 0 || upNext.length > 0);
   // How long the predicted next sleep should last (shown beside its "up next" eta), and the
   // predicted wake for a RUNNING sleep timer (shown on its card).
   const nextSleepEnd = useMemo(
@@ -1347,7 +1337,7 @@ export function Home({
               );
             })}
 
-            {upNext.length > 0 || showPlan || awakeSince != null || showTummy || night || mlToday > 0 || medGuard || lastFeeding || milkSoon ? (
+            {upNext.length > 0 || showPlan || awakeSince != null || night || mlToday > 0 || medGuard || lastFeeding || milkSoon ? (
               <div style={s.estimates}>
                 {/* Milk about to turn, first in the strip and tappable through to the stash —
                     it's the only row here with a deadline you can still act on. */}
@@ -1421,17 +1411,6 @@ export function Home({
                     </span>
                   </div>
                 )}
-                {showTummy && tummy && (
-                  <div style={s.estimateRow}>
-                    <span style={{ ...s.estimateIcon, background: `${palette.accents.tummy.accent}14`, color: palette.accents.tummy.accent }}>
-                      <ACTIVITY_ICON.tummy size={16} />
-                    </span>
-                    <span style={s.estimateLabel}>{activityLabel("tummy")}</span>
-                    <span style={{ ...s.estimateTime, ...(tummy.metGoal ? { color: palette.accents.tummy.accent } : {}) }}>
-                      {t("home.tummyToday", { done: Math.round(tummy.todayMs / 60_000), goal: tummy.goalMin })}
-                    </span>
-                  </div>
-                )}
                 {mlToday > 0 && (
                   <div style={s.estimateRow}>
                     <span style={{ ...s.estimateIcon, background: `${palette.accents.feeding.accent}14`, color: palette.accents.feeding.accent }}>
@@ -1474,7 +1453,7 @@ export function Home({
                 {/* The day's schedule: naps logged (plain), still to come (~), passed unlogged
                     (faded — the plan stands, the nap just wasn't written down), then bedtime. */}
                 {showPlan && plan && (
-                  <div style={{ ...s.estimateRow, alignItems: "flex-start" }}>
+                  <div style={s.estimateRow}>
                     <span style={{ ...s.estimateIcon, background: `${palette.accents.sleep.accent}14`, color: palette.accents.sleep.accent }}>
                       <ACTIVITY_ICON.sleep size={16} />
                     </span>

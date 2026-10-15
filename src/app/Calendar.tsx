@@ -328,7 +328,8 @@ function RadialDay({
   const awakeMs = Math.max(0, barEnd - winStart - sleepMs - tummyMs - feedMs);
 
   // Predicted upcoming events (today only) — shown as dashed "ghost" markers on the ring.
-  // Long-expired etas are dropped, same rule as the home panel.
+  // Long-expired etas are dropped, same rule as the home panel. The feeding forecast IS drawn
+  // here, unlike on Home, where the user didn't want it.
   const preds = isToday && showPredictions
     ? (Object.values(predictNext(history, birthDate, now)) as ActivityPrediction[]).filter((p) => p.confidence >= 0.1 && predictionAlive(p, now))
     : [];

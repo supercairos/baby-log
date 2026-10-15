@@ -212,7 +212,9 @@ Parser:
   in the pram — and later naps decay by `HOP_DECAY` per hop. Nothing re-flows from "now".
   "Journée · apprentissage n/7 j" is Napper's learning phase (`learningDays` = days of the
   past week with the wake AND a nap logged).
-- **Feeding/diaper** (`predictInterval`): the next gap depends on the clock — after the 07:30
+- **Feeding/diaper** (`predictInterval`). The FEEDING forecast is kept off Home's "up next"
+  rows (user, 2026-10-15: « ne l'affiche pas sur la home page »); the day dial still draws
+  its tick and the backtest scores it. The next gap depends on the clock — after the 07:30
   feed two hours, after the 22:00 dream feed nine — so the sample is the recent gaps that
   followed a feed within an hour of this time of day (widened to two, then all, until four),
   recency-weighted median of the sample's **main mode** (`mainMode`: nights split between a

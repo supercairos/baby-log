@@ -1,24 +1,16 @@
 /**
- * Tummy-time daily progress — today's logged total vs the age-recommended amount.
+ * Tummy-time daily goal — the age-recommended amount, shown against the day's total on the
+ * calendar. (Home used to carry a "done/goal min today" row too; it was dropped on request,
+ * 2026-10-15 — the tile and the calendar already say what was logged.)
  *
- * Pure + i18n-free: derived on render from the already-fetched timeline, like elapsed time.
+ * Pure + i18n-free: derived on render from the already-fetched entries, like elapsed time.
  *
  * The daily goal ramps per AAP / Pathways.org / NIH Safe to Sleep guidance: a few short
  * 3–5 min sessions for newborns, building to ~15–30 min/day by ~2 months and at least
  * ~60 min/day by 6 months. Values are a deliberately conservative daily target, not a
  * prescription — tummy time should always be supervised and awake.
  */
-import type { TimelineEntry } from "../api";
 import { ageInMonths } from "./predict";
-
-export interface TummyProgress {
-  /** Completed tummy-time logged so far in the local day (ms). */
-  todayMs: number;
-  /** Age-recommended daily total (minutes). */
-  goalMin: number;
-  /** Whether today's total has reached the goal. */
-  metGoal: boolean;
-}
 
 /**
  * Recommended daily tummy-time (minutes) by age, aligned to Huckleberry's tummy-time chart
@@ -35,31 +27,7 @@ function tummyGoalMinutes(months: number): number {
   return 60; // 4 mo+: build toward / maintain ≥60 min/day
 }
 
-/**
- * Sum today's completed tummy-time entries (by local calendar day) and compare against the
- * age-appropriate daily goal. A currently-running tummy timer isn't counted (it's not yet a
- * logged entry) — it shows live on the running card and rolls into the total once stopped.
- */
 /** The age-recommended daily tummy-time goal (minutes) for a child at `now`. */
 export function tummyGoalForAge(birthDate: string | null | undefined, now: number): number {
   return tummyGoalMinutes(ageInMonths(birthDate, now));
-}
-
-export function tummyProgress(
-  entries: TimelineEntry[],
-  birthDate: string | null | undefined,
-  now: number,
-): TummyProgress {
-  const dayStart = new Date(now);
-  dayStart.setHours(0, 0, 0, 0);
-  const from = dayStart.getTime();
-
-  let todayMs = 0;
-  for (const e of entries) {
-    if (e.activity !== "tummy" || e.endMs == null) continue;
-    if (e.startMs >= from) todayMs += Math.max(0, e.endMs - e.startMs);
-  }
-
-  const goalMin = tummyGoalMinutes(ageInMonths(birthDate, now));
-  return { todayMs, goalMin, metGoal: todayMs >= goalMin * 60_000 };
 }
