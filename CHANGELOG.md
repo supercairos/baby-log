@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.28.0](https://github.com/supercairos/baby-log/compare/baby-log-v1.27.0...baby-log-v1.28.0) (2026-10-15)
+
+
+### Features
+
+* **home:** drop the tummy-time counter and the feeding forecast, centre the day row's icon ([ca7946b](https://github.com/supercairos/baby-log/commit/ca7946b36cfc6b9b155dbd49476c5a4300e5b38a))
+* **predict:** hold the nap count to the age band, sliding between months ([78a7fcd](https://github.com/supercairos/baby-log/commit/78a7fcd31b9715fe6fb60814ba451461ec0f01b2))
+
 ## [1.27.0](https://github.com/supercairos/baby-log/compare/baby-log-v1.26.0...baby-log-v1.27.0) (2026-10-15)
 
 
