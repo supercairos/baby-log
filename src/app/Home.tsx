@@ -1354,7 +1354,7 @@ export function Home({
                 {milkSoon && (
                   <button
                     onClick={() => { buzz(); navigate("/stash"); }}
-                    style={{ ...s.estimateRow, width: "100%", background: "none", border: "none", padding: 0, font: "inherit", color: "inherit", cursor: "pointer", textAlign: "left" }}
+                    style={{ ...s.estimateRow, width: "100%", background: "none", border: "none", font: "inherit", color: "inherit", cursor: "pointer", textAlign: "left" }}
                   >
                     <span style={{ ...s.estimateIcon, background: `${palette.accents.pumping.accent}14`, color: palette.accents.pumping.accent }}>
                       <ACTIVITY_ICON.pumping size={16} />
