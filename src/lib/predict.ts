@@ -462,10 +462,12 @@ export const LEARNING_DAYS = 7;
 const shrink = (own: number, n: number, prior: number) => (n * own + COHORT_WEIGHT * prior) / (n + COHORT_WEIGHT);
 
 /**
- * Naps a day by age — [from month, fewest, most]. Stepped, not interpolated: a count is
- * discrete, and the steps ARE the transitions (4→3 at five to seven months, 3→2 at eight to
- * fifteen, 2→1 at sixteen to eighteen — Napper's blog, matching the Zurich cohort). Wide on
- * purpose; the length of this family's actual day decides within them (see `planDay`).
+ * Naps a day by age — [from month, fewest, most]. The rows are the transitions (4→3 at five
+ * to seven months, 3→2 at eight to fifteen, 2→1 at sixteen to eighteen — Napper's blog,
+ * matching the Zurich cohort); between two rows the bounds slide and round, so the band
+ * moves over the month before a step instead of jumping on the birthday (a baby three days
+ * short of three months was planned five naps, three days later four). Wide on purpose; the
+ * length of this family's actual day decides within them (see `planDay`).
  */
 const NAP_COUNT: [number, number, number][] = [
   [0, 4, 6],
@@ -479,9 +481,13 @@ const NAP_COUNT: [number, number, number][] = [
 
 function napCountBand(months: number): { min: number; max: number } {
   if (!(months >= 0)) return { min: 2, max: 3 };
-  let band = NAP_COUNT[0];
-  for (const b of NAP_COUNT) if (months >= b[0]) band = b;
-  return { min: band[1], max: band[2] };
+  const last = NAP_COUNT[NAP_COUNT.length - 1];
+  if (months >= last[0]) return { min: last[1], max: last[2] };
+  const k = NAP_COUNT.findIndex(([m]) => m > months);
+  const [m0, lo0, hi0] = NAP_COUNT[k - 1];
+  const [m1, lo1, hi1] = NAP_COUNT[k];
+  const f = (months - m0) / (m1 - m0);
+  return { min: Math.round(lo0 + (lo1 - lo0) * f), max: Math.round(hi0 + (hi1 - hi0) * f) };
 }
 
 /** Cold-start nap length (ms) by age: catnaps early on, consolidating as the count drops. */
@@ -765,27 +771,32 @@ export function planDay(
   // fewer. The bedtime is the evening the cursor falls in, so a night in progress plans the
   // morning after it rather than the evening gone.
   const bed = predictBedtime(entries, Math.max(now, cursor));
-  // The count: this baby's own week outright once it holds five days — a child on one nap
-  // at ten months is on one nap, whatever the table's "2–3" says, and the blend was too
-  // sticky to let go (it planned a morning nap every day) — a blend before that.
+  // The count's bounds: this baby's own week outright once it holds five days — a child on
+  // one nap at ten months is on one nap, whatever the table's "2–3" says, and the blend was
+  // too sticky to let go (it planned a morning nap every day) — the age band until then.
+  // The bounds are firm: a long day used to buy a nap past the band (five at three months),
+  // and a short one lose one. The few days logged before the week is full only pull within
+  // the band, since one day with two naps logged is as likely two naps missed as a two-nap
+  // baby — held to it, the day ended with a six-hour evening.
   const countBand = napCountBand(months);
   const own = stats.count;
-  const learned = own ? Math.round(own.n >= 5 ? own.mean : shrink(own.mean, own.n, (countBand.min + countBand.max) / 2)) : null;
-  const lo = Math.max(0, (learned ?? countBand.min) - items.length);
-  const hi = Math.max(lo, (learned ?? countBand.max) - items.length);
+  const fixed = own && own.n >= 5 ? Math.round(own.mean) : null;
+  const lo = Math.max(0, (fixed ?? countBand.min) - items.length);
+  const hi = Math.max(lo, (fixed ?? countBand.max) - items.length);
+  const pull = own && fixed == null ? shrink(own.mean, own.n, (countBand.min + countBand.max) / 2) - items.length : null;
   const positions = (r: number): Position[] => Array.from({ length: r }, (_, i) => (i === 0 && items.length === 0 ? "first" : "mid"));
   const unscaled = (r: number) => positions(r).reduce((sum, pos, i) => sum + window(items.length + i + 1, pos).ms, 0);
   // The window before bed: this baby's own, shrunk toward the table's longest. The table's
   // maximum alone (five hours at a year) once squeezed a two-nap day down to one nap.
   const lastWindow = stats.lastWindow ? shrink(stats.lastWindow.mean, stats.lastWindow.n, priorFor("last")) : priorFor("last");
   let remaining: number;
-  if (bed == null) remaining = Math.round((lo + hi) / 2);
+  if (bed == null) remaining = clamp(Math.round(pull ?? (lo + hi) / 2), lo, hi);
   else {
     const span = bed.etaMs - cursor;
     let best = { r: lo, err: Infinity };
     for (let r = Math.max(0, lo - 1); r <= hi + 1; r++) {
       const total = unscaled(r) + r * usualNap + lastWindow;
-      const err = Math.abs(span - total) + (r < lo || r > hi ? 45 * MIN : 0);
+      const err = Math.abs(span - total) + (r < lo || r > hi ? 3 * HOUR : 0) + (pull != null ? Math.abs(r - pull) * 30 * MIN : 0);
       if (err < best.err) best = { r, err };
     }
     remaining = best.r;

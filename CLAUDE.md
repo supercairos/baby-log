@@ -199,8 +199,12 @@ Parser:
   for on the datasets: the day's slack stretches only the TABLE's windows, never one the
   baby's logs pin down (stretching a known 5-h window to 7 h was the single biggest error);
   the baby's own week decides the nap COUNT outright from 5 days (a child on one nap at ten
-  months is on one nap, the blend was too sticky); a learned window may run past the table's
-  max (×1.3); a sleep under 15 min isn't a nap. A short last nap (<45 min) cuts the next
+  months is on one nap, the blend was too sticky), the age band bounds it firmly until then
+  (a long day used to buy a fifth nap three days short of three months; the few days logged
+  before the week is full only pull within the band — one day with two naps logged, held
+  to, ended in a six-hour evening) and the band slides between the table's rows instead of
+  stepping on the birthday; a learned window may run past the table's max (×1.3); a sleep
+  under 15 min isn't a nap. A short last nap (<45 min) cuts the next
   window by a fifth; nap N's usual offset from the wake is met halfway once it's tight.
 - **The Home "Prédiction" row shows only ANCHORED sleeps** (`hops === 0`: a nap timed from a
   logged wake, or bedtime); the "Journée" row and the dial show the whole plan. A planned
