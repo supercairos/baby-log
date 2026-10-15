@@ -58,6 +58,7 @@ import {
   TrashIcon,
   ThemeIcon,
   TimelineIcon,
+  SunriseIcon,
 } from "../ui/icons";
 import { SUPPORTED_LANGUAGES, LANGUAGE_NAMES, LANGUAGE_FLAGS, currentLanguage } from "../i18n";
 import {
@@ -69,11 +70,11 @@ import {
 } from "./notifications";
 import { fmt, hm, iso, nowIso, nowMs, parseDurationMs, toDurationField } from "../lib/format";
 import { clockTime, deadlineTime, formatAge, greeting } from "../lib/datetime";
-import { predictNext, predictSleepEnd, predictionAlive, type ActivityPrediction } from "../lib/predict";
+import { LEARNING_DAYS, planDay, predictNext, predictSleepEnd, predictionAlive, type ActivityPrediction } from "../lib/predict";
 import { lastNight } from "../lib/night";
 import { tummyProgress } from "../lib/tummy";
 import { decodeStashNotes, encodeStashNotes, expiresAt, expiringSoon, groupBags, isExpired, newStash, toBottle, type StashBottle, type StashLocation, type TrackedBottle } from "../lib/stash";
-import { activityLabel, diaperMeta, feedingMeta } from "../lib/labels";
+import { activityLabel, diaperMeta, feedingMeta, predictionLabel } from "../lib/labels";
 import {
   buzz,
   useChildren,
@@ -82,6 +83,7 @@ import {
   usePwaInstall,
   useRunningTimers,
   useTimeline,
+  useEntriesInRange,
   useToast,
   type RunningTimer,
 } from "./hooks";
@@ -221,10 +223,40 @@ export function Home({
   // Re-derived at most once a minute (and whenever entries/child change) — eta is otherwise
   // static, so there's no point recomputing it on every 1s clock tick.
   const nowMinute = Math.floor(now / 60_000);
+  // Two weeks of history behind the predictions. The timeline's first page holds a few days at
+  // most — enough for "what's next", not for this child's usual wake windows and bedtime.
+  // Bucketed to the local day so the query key only turns over at midnight.
+  const todayStart = new Date(nowMinute * 60_000).setHours(0, 0, 0, 0);
+  const { entries: history } = useEntriesInRange(client, childId, todayStart - 15 * 86_400_000, todayStart + 86_400_000);
+  const predictionEntries = useMemo(() => {
+    const seen = new Set<string>();
+    const out: TimelineEntry[] = [];
+    for (const e of [...(entries ?? []), ...(history ?? [])]) {
+      const key = `${e.path}${e.id}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(e);
+    }
+    return out;
+  }, [entries, history]);
+  const runningSleep = running.find((r) => r.activity === "sleep");
+  // Depend on the primitive startedMs, not the timer object: `find` returns a fresh reference
+  // every render, and Home re-renders every second — the object dep would re-run the prediction at 1 Hz.
+  const runningSleepStartedMs = runningSleep?.startedMs ?? null;
   const predictions = useMemo(
-    () => predictNext(entries ?? [], child?.birth_date, nowMinute * 60_000),
-    [entries, child, nowMinute],
+    () => predictNext(predictionEntries, child?.birth_date, nowMinute * 60_000, runningSleepStartedMs),
+    [predictionEntries, child, nowMinute, runningSleepStartedMs],
   );
+  // Today's sleep schedule — the naps done, the ones to come, bedtime — as Napper lays it out.
+  const plan = useMemo(
+    () => (predict ? planDay(predictionEntries, child?.birth_date, nowMinute * 60_000, runningSleepStartedMs) : null),
+    [predict, predictionEntries, child, nowMinute, runningSleepStartedMs],
+  );
+  const showPlan = plan != null && plan.sleeps.some((p) => p.status === "planned");
+  // How long the baby has been up — the number a parent times the next nap by. Shown while
+  // it's plausible: past six hours it's far likelier a nap went unlogged than that she's awake.
+  const lastWake = plan == null || runningSleepStartedMs != null ? null : ([...plan.sleeps].reverse().find((p) => p.status === "done")?.endMs ?? plan.wakeMs);
+  const awakeSince = lastWake != null && now - lastWake <= 6 * 3_600_000 ? lastWake : null;
   // Today's tummy-time total vs the age-recommended daily goal — shown as a row in the same
   // "up next" panel (not on the tile).
   const tummy = useMemo(
@@ -249,19 +281,15 @@ export function Home({
   // How long the predicted next sleep should last (shown beside its "up next" eta), and the
   // predicted wake for a RUNNING sleep timer (shown on its card).
   const nextSleepEnd = useMemo(
-    () => (predictions.sleep ? predictSleepEnd(entries ?? [], child?.birth_date, predictions.sleep.etaMs) : null),
-    [entries, child, predictions],
+    () => (predictions.sleep ? predictSleepEnd(predictionEntries, child?.birth_date, predictions.sleep.etaMs) : null),
+    [predictionEntries, child, predictions],
   );
-  const runningSleep = running.find((r) => r.activity === "sleep");
-  // Depend on the primitive startedMs, not the timer object: `find` returns a fresh reference
-  // every render, and Home re-renders every second — the object dep would re-run the prediction at 1 Hz.
-  const runningSleepStartedMs = runningSleep?.startedMs ?? null;
   const runningSleepEnd = useMemo(
-    () => (runningSleepStartedMs != null ? predictSleepEnd(entries ?? [], child?.birth_date, runningSleepStartedMs) : null),
-    [entries, child, runningSleepStartedMs],
+    () => (runningSleepStartedMs != null ? predictSleepEnd(predictionEntries, child?.birth_date, runningSleepStartedMs) : null),
+    [predictionEntries, child, runningSleepStartedMs],
   );
   // Last-night recap ("19:45 – 07:02 · 2 réveils") + today's bottle total (ml).
-  const night = useMemo(() => lastNight(entries ?? [], nowMinute * 60_000), [entries, nowMinute]);
+  const night = useMemo(() => lastNight(predictionEntries, nowMinute * 60_000), [predictionEntries, nowMinute]);
   // Most recent completed feeding, for the "what/when/how was the last feed" glance row
   // (entries are newest-first).
   const lastFeeding = useMemo(
@@ -499,7 +527,8 @@ export function Home({
   useEffect(() => {
     if (!napAlert) return;
     const p = predictions.sleep;
-    if (!p || p.basis !== "pattern" || p.confidence < 0.5) return;
+    // Naps only: bedtime is a routine the parents run themselves, and the alert says "nap".
+    if (!p || p.kind !== "nap" || p.basis !== "pattern" || p.confidence < 0.5) return;
     if (running.some((r) => r.activity === "sleep")) return;
     const fireAt = p.etaMs - 10 * 60_000;
     // Quiet hours apply to BOTH the predicted nap and the firing moment — a 07:05 prediction
@@ -1270,8 +1299,10 @@ export function Home({
               const elapsed = now - rt.startedMs;
               let meta = rt.activity === "feeding" ? feedingMeta(rt.feeding?.type, rt.feeding?.method, rt.feeding?.amount) : "";
               // The question a parent has the moment baby goes down: how long do I have?
-              if (predict && rt.activity === "sleep" && rt === runningSleep && runningSleepEnd && runningSleepEnd.confidence >= 0.3 && runningSleepEnd.endMs > now) {
-                meta = t("home.wakeAround", { time: clockTime(runningSleepEnd.endMs) });
+              const planEnd = plan?.sleeps.find((p) => p.status === "running");
+              const sleepEnd = planEnd ? { endMs: planEnd.endMs, confidence: planEnd.confidence } : runningSleepEnd;
+              if (predict && rt.activity === "sleep" && rt === runningSleep && sleepEnd && sleepEnd.confidence >= 0.3 && sleepEnd.endMs > now) {
+                meta = t("home.wakeAround", { time: clockTime(sleepEnd.endMs) });
               }
               const stale = elapsed > STALE_AFTER_MS[rt.activity];
               return (
@@ -1316,7 +1347,7 @@ export function Home({
               );
             })}
 
-            {upNext.length > 0 || showTummy || night || mlToday > 0 || medGuard || lastFeeding || milkSoon ? (
+            {upNext.length > 0 || showPlan || awakeSince != null || showTummy || night || mlToday > 0 || medGuard || lastFeeding || milkSoon ? (
               <div style={s.estimates}>
                 {/* Milk about to turn, first in the strip and tappable through to the stash —
                     it's the only row here with a deadline you can still act on. */}
@@ -1363,6 +1394,16 @@ export function Home({
                     </span>
                   </div>
                 )}
+                {/* Up since when, and for how long — what the next nap is timed from. */}
+                {awakeSince != null && (
+                  <div style={s.estimateRow}>
+                    <span style={{ ...s.estimateIcon, background: `${palette.accents.sleep.accent}14`, color: palette.accents.sleep.accent }}>
+                      <SunriseIcon size={16} />
+                    </span>
+                    <span style={s.estimateLabel}>{t("home.awake")}</span>
+                    <span style={s.estimateTime}>{t("home.awakeFor", { time: clockTime(awakeSince), ago: hm(now - awakeSince) })}</span>
+                  </div>
+                )}
                 {/* Last feeding at a glance: when (start – end) and how (type · side · ml).
                     The time cell may wrap to a second line for long combos (formula bottle in
                     de/fr) — full info beats one-line here, per explicit user preference. */}
@@ -1401,7 +1442,7 @@ export function Home({
                   </div>
                 )}
                 {/* Facts (above) never sit under the "Prediction" header — it labels guesses only. */}
-                {upNext.length > 0 && <div style={s.estimatesHead}>{t("home.upNext")}</div>}
+                {(upNext.length > 0 || showPlan) && <div style={s.estimatesHead}>{t("home.upNext")}</div>}
                 {upNext.map((p) => {
                   const v = palette.accents[p.activity];
                   const Icon = ACTIVITY_ICON[p.activity];
@@ -1415,7 +1456,7 @@ export function Home({
                       <span style={{ ...s.estimateIcon, background: `${v.accent}14`, color: v.accent }}>
                         <Icon size={16} />
                       </span>
-                      <span style={s.estimateLabel}>{activityLabel(p.activity)}</span>
+                      <span style={s.estimateLabel}>{predictionLabel(p)}</span>
                       {/* Be honest about a passed eta but keep it a forecast: ±10 min reads
                           "now", older reads "late by X" (never past tense — this sits under a
                           "Prediction" header); past the grace window the row is gone entirely. */}
@@ -1430,6 +1471,39 @@ export function Home({
                     </div>
                   );
                 })}
+                {/* The day's schedule: naps logged (plain), still to come (~), passed unlogged
+                    (faded — the plan stands, the nap just wasn't written down), then bedtime. */}
+                {showPlan && plan && (
+                  <div style={{ ...s.estimateRow, alignItems: "flex-start" }}>
+                    <span style={{ ...s.estimateIcon, background: `${palette.accents.sleep.accent}14`, color: palette.accents.sleep.accent }}>
+                      <ACTIVITY_ICON.sleep size={16} />
+                    </span>
+                    <span style={s.estimateLabel}>
+                      {t("home.day")}
+                      {/* Napper's learning phase: a week of logged days before the schedule is
+                          this child's own rather than the age table's. */}
+                      {plan.learningDays < LEARNING_DAYS && (
+                        <span style={{ display: "block", fontSize: 12, fontWeight: 500, opacity: 0.7, marginTop: 1 }}>
+                          {t("home.learning", { days: plan.learningDays, needed: LEARNING_DAYS })}
+                        </span>
+                      )}
+                    </span>
+                    {/* Wraps onto a second line on a busy day; each item keeps its own separator
+                        so a wrapped line never starts with a stray dot. */}
+                    <span style={{ ...s.estimateTime, display: "flex", flexWrap: "wrap", justifyContent: "flex-end", columnGap: 5, rowGap: 2, maxWidth: "66%", lineHeight: 1.4 }}>
+                      {plan.sleeps.map((p, i) => (
+                        <span key={i} style={{ whiteSpace: "nowrap", ...(p.status === "missed" ? { opacity: 0.45 } : {}) }}>
+                          {p.kind === "bedtime"
+                            ? t("home.dayBedtime", { time: clockTime(p.startMs) })
+                            : p.status === "done" || p.status === "running"
+                              ? clockTime(p.startMs)
+                              : `~${clockTime(p.startMs)}`}
+                          {i < plan.sleeps.length - 1 && " ·"}
+                        </span>
+                      ))}
+                    </span>
+                  </div>
+                )}
               </div>
             ) : running.length === 0 ? (
               <div style={s.idle}>

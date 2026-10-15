@@ -28,6 +28,9 @@ const CHAIN_GAP_MS = 45 * MIN;
 /** …unless the gap contains a logged feed or change: a night feed routinely takes 45–90 min
  *  before baby settles again, and that's still the same night, not the morning. */
 const CARE_GAP_MS = 2 * HOUR;
+/** …but only from this hour on. Earlier, a sleep + feed + sleep is the last nap, the evening
+ *  feed and bedtime — chaining through it once made an 18:08 catnap the night's start. */
+const CARE_FROM_HOUR = 20;
 
 export function lastNight(entries: TimelineEntry[], now: number): NightSummary | null {
   const d = new Date(now);
@@ -56,7 +59,9 @@ export function lastNight(entries: TimelineEntry[], now: number): NightSummary |
     const gap = next.start - prev.end;
     if (gap <= CHAIN_GAP_MS) return true;
     if (prev.end >= coreStart && next.start <= coreEnd) return true; // gap inside core night
-    return gap <= CARE_GAP_MS && care.some((t) => t >= prev.end && t <= next.start);
+    const h = new Date(prev.end).getHours();
+    const lateEnough = h >= CARE_FROM_HOUR || h < 7;
+    return lateEnough && gap <= CARE_GAP_MS && care.some((t) => t >= prev.end && t <= next.start);
   };
 
   // Anchor: the segment crossing midnight; else the longest one starting last evening / early

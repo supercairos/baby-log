@@ -181,6 +181,63 @@ Parser:
 - **Stale-timer nudge**: if e.g. a "sleep" has run >~14h it's likely a forgotten stop — surface a
   gentle "still sleeping?" prompt rather than logging a nonsense duration.
 
+### Prediction (`lib/predict.ts`) — modelled on Napper, validated on seven children
+- **Napper is the bar** (user, 2026-10-14: "be as close as possible to Napper's algorithm").
+  Its prediction runs **server-side** (dev reply: "schedule updates require contact with the
+  servers") — the APK holds no algorithm, don't bother decompiling. What's known comes from a
+  Turku/KTH MSc thesis done at Napper on 13.5M logs: for each nap NUMBER of the day, the
+  baby's 7-day rolling mean/std of start and duration, blended with the age cohort's, the day
+  re-anchored on the logged morning wake, every logged nap adjusting the remaining wake
+  windows, bedtime on the clock, a 7-day learning phase. Their production error ≈ **31 min
+  MAE** on nap start. We have no cohort data: Napper's published age tables (`WAKE_BAND`,
+  `NAP_COUNT`) stand in, and the blend is a shrinkage (`shrink`, `COHORT_WEIGHT` = 3 days).
+- **`planDay` = today's schedule.** Bedtime from the clock (`predictBedtime`: the rolling
+  week of night-chain onsets from `recentNights`, median ± IQR). Between the wake and bedtime,
+  the remaining naps are laid out one wake window after another (`learnNaps`: the window
+  before nap N, nap N's length, its offset from the wake and the last window before bed, each
+  shrunk toward the table), with as many naps as fit inside the count range. Lessons paid
+  for on the datasets: the day's slack stretches only the TABLE's windows, never one the
+  baby's logs pin down (stretching a known 5-h window to 7 h was the single biggest error);
+  the baby's own week decides the nap COUNT outright from 5 days (a child on one nap at ten
+  months is on one nap, the blend was too sticky); a learned window may run past the table's
+  max (×1.3); a sleep under 15 min isn't a nap. A short last nap (<45 min) cuts the next
+  window by a fifth; nap N's usual offset from the wake is met halfway once it's tight.
+- **The Home "Prédiction" row shows only ANCHORED sleeps** (`hops === 0`: a nap timed from a
+  logged wake, or bedtime); the "Journée" row and the dial show the whole plan. A planned
+  nap whose window passes unlogged turns `missed` and stays, faded — it most likely happened
+  in the pram — and later naps decay by `HOP_DECAY` per hop. Nothing re-flows from "now".
+  "Journée · apprentissage n/7 j" is Napper's learning phase (`learningDays` = days of the
+  past week with the wake AND a nap logged).
+- **Feeding/diaper** (`predictInterval`): the next gap depends on the clock — after the 07:30
+  feed two hours, after the 22:00 dream feed nine — so the sample is the recent gaps that
+  followed a feed within an hour of this time of day (widened to two, then all, until four),
+  recency-weighted median of the sample's **main mode** (`mainMode`: nights split between a
+  dream feed and sleeping through are two-moded, and the median of that is the one answer
+  that never happens). Hand-made day/evening/night/overnight buckets were tried first and
+  were worse on every child (and had an always-true condition for a day — check `periodOf`-
+  style clock logic with a value table, `sinceNoon` runs 12:00→0, 07:00→1140).
+- `night.ts`: a feed inside a gap chains the night only from 20:00 (`CARE_FROM_HOUR`) —
+  earlier it's the last nap, the evening feed and bedtime; chaining through it once made an
+  18:08 catnap the bedtime and starved the overnight feeding sample. `isNap` = starts
+  06:00–18:00, ≥15 min, and not a >90-min sleep begun before 08:00 (the night's tail after a
+  dawn feed). The baby-day turns at **04:00** (`dayAnchor`); `isEveningOnset` (18:00–04:00)
+  is what may begin a night — `isNightSleep` (to 06:00) once made a 04:30 piece of last night
+  read as "tonight has begun". Home and the dial feed the predictor a 15-day history.
+- **Backtest before touching any of this.** `npx tsx scripts/backtest-predict.mts [--from]
+  [--module variant.ts] [--file logs.json] [--by-age]` replays logs every half hour and scores
+  what Home would have shown (needs `.env` for this instance; the actual bedtime is the night
+  chain's start, the app's own notion). `--file` + `scripts/logs-from-export.mts` replay
+  **six other children's public app exports, birth → 18 months** (`data/backtest/`,
+  gitignored, README there): one family's data covers one age, and the model's worst bugs
+  only showed on the others. `scripts/synth-logs.mts` fakes a child from the tables — no
+  accuracy signal, but it exercises the plan at ages nobody has reached. Baselines
+  2026-10-15, median |error| of the Home row: naps 14–27 min at 0–12 months on well-logged
+  children (zyw 6–9 mo: 14 min, 81 % within ±30), 35 min on Céleste's few logged nap days;
+  bedtime 8–26 min from 6 months, 30–60 min before (newborn evenings are blurry); feeding
+  21–37 min by day, 15–47 min overnight once a rhythm exists. The feeding score was rescued
+  from "0 % shown" on one family only by skipping moments without a feed on both sides
+  within 24 h — logging gaps aren't model errors.
+
 ### Multi-caregiver
 - Shared state is the server. Poll `GET /api/timers/?active=true` on focus + every ~30–60s.
 - Either caregiver can stop either caregiver's timer (only the timer id is needed, not ownership).

@@ -8,12 +8,12 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import { useTranslation } from "react-i18next";
 import type { BabyBuddyClient, TimelineEntry } from "../api";
 import { useStyles, useTheme } from "../theme";
-import { ACTIVITY_ICON, PlusIcon, RadioactiveDropIcon, RadioactiveIcon, SunriseIcon, SunsetIcon } from "../ui/icons";
+import { ACTIVITY_ICON, MoonIcon, PlusIcon, RadioactiveDropIcon, RadioactiveIcon, SunriseIcon, SunsetIcon } from "../ui/icons";
 import { clockTime } from "../lib/datetime";
-import { activityLabel } from "../lib/labels";
+import { activityLabel, predictionLabel } from "../lib/labels";
 import { useFocusTrap } from "./useFocusTrap";
 import { hm } from "../lib/format";
-import { predictNext, predictSleepEnd, predictionAlive, type ActivityPrediction } from "../lib/predict";
+import { planDay, predictNext, predictionAlive, type ActivityPrediction } from "../lib/predict";
 import { tummyGoalForAge } from "../lib/tummy";
 import { sunTimes } from "../lib/sun";
 import { useEntriesInRange, useGeo, useNow, buzz } from "./hooks";
@@ -126,6 +126,10 @@ export function Calendar({
 
   const range = useMemo(() => rangeFor(mode, anchor), [mode, anchor]);
   const { entries: rangeEntries } = useEntriesInRange(client, childId, range.from, range.to, mode !== "list");
+  // Two weeks behind today's day plan on the dial (a day's own entries can't say what this
+  // child's usual wake windows and bedtime are). Keyed on today so it only turns at midnight.
+  const todayStart = startOfDay(useNow(60_000));
+  const { entries: planEntries } = useEntriesInRange(client, childId, addDays(todayStart, -15), addDays(todayStart, 1), mode === "day");
   // Previous week, for the Résumé's week-over-week deltas.
   const { entries: prevEntries } = useEntriesInRange(client, childId, addDays(range.from, -7), range.from, mode === "summary");
 
@@ -164,7 +168,7 @@ export function Calendar({
       ) : mode === "summary" ? (
         <SummaryView entries={rangeEntries} prevEntries={prevEntries} range={range} birthDate={birthDate} />
       ) : mode === "day" ? (
-        <RadialDay client={client} entries={rangeEntries} range={range} birthDate={birthDate} onEdit={onEdit} onWriteFailed={onWriteFailed} showPredictions={showPredictions} />
+        <RadialDay client={client} entries={rangeEntries} planEntries={planEntries} range={range} birthDate={birthDate} onEdit={onEdit} onWriteFailed={onWriteFailed} showPredictions={showPredictions} />
       ) : (
         <TimeGrid entries={rangeEntries} range={range} hourPx={hourPx} onZoom={applyZoom} onEdit={onEdit} />
       )}
@@ -220,6 +224,7 @@ const arcPath = (a0: number, a1: number, rad: number): string => {
 function RadialDay({
   client,
   entries,
+  planEntries,
   range,
   birthDate,
   onEdit,
@@ -229,6 +234,8 @@ function RadialDay({
   /** Only for the pumping list below the dial, which writes stash changes of its own. */
   client: BabyBuddyClient;
   entries: TimelineEntry[] | null;
+  /** The fortnight behind today, for the predictions (see `planDay`). */
+  planEntries: TimelineEntry[] | null;
   range: Range;
   birthDate: string | null | undefined;
   onEdit: (e: TimelineEntry) => void;
@@ -242,7 +249,23 @@ function RadialDay({
   const dayStart = range.days[0];
   const dayEnd = addDays(dayStart, 1); // DST-safe: a local day can be 23 or 25 h
   const isToday = dayStart === startOfDay(now);
-  const list = entries ?? [];
+  const list = useMemo(() => entries ?? [], [entries]);
+  // The day's entries plus the fortnight behind them, deduplicated, for everything predictive.
+  const history = useMemo(() => {
+    const seen = new Set<string>();
+    const out: TimelineEntry[] = [];
+    for (const e of [...list, ...(planEntries ?? [])]) {
+      const key = `${e.path}${e.id}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(e);
+    }
+    return out;
+  }, [list, planEntries]);
+  // Today's sleep schedule — every nap still to come and bedtime, laid out on the ring the
+  // way Napper does. Past days have nothing to plan.
+  const plan = isToday && showPredictions ? planDay(history, birthDate, now) : null;
+  const planBed = plan?.sleeps.find((p) => p.kind === "bedtime") ?? null;
   // Which centre slide is showing — tap cycles; modulo at read time keeps it valid across days.
   const [statIdx, setStatIdx] = useState(0);
   // Entries behind a folded tick ("2× 🍼") — non-null opens the picker sheet.
@@ -268,7 +291,9 @@ function RadialDay({
     return crossing ? crossing.startMs : midnight - 3 * 3_600_000;
   };
   const winStart = bedAnchor(dayStart);
-  const winEnd = bedAnchor(dayEnd);
+  // Tonight's edge stretches to the predicted bedtime when that runs past the fallback —
+  // clamped to the edge, the bedtime mark would otherwise vanish into the arc's end.
+  const winEnd = Math.max(bedAnchor(dayEnd), planBed ? planBed.startMs + 20 * 60_000 : 0);
 
   const angleOf = (ms: number) => ARC_START + ((clamp(ms, winStart, winEnd) - winStart) / (winEnd - winStart)) * ARC_SPAN;
 
@@ -305,10 +330,12 @@ function RadialDay({
   // Predicted upcoming events (today only) — shown as dashed "ghost" markers on the ring.
   // Long-expired etas are dropped, same rule as the home panel.
   const preds = isToday && showPredictions
-    ? (Object.values(predictNext(list, birthDate, now)) as ActivityPrediction[]).filter((p) => p.confidence >= 0.1 && predictionAlive(p, now))
+    ? (Object.values(predictNext(history, birthDate, now)) as ActivityPrediction[]).filter((p) => p.confidence >= 0.1 && predictionAlive(p, now))
     : [];
   const soonest = [...preds].sort((a, b) => a.etaMs - b.etaMs)[0];
-  const predMarks = preds.filter((p) => p.etaMs > now && p.etaMs < winEnd);
+  // Sleep is drawn from the plan (every nap, and bedtime), not as a single next-event mark.
+  const predMarks = preds.filter((p) => p.etaMs > now && p.etaMs < winEnd && !(plan && p.activity === "sleep"));
+  const planNaps = plan?.sleeps.filter((p) => p.kind === "nap" && (p.status === "planned" || p.status === "missed") && p.startMs < winEnd) ?? [];
 
   // Sunrise / sunset for the viewed day (when we have a location).
   const geo = useGeo();
@@ -332,8 +359,13 @@ function RadialDay({
   const entryLabel = (e: TimelineEntry) => `${activityLabel(e.activity)} ${clockTime(e.startMs)}`;
   const timeLabel = (key: string, deg: number, color: string, ms: number) => {
     const lp = polar(deg, R_RING + RING_W / 2 + 28);
+    // The orbit runs past the viewBox at 3 and 9 o'clock, where a radial label would lose
+    // its last digit to the edge (or, pulled in, sit on its own glyph). There the label
+    // stands just above the glyph instead, nudged inside the edge.
+    const sideways = Math.abs(Math.sin((deg * Math.PI) / 180)) > 0.9;
+    const ip = polar(deg, R_RING + RING_W / 2 + 13);
     return (
-      <text key={key} x={lp.x} y={lp.y} fill={color} fontSize={10} fontWeight={800} textAnchor="middle" dominantBaseline="middle">
+      <text key={key} x={sideways ? clamp(ip.x, 18, 302) : lp.x} y={sideways ? ip.y - 14 : lp.y} fill={color} fontSize={10} fontWeight={800} textAnchor="middle" dominantBaseline="middle">
         {clockTime(ms)}
       </text>
     );
@@ -481,6 +513,10 @@ function RadialDay({
       };
     }),
     ...predMarks.map((p): Tick => ({ key: `pd-${p.activity}`, deg: angleOf(p.etaMs), accent: palette.accents[p.activity].accent, kind: "hollow", Icon: ACTIVITY_ICON[p.activity], dashed: true, labelMs: p.etaMs })),
+    // Predicted bedtime: a ghost moon where the night should begin.
+    ...(planBed && planBed.startMs > now
+      ? [{ key: "pd-bedtime", deg: angleOf(planBed.startMs), accent: palette.accents.sleep.accent, kind: "hollow" as const, Icon: MoonIcon, dashed: true, labelMs: planBed.startMs }]
+      : []),
   ];
   const ARC_END = ARC_START + ARC_SPAN;
   // ── The band lane ────────────────────────────────────────────────────────────
@@ -594,6 +630,11 @@ function RadialDay({
       return { key: `i-${e.path}${e.id}`, deg, anchor: deg, color: palette.accents[e.activity].accent, Icon: ACTIVITY_ICON[e.activity] };
     }),
     ...ticks.map((t): OrbitIcon => ({ key: `i-${t.key}`, deg: t.deg, anchor: t.deg, color: t.accent, Icon: t.Icon, ghost: t.dashed, labelMs: t.labelMs, count: t.count })),
+    // One ghost glyph per planned nap, over the middle of its arc, with its expected start.
+    ...planNaps.map((p): OrbitIcon => {
+      const deg = (angleOf(p.startMs) + angleOf(Math.min(p.endMs, winEnd))) / 2;
+      return { key: `i-plan-${p.ordinal}`, deg, anchor: deg, color: palette.accents.sleep.accent, Icon: ACTIVITY_ICON.sleep, ghost: true, labelMs: p.startMs };
+    }),
   ].sort((a, b) => a.deg - b.deg);
   const ICON_DRIFT = 3.5; // ≈9 px along the orbit — a nudge, not a relocation
   const isep = (15 / ICON_R) * (180 / Math.PI) + 0.6; // one glyph width + breathing room
@@ -683,27 +724,24 @@ function RadialDay({
           return marks;
         })()}
         {[...sleeps, ...bars].filter((e) => !isTick(e)).map((e) => spanArc(e))}
-        {/* predicted sleep: a dashed ghost arc spanning the expected onset → wake */}
-        {predMarks
-          .filter((p) => p.activity === "sleep")
-          .map((p) => {
-            const se = predictSleepEnd(list, birthDate, p.etaMs);
-            if (!se || se.confidence < 0.3) return null;
-            const a0 = angleOf(p.etaMs);
-            const a1 = Math.max(angleOf(Math.min(se.endMs, winEnd)), a0 + 2);
-            return (
-              <path
-                key="pred-sleep-arc"
-                d={arcPath(a0, a1, R_RING)}
-                fill="none"
-                stroke={palette.accents.sleep.accent}
-                strokeWidth={7}
-                strokeLinecap="round"
-                strokeDasharray="2.5 6"
-                opacity={0.9}
-              />
-            );
-          })}
+        {/* The day's planned naps: a dashed ghost arc each, expected onset → wake. One whose
+            window passed unlogged fades rather than vanishes — the plan stands. */}
+        {planNaps.map((p) => {
+          const a0 = angleOf(p.startMs);
+          const a1 = Math.max(angleOf(Math.min(p.endMs, winEnd)), a0 + 2);
+          return (
+            <path
+              key={`plan-${p.ordinal}`}
+              d={arcPath(a0, a1, R_RING)}
+              fill="none"
+              stroke={palette.accents.sleep.accent}
+              strokeWidth={7}
+              strokeLinecap="round"
+              strokeDasharray="2.5 6"
+              opacity={p.status === "missed" ? 0.4 : 0.9}
+            />
+          );
+        })}
         {/* instants + short events as watch-index ticks crossing the band */}
         {ticks.map((m) => tick(m))}
         {/* the icon orbit: one bare glyph per mark, just outside the band */}
@@ -858,7 +896,7 @@ function RadialDay({
                       <span style={s.radialSmall}>{t("home.upNext")}</span>
                       {overdue && <span style={s.radialSmall}>{t("home.overdueByLabel")}</span>}
                       <span style={{ ...s.radialBig, ...(centerText.length > 12 ? { fontSize: 23 } : {}) }}>{centerText}</span>
-                      <span style={{ ...s.radialActivity, color: palette.accents[soonest.activity].accent }}>{activityLabel(soonest.activity)}</span>
+                      <span style={{ ...s.radialActivity, color: palette.accents[soonest.activity].accent }}>{predictionLabel(soonest)}</span>
                     </>
                   );
                 })()

@@ -31,3 +31,6 @@ public/env/__ENV.js
 *.njsproj
 *.sln
 *.sw?
+
+# Other children's logs for the prediction backtest (licences vary) — see data/backtest/README.md
+data/backtest/*.json

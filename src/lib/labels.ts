@@ -22,6 +22,16 @@ export const feedTypeLabel = (type: FeedingType): string => i18n.t(`feedType.${t
 export const feedMethodLabel = (method: FeedingMethod): string => i18n.t(`feedMethod.${method}`);
 export const activityLabel = (activity: ActivityKey): string => i18n.t(`activity.${activity}`);
 
+/** A prediction's row label: the next sleep says which one it is — a nap or bedtime. */
+export const predictionLabel = (p: { activity: ActivityKey; kind?: "nap" | "bedtime"; ordinal?: number }): string =>
+  p.kind === "nap"
+    ? p.ordinal != null
+      ? i18n.t("home.predNapN", { n: p.ordinal })
+      : i18n.t("home.predNap")
+    : p.kind === "bedtime"
+      ? i18n.t("home.predBedtime")
+      : activityLabel(p.activity);
+
 /** Ordered chooser options (chips) for feeding type. */
 export const feedTypeOptions = (): { id: FeedingType; label: string }[] =>
   FEED_TYPE_CHOICES.map((id) => ({ id, label: feedTypeLabel(id) }));
