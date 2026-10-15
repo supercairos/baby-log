@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.27.0](https://github.com/supercairos/baby-log/compare/baby-log-v1.26.0...baby-log-v1.27.0) (2026-10-15)
+
+
+### Features
+
+* **predict:** plan the day like Napper and validate on seven children ([1bd02dc](https://github.com/supercairos/baby-log/commit/1bd02dc112446ef60196fa099ae25194387cf479))
+* **stash:** pour only part of a bottle into a combined one ([1b62178](https://github.com/supercairos/baby-log/commit/1b62178772f1f8d7415c50d900867494c5ab915d))
+
+
+### Bug Fixes
+
+* **home:** align the expiring-milk row's icon with the other fact rows ([dc08984](https://github.com/supercairos/baby-log/commit/dc08984a6df9cfff1c71976608f79fe5c3922375))
+
 ## [1.26.0](https://github.com/supercairos/baby-log/compare/baby-log-v1.25.0...baby-log-v1.26.0) (2026-10-12)
 
 
