@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.29.0](https://github.com/supercairos/baby-log/compare/baby-log-v1.28.0...baby-log-v1.29.0) (2026-10-18)
+
+
+### Features
+
+* **stash:** re-state a bottle from a sheet, with a backdated move for lapsed milk ([249302a](https://github.com/supercairos/baby-log/commit/249302ac25cd69f9ba929227ccef28ab4315df2f))
+
 ## [1.28.0](https://github.com/supercairos/baby-log/compare/baby-log-v1.27.0...baby-log-v1.28.0) (2026-10-15)
 
 
