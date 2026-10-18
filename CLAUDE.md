@@ -128,10 +128,15 @@ Parser:
 - **Bottles are re-stated, not auto-deleted.** Used / discarded / expired entries stay on the
   inventory (struck through, collapsed into a history group) rather than vanishing: the
   session happened, and a row that silently disappears gives no way to tell a mis-tap from a
-  real one. An archived row keeps two actions — restore, which puts the state back WITHOUT
-  touching `at` (so a bottle restored too late reappears as lapsed rather than looking
-  fresh), and delete, the one place a pumping entry is actually removed, for a session
-  logged in error. Deleting is deliberately unavailable while a bottle is still stored.
+  real one. Archived AND lapsed rows carry "Modifier", which opens `StashStateSheet`:
+  every state on offer plus a backdatable "since". Picking the location it was in keeps
+  `at` (so a bottle put back too late reappears as lapsed rather than looking fresh); a
+  move dated after the previous window ran out is refused (red readout, CTA off), since it
+  would re-label lapsed milk as good — the ONLY way to enter a freeze that was logged late
+  is to date it before the fridge lapse. The fresh rows' chips stay the fast path (a move
+  stamps now). Archived rows also keep delete, the one place a pumping entry is actually
+  removed, for a session logged in error. Deleting is deliberately unavailable while a
+  bottle is still stored.
 - **The day list under the dial and the inventory render the same row** and share one writer
   (`useStashWriter`), so a bottle looks and behaves identically in both and you can re-file
   the day's session without opening the inventory. Only the amount and date dim when a bottle

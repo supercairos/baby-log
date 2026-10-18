@@ -5,6 +5,7 @@
  * the running-timers view merges the local outbox state so a just-started timer shows
  * instantly — online or offline.
  */
+import type { FocusEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useInfiniteQuery, useQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import {
@@ -516,3 +517,10 @@ export function usePwaInstall() {
 
   return { canInstall, promptInstall };
 }
+
+/** iOS animates the keyboard in ~300 ms AFTER focus, so an immediate scroll lands wrong —
+ *  re-centre the field once the resized viewport (interactive-widget) has settled. */
+export const scrollFieldIntoView = (e: FocusEvent<HTMLElement>) => {
+  const el = e.currentTarget;
+  window.setTimeout(() => el.scrollIntoView({ block: "center", behavior: "smooth" }), 300);
+};

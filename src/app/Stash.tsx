@@ -15,7 +15,7 @@
  *
  * Both read expiry rather than store it — see lib/stash.
  */
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
@@ -29,6 +29,7 @@ import {
 import { useStyles, useTheme } from "../theme";
 import { ACTIVITY_ICON, CheckIcon, FridgeIcon, SnowflakeIcon, ThawIcon, ThermometerIcon, TrashIcon, type IconProps } from "../ui/icons";
 import { shortDateTime } from "../lib/datetime";
+import { fromLocalInput, toLocalInput } from "../lib/format";
 import { stashWhereLabel } from "../lib/labels";
 import {
   availableBottles,
@@ -44,13 +45,16 @@ import {
   splitPortions,
   supplySummary,
   moveStash,
+  STASH_LOCATIONS,
   toBottle,
   type StashBottle,
   type StashInfo,
   type StashLocation,
+  type StashState,
   type TrackedBottle,
 } from "../lib/stash";
-import { buzz, usePumpings, useNow } from "./hooks";
+import { buzz, scrollFieldIntoView, usePumpings, useNow } from "./hooks";
+import { SheetShell } from "./sheets";
 
 /** A timeline entry already narrowed to pumping — what Calendar hands the day list. */
 export type PumpingEntry = Extract<TimelineEntry, { activity: "pumping" }>;
@@ -279,6 +283,7 @@ function StashRow({
   apply,
   remove,
   unbag,
+  onRestate,
   select,
 }: {
   bottle: StashBottle;
@@ -286,6 +291,8 @@ function StashRow({
   apply: (bottle: StashBottle, next: StashInfo) => void;
   remove: (bottle: StashBottle) => void;
   unbag: (bottle: StashBottle) => void;
+  /** Open the state sheet on this bottle — see `StashStateSheet`. */
+  onRestate: (bottle: TrackedBottle) => void;
   /** Picking bottles for a bag: the row becomes one checkbox and its actions step aside.
    *  `pour` is how much of it goes in — all of it unless the slider says otherwise. */
   select?: { checked: boolean; onToggle: () => void; pour: number; onPour: (ml: number) => void };
@@ -414,28 +421,26 @@ function StashRow({
 
       {stash != null && !readOnly && !select && (
         <div style={s.chips}>
-          {/* Archived rows keep undo — the bookkeeping tap is easy to mis-hit and nothing
-              else in the app can put the state back. `at` is untouched, so the expiry
-              recomputes from when it really went in: restore one too late and it reappears
-              among the lapsed rather than looking fresh. */}
-          {gone && (
-            <>
-              <button onClick={() => apply(bottle, { ...stash, state: "stored" })} style={s.chip}>
-                {t("stash.restore")}
-              </button>
-              {/* The one place a pumping entry is really removed. Archived only: history is
-                  kept by default, but a session logged in error has to be able to go. Not
-                  on a bag — that would take several sessions with it in one tap — nor on a
-                  session split across containers, which would take the others with it. */}
-              {bottle.members == null && bottle.part == null && !stash.portions?.length && (
-                <button onClick={() => remove(bottle)} style={{ ...s.chip, color: palette.danger }}>
-                  {t("common.delete")}
-                </button>
-              )}
-            </>
+          {/* Archived and lapsed rows get the state sheet rather than chips. Archived: the
+              bookkeeping tap is easy to mis-hit and nothing else in the app can put the
+              state back. Lapsed: the record itself may be wrong — a freeze logged late —
+              and only a backdated move can say so (see `StashStateSheet`). */}
+          {(gone || lapsed) && (
+            <button onClick={() => { buzz(); onRestate({ ...bottle, stash }); }} style={s.chip}>
+              {t("stash.restate")}
+            </button>
           )}
-          {/* Past its window there is exactly one honest action. Offering "used" or a move on
-              lapsed milk would be the app endorsing feeding it. */}
+          {/* The one place a pumping entry is really removed. Archived only: history is kept
+              by default, but a session logged in error has to be able to go. Not on a bag —
+              that would take several sessions with it in one tap — nor on a session split
+              across containers, which would take the others with it. */}
+          {gone && bottle.members == null && bottle.part == null && !stash.portions?.length && (
+            <button onClick={() => remove(bottle)} style={{ ...s.chip, color: palette.danger }}>
+              {t("common.delete")}
+            </button>
+          )}
+          {/* Past its window there is exactly one honest action ON THE MILK. Offering "used"
+              or a move on lapsed milk would be the app endorsing feeding it. */}
           {!gone && !lapsed && (
             <>
               {/* Secondary like its neighbours — a filled chip read as the row's current state
@@ -483,6 +488,170 @@ function StashRow({
   );
 }
 
+// ── Bottle-state sheet ───────────────────────────────────────────────────────
+/**
+ * Re-state a bottle: where it is (or that it's used / thrown away), and since when. The
+ * row's chips are the fast path for what's happening NOW — a move stamps the clock, "used"
+ * is one tap — while here the parent asserts what really happened, so every state is on
+ * offer and the time can be backdated. Two cases need exactly that:
+ *  · an archived bottle that was a mis-tap: pick the state it was in, and `at` is kept as it
+ *    was, so one put back too late reappears among the lapsed rather than looking fresh;
+ *  · a freeze logged late: a bottle the app shows lapsed in the fridge really went into the
+ *    freezer the day before, and only a move dated BEFORE the fridge window ran out can say
+ *    so. A move dated after it is refused (red readout, CTA off): that would be the app
+ *    re-labelling lapsed milk as good for four months.
+ * Dismissing the sheet changes nothing.
+ */
+type StateDraft = { loc: StashLocation; state: StashState; at: number };
+
+function StashStateForm({ bottle, now, onApply }: { bottle: TrackedBottle; now: number; onApply: (next: StashInfo) => void }) {
+  const { s, chipOn } = useStyles();
+  const { palette } = useTheme();
+  const { t } = useTranslation();
+  const freshness = useFreshness();
+  const stash = bottle.stash;
+  const [draft, setDraft] = useState<StateDraft>({ loc: stash.loc, state: stash.state, at: stash.at });
+
+  // Back to the location it was in keeps its clock — the mis-tap undo; any other one is a
+  // move, stamped now and backdatable below.
+  const pickLoc = (loc: StashLocation) => {
+    buzz();
+    setDraft({ loc, state: "stored", at: loc === stash.loc ? stash.at : now });
+  };
+  const pickState = (state: StashState) => {
+    buzz();
+    setDraft((d) => ({ ...d, state }));
+  };
+
+  const next: StashInfo = { ...stash, loc: draft.loc, state: draft.state, at: draft.at };
+  const stored = draft.state === "stored";
+  // Dated after the bottle's previous window ran out, a move would re-label lapsed milk.
+  const tooLate = stored && draft.loc !== stash.loc && draft.at > expiresAt(stash);
+  const f = stored ? freshness(next, now) : null;
+  const tone = !stored ? (draft.state === "used" ? palette.ok : palette.danger) : palette.stashLoc[draft.loc];
+  // The picker's minute resolution can't say "09:52:30": a time typed as the pumping minute
+  // must still pass as "not before it was pumped".
+  const floor = bottle.pumpedMs - (bottle.pumpedMs % 60_000);
+
+  return (
+    <>
+      <div style={s.sheetHint}>
+        {bottle.amount} ml · {t("stash.pumpedOn", { date: shortDateTime(bottle.pumpedMs) })}
+      </div>
+
+      <div style={s.sheetGroup}>{t("sheet.storeIn")}</div>
+      <div style={s.chips}>
+        {STASH_LOCATIONS.map((loc) => {
+          const on = stored && draft.loc === loc;
+          return (
+            <button key={loc} aria-pressed={on} onClick={() => pickLoc(loc)} style={{ ...s.chip, ...(on ? chipOn(palette.stashLoc[loc]) : {}) }}>
+              {t(`stash.loc.${loc}`)}
+            </button>
+          );
+        })}
+        <button
+          aria-pressed={draft.state === "used"}
+          onClick={() => pickState("used")}
+          style={{ ...s.chip, color: palette.ok, ...(draft.state === "used" ? chipOn(palette.ok) : {}) }}
+        >
+          {t("stash.markUsed")}
+        </button>
+        <button
+          aria-pressed={draft.state === "discarded"}
+          onClick={() => pickState("discarded")}
+          style={{ ...s.chip, color: palette.danger, ...(draft.state === "discarded" ? chipOn(palette.danger) : {}) }}
+        >
+          {t("stash.discard")}
+        </button>
+      </div>
+
+      {/* Only a stored bottle has a clock. Never before it was pumped, never in the future:
+          `min`/`max` hold the picker's steppers and the handler re-checks typed input. */}
+      {stored && f && (
+        <>
+          <div style={s.sheetGroup}>{t("stash.since")}</div>
+          <input
+            type="datetime-local"
+            value={toLocalInput(draft.at)}
+            min={toLocalInput(floor)}
+            max={toLocalInput(now)}
+            aria-label={t("stash.since")}
+            aria-invalid={tooLate}
+            onChange={(e) => {
+              const ms = fromLocalInput(e.target.value);
+              if (Number.isNaN(ms) || ms > now || ms < floor) return;
+              setDraft((d) => ({ ...d, at: ms }));
+            }}
+            onFocus={scrollFieldIntoView}
+            style={s.timeInput}
+          />
+          {/* What the choice means for the milk — the deadline it would get, or why it can't. */}
+          <div role="status" aria-live="polite" style={{ ...s.durReadout, ...(tooLate ? s.durBad : { color: f.color }) }}>
+            {tooLate ? t("stash.lapsedBefore") : f.text}
+          </div>
+        </>
+      )}
+
+      <button
+        onClick={() => {
+          if (tooLate) return;
+          onApply(next);
+        }}
+        disabled={tooLate}
+        style={{ ...s.cta, ...(tooLate ? s.ctaOff : { background: tone }) }}
+      >
+        {t("sheet.saveChanges")}
+      </button>
+    </>
+  );
+}
+
+/** Scrim + sheet chrome around the form, hosted by whichever view the row was tapped in. */
+function StashStateSheet({
+  bottle,
+  now,
+  onApply,
+  onClose,
+}: {
+  /** The bottle being re-stated, or null when closed. A snapshot taken at the tap — the
+   *  views re-render on every clock tick, and the draft must not reset under the parent. */
+  bottle: TrackedBottle | null;
+  now: number;
+  onApply: (bottle: TrackedBottle, next: StashInfo) => void;
+  onClose: () => void;
+}) {
+  const { s } = useStyles();
+  const { t } = useTranslation();
+  const open = bottle != null;
+  // The last bottle stays rendered while the sheet slides out, and each tap remounts the
+  // form (`n` is its key) so a bottle reopened later starts from its current state rather
+  // than the previous draft.
+  const [shown, setShown] = useState<{ bottle: TrackedBottle; n: number } | null>(null);
+  // Derived from the prop during render (React's "information from previous renders"), so
+  // the form is up to date on the very render the sheet starts sliding in.
+  if (bottle != null && bottle !== shown?.bottle) setShown({ bottle, n: (shown?.n ?? 0) + 1 });
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+
+  return (
+    <>
+      {open && <button tabIndex={-1} style={{ ...s.scrim, cursor: "default" }} onClick={onClose} aria-label={t("home.close")} />}
+      <SheetShell open={open} label={t("stash.restateTitle")}>
+        <div style={s.sheetHandle} />
+        <div style={s.sheetTitle}>{t("stash.restateTitle")}</div>
+        {shown && <StashStateForm key={shown.n} bottle={shown.bottle} now={now} onApply={(next) => onApply(shown.bottle, next)} />}
+      </SheetShell>
+    </>
+  );
+}
+
 // ── Day list (under the dial) ────────────────────────────────────────────────
 /** `entries` arrives already narrowed to the day's pumping sessions (Calendar does the
  *  windowing), so this neither re-filters nor re-narrows. */
@@ -504,6 +673,7 @@ export function PumpDayList({
   const refresh = () =>
     Promise.all([qc.invalidateQueries({ queryKey: ["calendar"] }), qc.invalidateQueries({ queryKey: ["pumpings"] })]);
   const { apply, unbag, remove, overlay } = useStashWriter(client, refresh, onWriteFailed);
+  const [restating, setRestating] = useState<TrackedBottle | null>(null);
 
   // Newest first: this is the day's log, not the inventory (see `byPumped`).
   const sessions = overlay(
@@ -526,8 +696,9 @@ export function PumpDayList({
         {t("stash.dayTitle")} · {t("stash.total", { count: sessions.length, volume: volume(total) })}
       </div>
       {bottles.map((b) => (
-        <StashRow key={bottleKey(b)} bottle={b} now={now} apply={apply} unbag={unbag} remove={remove} />
+        <StashRow key={bottleKey(b)} bottle={b} now={now} apply={apply} unbag={unbag} remove={remove} onRestate={setRestating} />
       ))}
+      <StashStateSheet bottle={restating} now={now} onApply={(b, next) => { apply(b, next); setRestating(null); }} onClose={() => setRestating(null)} />
     </section>
   );
 }
@@ -580,6 +751,7 @@ export function StashPage({
   const [bagging, setBagging] = useState<Set<string> | null>(null);
   /** How much of each picked bottle goes in, when not all of it. */
   const [pours, setPours] = useState<Record<string, number>>({});
+  const [restating, setRestating] = useState<TrackedBottle | null>(null);
   const { apply, bagIt, unbag, remove, overlay } = useStashWriter(client, refresh, onWriteFailed);
 
   /** One per session — supply counts what was expressed, so it reads these. */
@@ -636,6 +808,7 @@ export function StashPage({
         apply={apply}
         unbag={unbag}
         remove={remove}
+        onRestate={setRestating}
         select={
           bagging != null && canBag(b, now)
             ? {
@@ -728,6 +901,8 @@ export function StashPage({
           {showSpent && rows(spent)}
         </>
       )}
+
+      <StashStateSheet bottle={restating} now={now} onApply={(b, next) => { apply(b, next); setRestating(null); }} onClose={() => setRestating(null)} />
     </section>
   );
 }

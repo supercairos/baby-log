@@ -18,7 +18,7 @@ import { useStyles, useTheme } from "../theme";
 import { activityLabel, feedMethodLabel, feedMethodOptions, feedTypeChipMatches, feedTypeOptions, medicationMeta, medUnitLabel } from "../lib/labels";
 import { fmt, hm, toLocalInput, fromLocalInput } from "../lib/format";
 import { ACTIVITY_ICON, BackIcon, TrashIcon } from "../ui/icons";
-import { buzz } from "./hooks";
+import { buzz, scrollFieldIntoView } from "./hooks";
 import { useFocusTrap } from "./useFocusTrap";
 import type { EditDraft, EditTarget, RecentMed } from "./types";
 import type { StashLocation } from "../lib/stash";
@@ -26,13 +26,6 @@ import type { StashLocation } from "../lib/stash";
 /** Preset minimum-gap options (hours) offered for a medication's next dose. */
 const MED_INTERVAL_HOURS = [4, 6, 8, 12, 24] as const;
 const HOUR_MS = 3_600_000;
-
-/** iOS animates the keyboard in ~300 ms AFTER focus, so an immediate scroll lands wrong —
- *  re-centre the field once the resized viewport (interactive-widget) has settled. */
-const scrollFieldIntoView = (e: React.FocusEvent<HTMLElement>) => {
-  const el = e.currentTarget;
-  window.setTimeout(() => el.scrollIntoView({ block: "center", behavior: "smooth" }), 300);
-};
 
 /**
  * Bottle-amount slider ladder — intelligent steps: 5 ml where precision matters (small bottles),
@@ -95,7 +88,7 @@ function BreastMethodChips({
   );
 }
 
-function SheetShell({ open, label, children }: { open: boolean; label: string; children: React.ReactNode }) {
+export function SheetShell({ open, label, children }: { open: boolean; label: string; children: React.ReactNode }) {
   const { s } = useStyles();
   const ref = useFocusTrap<HTMLDivElement>(open);
   return (
