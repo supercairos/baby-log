@@ -57,7 +57,6 @@
     "both": "Both"
   },
   "home": {
-    "tracking": "Tracking {{name}}",
     "nothingRunning": "Nothing running for {{name}}",
     "nothingRunningGeneric": "Nothing running",
     "learnHint": "Log feeds, sleep and changes — Baby Log learns the rhythm and predicts what's next.",
@@ -307,5 +306,8 @@
     "pourAmount": "Amount poured in",
     "pourRest": "{{volume}} stays in the fridge",
     "frozenLabel": "Pumped {{pumped}} · Frozen {{frozen}}"
+  },
+  "children": {
+    "pick": "Who are we tracking?"
   }
 }

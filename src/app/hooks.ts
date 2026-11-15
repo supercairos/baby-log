@@ -73,6 +73,8 @@ export function useToast() {
   return { toast, show, dismiss };
 }
 
+const CHILD_KEY = "baby-log:child";
+
 // ── connection ────────────────────────────────────────────────────────────────
 export type ConnectionState =
   | { status: "loading" }
@@ -101,6 +103,7 @@ export function useConnection() {
 
   const disconnect = useCallback(async () => {
     await clearConnection();
+    localStorage.removeItem(CHILD_KEY); // the next login (maybe another instance) picks again
     setState({ status: "out" });
   }, []);
 
@@ -108,7 +111,6 @@ export function useConnection() {
 }
 
 // ── children ──────────────────────────────────────────────────────────────────
-const CHILD_KEY = "baby-log:child";
 
 export function useChildren(client: BabyBuddyClient) {
   const [children, setChildren] = useState<Child[] | null>(null);
@@ -123,7 +125,8 @@ export function useChildren(client: BabyBuddyClient) {
       const list = await listChildren(client);
       setChildren(list);
       setError(false);
-      setChildId((cur) => (cur && list.some((c) => c.id === cur) ? cur : (list[0]?.id ?? null)));
+      // Several children and no remembered pick: stay null so Home asks which one to track.
+      setChildId((cur) => (cur && list.some((c) => c.id === cur) ? cur : list.length === 1 ? (list[0].id ?? null) : null));
     } catch {
       setError(true);
     }

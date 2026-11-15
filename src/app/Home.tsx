@@ -9,6 +9,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import {
   type BabyBuddyClient,
+  type Child,
   type Connection,
   type EntryPatch,
   type FeedingMethod,
@@ -1209,10 +1210,15 @@ export function Home({
         <div style={s.greetWrap}>
           <div style={s.greet}>{title}</div>
           <div style={s.greetSub}>
-            {child ? t("home.tracking", { name: childName(child) }) : t("common.loading")}
+            {child ? child.first_name : t("common.loading")}
             {ageLabel && <span style={s.greetAge}> · {ageLabel}</span>}
           </div>
         </div>
+        {child && (
+          <button onClick={() => { buzz(); setMenu(true); }} style={{ ...s.iconBtn, marginLeft: "auto", padding: 0 }} aria-label={t("home.menu")}>
+            <ChildAvatar child={child} on />
+          </button>
+        )}
       </div>
       {/* Cold-start failure (no children, nothing cached): the header would say "Loading…"
           forever and the tiles would silently no-op — say why, and offer a retry. */}
@@ -1224,28 +1230,31 @@ export function Home({
           </button>
         </div>
       )}
-      {children && children.length > 1 && (
-        <div style={s.children}>
-          {children.map((c) => {
-            const sel = c.id === childId;
-            const initials = (c.first_name?.[0] ?? "·").toUpperCase();
-            return (
-              <button
-                key={c.id}
-                onClick={() => { buzz(); if (c.id != null) selectChild(c.id); }}
-                style={{ ...s.childChip, ...(sel ? s.childChipOn : {}) }}
-                aria-pressed={sel}
-                aria-label={childName(c)}
-              >
-                <span style={{ ...s.avatar, ...(sel ? s.avatarOn : {}) }}>{initials}</span>
-                {sel && <span style={s.childName}>{c.first_name}</span>}
-              </button>
-            );
-          })}
-        </div>
-      )}
     </header>
   );
+
+  // Several children and none picked yet (fresh login): ask before showing anything.
+  if (children && children.length > 1 && childId == null) {
+    return (
+      <div style={s.loginRoot}>
+        <div style={s.ambient} />
+        <div style={s.loginHero}>
+          <div style={s.loginAppName}>{t("children.pick")}</div>
+        </div>
+        <div style={s.loginPanel}>
+          {children.map((c) => (
+            <button key={c.id} onClick={() => { buzz(); if (c.id != null) selectChild(c.id); }} style={s.navItem}>
+              <ChildAvatar child={c} />
+              <span style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                <span style={s.childName}>{childName(c)}</span>
+                {c.birth_date && <span style={s.greetAge}>{formatAge(c.birth_date)}</span>}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={s.root}>
@@ -1605,6 +1614,22 @@ export function Home({
           </span>
           Baby Log
         </div>
+        {children && children.length > 1 && (
+          <>
+            {children.map((c) => (
+              <button
+                key={c.id}
+                onClick={() => { buzz(); if (c.id != null) selectChild(c.id); setMenu(false); }}
+                style={{ ...s.navItem, ...(c.id === childId ? s.navItemOn : {}) }}
+                aria-pressed={c.id === childId}
+              >
+                <ChildAvatar child={c} size={28} on={c.id === childId} />
+                {childName(c)}
+              </button>
+            ))}
+            <div style={s.navDivider} />
+          </>
+        )}
         {([
           { to: "/", key: "nav.home", Icon: HomeIcon },
           { to: "/timeline", key: "nav.timeline", Icon: TimelineIcon },
@@ -1722,5 +1747,17 @@ export function Home({
         )}
       </div>
     </div>
+  );
+}
+
+/** The child's Baby Buddy picture, or their initial when there is none (or it fails to load). */
+function ChildAvatar({ child, size = 40, on = false }: { child: Child; size?: number; on?: boolean }) {
+  const { s } = useStyles();
+  const [broken, setBroken] = useState(false);
+  const style = { ...s.avatar, ...(on ? s.avatarOn : {}), width: size, height: size, flexShrink: 0, fontSize: size * 0.4, overflow: "hidden" };
+  return child.picture && !broken ? (
+    <img src={child.picture} alt="" onError={() => setBroken(true)} style={{ ...style, objectFit: "cover", padding: 0 }} />
+  ) : (
+    <span style={style} aria-hidden>{(child.first_name?.[0] ?? "·").toUpperCase()}</span>
   );
 }

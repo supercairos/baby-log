@@ -54,9 +54,9 @@ export function makeStyles(p: Palette): Styles {
       animation: "fadeIn .6s ease",
     },
     greetRow: { display: "flex", alignItems: "center", gap: 14 },
-    greetWrap: { display: "flex", flexDirection: "column", gap: 3 },
+    greetWrap: { display: "flex", flexDirection: "column", gap: 3, minWidth: 0 },
     greet: { color: p.text, fontFamily: p.serif, fontSize: 30, fontWeight: 600, letterSpacing: "-.5px", lineHeight: 1 },
-    greetSub: { fontSize: 14.5, color: p.textMuted, fontWeight: 600 },
+    greetSub: { fontSize: 14.5, color: p.textMuted, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" },
     greetAge: { color: p.textFaint, fontWeight: 600 },
 
     topbar: {
@@ -81,11 +81,6 @@ export function makeStyles(p: Palette): Styles {
       flexShrink: 0,
     },
 
-    children: { display: "flex", gap: 10, flexWrap: "wrap" },
-    childChip: { display: "flex", alignItems: "center", gap: 10, padding: 6, background: "transparent", border: "none", borderRadius: 999, transition: "background .2s ease" },
-    childChipOn: dark
-      ? { background: "rgba(255,255,255,.06)", padding: "6px 18px 6px 6px" }
-      : { background: p.surface, padding: "6px 18px 6px 6px", boxShadow: "0 2px 0 #d8cbb2", border: `1px solid ${p.surfaceBorder}` },
     avatar: {
       width: 40,
       height: 40,
