@@ -57,7 +57,6 @@
     "both": "Entrambi"
   },
   "home": {
-    "tracking": "Segui {{name}}",
     "nothingRunning": "Niente in corso per {{name}}",
     "nothingRunningGeneric": "Niente in corso",
     "learnHint": "Registra poppate, sonno e cambi — Baby Log impara il ritmo e prevede cosa viene dopo.",
@@ -307,5 +306,8 @@
     "pourAmount": "Quantità versata",
     "pourRest": "{{volume}} restano in frigo",
     "frozenLabel": "Estratto {{pumped}} · Congelato {{frozen}}"
+  },
+  "children": {
+    "pick": "Chi seguiamo?"
   }
 }

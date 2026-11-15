@@ -57,7 +57,6 @@
     "both": "Les deux"
   },
   "home": {
-    "tracking": "Suivi de {{name}}",
     "nothingRunning": "Rien en cours pour {{name}}",
     "nothingRunningGeneric": "Rien en cours",
     "learnHint": "Notez les repas, le sommeil et les changes — Baby Log apprend le rythme et anticipe la suite.",
@@ -307,5 +306,8 @@
     "pourAmount": "Quantité versée",
     "pourRest": "{{volume}} restent au frigo",
     "frozenLabel": "Recueil {{pumped}} · Congelé {{frozen}}"
+  },
+  "children": {
+    "pick": "Qui suit-on ?"
   }
 }

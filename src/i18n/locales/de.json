@@ -57,7 +57,6 @@
     "both": "Beides"
   },
   "home": {
-    "tracking": "Für {{name}}",
     "nothingRunning": "Nichts aktiv für {{name}}",
     "nothingRunningGeneric": "Nichts aktiv",
     "learnHint": "Erfasse Mahlzeiten, Schlaf und Wickeln — Baby Log lernt den Rhythmus und sagt das Nächste voraus.",
@@ -307,5 +306,8 @@
     "pourAmount": "Umgefüllte Menge",
     "pourRest": "{{volume}} bleiben im Kühlschrank",
     "frozenLabel": "Abgepumpt {{pumped}} · Eingefroren {{frozen}}"
+  },
+  "children": {
+    "pick": "Wen begleiten wir?"
   }
 }
