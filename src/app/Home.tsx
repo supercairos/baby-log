@@ -1614,22 +1614,6 @@ export function Home({
           </span>
           Baby Log
         </div>
-        {children && children.length > 1 && (
-          <>
-            {children.map((c) => (
-              <button
-                key={c.id}
-                onClick={() => { buzz(); if (c.id != null) selectChild(c.id); setMenu(false); }}
-                style={{ ...s.navItem, ...(c.id === childId ? s.navItemOn : {}) }}
-                aria-pressed={c.id === childId}
-              >
-                <ChildAvatar child={c} size={28} on={c.id === childId} />
-                {childName(c)}
-              </button>
-            ))}
-            <div style={s.navDivider} />
-          </>
-        )}
         {([
           { to: "/", key: "nav.home", Icon: HomeIcon },
           { to: "/timeline", key: "nav.timeline", Icon: TimelineIcon },

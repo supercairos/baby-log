@@ -126,7 +126,13 @@ export function useChildren(client: BabyBuddyClient) {
       setChildren(list);
       setError(false);
       // Several children and no remembered pick: stay null so Home asks which one to track.
-      setChildId((cur) => (cur && list.some((c) => c.id === cur) ? cur : list.length === 1 ? (list[0].id ?? null) : null));
+      // The pick is locked until logout, so a lone child is remembered too: a sibling added
+      // later must not reopen the picker mid-session.
+      setChildId((cur) => {
+        const next = cur && list.some((c) => c.id === cur) ? cur : list.length === 1 ? (list[0].id ?? null) : null;
+        if (next != null) localStorage.setItem(CHILD_KEY, String(next));
+        return next;
+      });
     } catch {
       setError(true);
     }
