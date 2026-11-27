@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.30.0](https://github.com/supercairos/baby-log/compare/baby-log-v1.29.0...baby-log-v1.30.0) (2026-11-27)
+
+
+### Features
+
+* **children:** lock the picked child until logout ([c34ad35](https://github.com/supercairos/baby-log/commit/c34ad35ae11e1f1e590ad1c69c2a110099ef2b93))
+* **children:** pick a child after login, lock it until logout, show their picture ([25c4828](https://github.com/supercairos/baby-log/commit/25c482853c76527d05060e7e3a164cb187047b7b))
+* **children:** pick a child after login, switch from the menu, show their picture ([d72fed0](https://github.com/supercairos/baby-log/commit/d72fed02874ed0a31a8726129390878847678dff))
+
 ## [1.29.0](https://github.com/supercairos/baby-log/compare/baby-log-v1.28.0...baby-log-v1.29.0) (2026-10-18)
 
 
